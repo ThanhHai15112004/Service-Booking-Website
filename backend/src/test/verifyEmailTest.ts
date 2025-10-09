@@ -1,0 +1,8 @@
+import { sendVerificationEmail } from "../services/email.service";
+
+(async () => {
+  const fakeEmail = "recipient@gmail.com";
+  const fakeToken = "testtoken123456789";
+
+  await sendVerificationEmail(fakeEmail, fakeToken);
+})();

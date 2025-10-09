@@ -1,8 +1,13 @@
-import express from "express";
-import { SayHello } from "../controllers/test";
+import { Router, Express } from "express";
+import { Register, verifyEmailController } from "../controllers/auth.controller";
 
-const router = express.Router();
+const router = Router();
 
-router.get("/", SayHello);
+router.post("/register", Register);
+router.get("/verify-email", verifyEmailController);
+
+export function initRoutes(app: Express): void {
+  app.use("/api/auth", router);
+}
 
 export default router;
