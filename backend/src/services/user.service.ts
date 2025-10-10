@@ -1,5 +1,6 @@
 import pool from "../config/db";
 import crypto from "crypto";
+import { sendVerificationEmail } from "../services/email.service";
 
 // Kiểm tra xem email đã tồn tại trong cơ sở dữ liệu hay chưa
 export async function isEmailExisting(email: string): Promise<boolean> {
@@ -19,10 +20,10 @@ export async function createAccountforUser(
 ) {
     const account_Id = await generateAccountId();
     const query = `
-        INSERT INTO account (account_id, full_name, email, password_hash, phone_number, verify_token, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
+        INSERT INTO account (account_id, full_name, email, password_hash, phone_number, verify_token, status, verify_expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', DATE_ADD(NOW(), INTERVAL 3 MINUTE))
     `;
-    await pool.execute(query, [account_Id, full_name, email, password_hash, verify_token, phone_number || null]);
+    await pool.execute(query, [account_Id, full_name, email, password_hash, phone_number || null, verify_token]);
     return account_Id;
 }
 
@@ -53,20 +54,68 @@ export function generateVerificationToken(): string {
 // xác thực email
 export async function verifyEmailToken(token: string): Promise<boolean> {
     const [rows]: any = await pool.query(
-        `SELECT account_id FROM account WHERE verify_token = ? AND is_verified = FALSE`,
+        `SELECT account_id, verify_expires_at 
+        FROM account 
+        WHERE verify_token = ? 
+            AND (is_verified = FALSE OR is_verified IS NULL)
+            AND status = 'PENDING'`,
         [token]
     );
 
+
     if (rows.length === 0) return false;
 
+
+    const user = rows[0];
+
+    const expiresAt = new Date(user.verify_expires_at);
+    const now = new Date();
+
+    if (now > expiresAt) {
+        console.log("⚠️ Token hết hạn:", token);
+        return false;
+    }
+
     await pool.query(
-        `UPDATE account
-            SET is_verified = TRUE,
-                verify_token = NULL,
-                status = 'ACTIVE'
-            WHERE account_id = ?`,
-        [rows[0].account_id]
+        `UPDATE account 
+        SET is_verified = TRUE, 
+            verify_token = NULL, 
+            verify_expires_at = NULL,
+            status = 'ACTIVE'
+        WHERE account_id = ?`,
+        [user.account_id]
     );
+
+    return true;
+}
+
+// hàm gửi lại email xác thực
+export async function resendVerificationEmail(email: string): Promise<boolean> {
+    const [rows]: any = await pool.query(
+        `SELECT account_id, full_name, is_verified, status FROM account WHERE email = ?`,
+        [email]
+    );
+
+    if (rows.length === 0) {
+        throw new Error("Email không tồn tại.");
+    }
+
+    const user = rows[0];
+
+    if (user.is_verified) {
+        throw new Error("Tài khoản đã được xác thực.");
+    }
+
+    const newToken  = crypto.randomBytes(32).toString('hex');
+
+    await pool.query(
+        `UPDATE account 
+         SET verify_token = ?, verify_expires_at = DATE_ADD(NOW(), INTERVAL 3 MINUTE), status = 'PENDING'
+         WHERE account_id = ?`,
+        [newToken, user.account_id]
+    );
+
+    await sendVerificationEmail(email, newToken);
 
     return true;
 }

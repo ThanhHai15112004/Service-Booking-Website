@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { validateRegisterInput } from "../utils/validator";
-import { isEmailExisting, createAccountforUser, generateVerificationToken, verifyEmailToken  } from "../services/user.service";
+import { isEmailExisting, createAccountforUser, generateVerificationToken, verifyEmailToken, resendVerificationEmail  } from "../services/user.service";
 import { sendVerificationEmail } from "../services/email.service";  
 import bcrypt from "bcrypt";
 
@@ -85,5 +85,32 @@ export const verifyEmailController = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Đã xảy ra lỗi trong quá trình xác thực email:", error);
         res.status(500).json({ message: "Đã xảy ra lỗi", error });
+    }
+}
+
+export const resendVerificationController = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "Thiếu địa chỉ email.",
+            });
+        }
+
+        await resendVerificationEmail(email);
+
+        return res.status(200).json({
+            success: true,
+            message: "Email xác thực mới đã được gửi. Vui lòng kiểm tra hộp thư đến.",
+        });
+
+    } catch (error: any) {
+        console.error("Lỗi khi gửi lại email xác thực:", error);
+        return res.status(400).json({
+            success: false,
+            message: error.message || "Không thể gửi lại email xác thực.",
+        });
     }
 }
