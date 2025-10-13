@@ -2,6 +2,8 @@ import pool from "../config/db";
 import crypto from "crypto";
 import { sendVerificationEmail } from "../services/email.service";
 import { Account } from "../models/account.model";
+import bcrypt from "bcrypt";
+
 // 🟢 Kiểm tra xem email đã tồn tại trong cơ sở dữ liệu hay chưa
 export async function isEmailExisting(email: string): Promise<boolean> {
   const query = "SELECT COUNT(*) as count FROM account WHERE email = ?";
@@ -116,4 +118,26 @@ export async function resendVerificationEmail(email: string): Promise<boolean> {
 export async function findAccountByEmail(  email: string): Promise<Account | null> {
   const [rows]: any = await pool.execute("SELECT * FROM account WHERE email = ?", [email]);
   return rows.length > 0 ? (rows[0] as Account) : null;
+}
+
+// xác thực email và mật khẩu
+export async function veriflyLoginCredentials(email:string, password: string): Promise<Account> {
+    // tìm account theo email
+    const account = await findAccountByEmail(email);
+    
+    if(!account) throw new Error("Email không tồn tại trong hệ thống.");
+
+    //kiểm trạng trạng thái tài khoản
+    if(account.status == "BANNED") throw new Error("Tài khoản của bạn đã bị khóa");
+    if(account.status == "DELETED") throw new Error("Tài khoản của bạn đã bị xóa");
+    if(!account.is_verified || account.status == "PENDING") throw new Error("Vui lòng xác thực trước khi đăng nhập");
+
+    // kiểm tra mật khẩu
+    const isMatch = await bcrypt.compare(password, account.password_hash);
+    if(!isMatch) throw new Error("Mật khẩu không chính xác.")
+
+    //Nếu hợp lệ thì trả thông tin account
+    const{password_hash, verify_token, verify_expires_at, ...safeAccount} = account;
+    return safeAccount as Account;
+    
 }

@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { validateRegisterInput } from "../utils/validator";
-import { isEmailExisting, createAccountforUser, generateVerificationToken, verifyEmailToken, resendVerificationEmail  } from "../services/user.service";
+import { isEmailExisting, createAccountforUser, generateVerificationToken, verifyEmailToken, resendVerificationEmail, veriflyLoginCredentials  } from "../services/user.service";
 import { sendVerificationEmail } from "../services/email.service";  
 import bcrypt from "bcrypt";
+import { verify } from "crypto";
 
 export const Register = async (req: Request, res: Response) => {
     try {
@@ -112,5 +113,33 @@ export const resendVerificationController = async (req: Request, res: Response) 
             success: false,
             message: error.message || "Không thể gửi lại email xác thực.",
         });
+    }
+}
+
+//Login
+export const Login = async (req: Request, res: Response)=>{
+    try {
+        const {email, password} = req.body;
+
+        if(!email || !password){
+            return res.status(400).json({
+                success: false, 
+                massage:"Thiếu email hoặc mật khẩu."
+            })
+        }
+
+        //gọi services để lấy verifly email & password
+        const user = await veriflyLoginCredentials(email, password);
+
+        return res.status(200).json({
+            success: true,
+            message: "Đăng nhập thành công.",
+            user
+        });
+    } catch (error:any) {
+        return res.status(400).json({
+            success: false, 
+            massage:"Đăng nhập thất bại hoặc tài khoản và mật khẩu không đúng."
+        })
     }
 }
