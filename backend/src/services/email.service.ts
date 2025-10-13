@@ -4,7 +4,7 @@ import email from "../config/email";
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
   try {
     // chỉnh sửa nội dung email ở đây
-    const verifyUrl = `http://localhost:3000/verify?token=${token}`;
+    const verifyUrl = `http://localhost:3000/verify-email?token=${token}`;
     
     const subject = "Xác thực email của bạn";
     const htmlContent = `
