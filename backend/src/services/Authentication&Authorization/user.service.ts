@@ -1,8 +1,8 @@
-import pool from "../config/db";
+import pool from "../../config/db";
 import crypto from "crypto";
-import { sendVerificationEmail } from "../services/email.service";
-import { Account } from "../models/account.model";
+import { Account } from "../../models/account.model";
 import bcrypt from "bcrypt";
+import { sendVerificationEmail } from "./email.service";
 
 // 🟢 Kiểm tra xem email đã tồn tại trong cơ sở dữ liệu hay chưa
 export async function isEmailExisting(email: string): Promise<boolean> {
@@ -83,28 +83,62 @@ export async function verifyEmailToken(token: string): Promise<boolean> {
   return true;
 }
 
-// 🟢 Hàm gửi lại email xác thực
+
+/**
+ * Gửi lại email xác thực (giới hạn 2 phút giữa mỗi lần + tối đa 5 lần/24h)
+ */
 export async function resendVerificationEmail(email: string): Promise<boolean> {
   const [rows]: any = await pool.query(
-    `SELECT account_id, full_name, is_verified, status FROM account WHERE email = ?`,
+    `SELECT account_id, full_name, is_verified, status, 
+            last_verification_email_at, resend_count, last_resend_reset_at
+     FROM account WHERE email = ?`,
     [email]
   );
 
-  if (rows.length === 0) {
-    throw new Error("Email không tồn tại.");
-  }
-
+  if (rows.length === 0) throw new Error("Email không tồn tại.");
   const user = rows[0] as Account;
 
-  if (user.is_verified) {
-    throw new Error("Tài khoản đã được xác thực.");
+  if (user.is_verified) throw new Error("Tài khoản đã được xác thực.");
+
+  const now = new Date();
+
+  // 🔹 Reset bộ đếm nếu đã qua 24h
+  const lastReset = user.last_resend_reset_at ? new Date(user.last_resend_reset_at) : null;
+  const isNewDay = !lastReset || now.getTime() - lastReset.getTime() > 24 * 60 * 60 * 1000;
+
+  if (isNewDay) {
+    await pool.query(
+      `UPDATE account 
+       SET resend_count = 0, last_resend_reset_at = NOW() 
+       WHERE account_id = ?`,
+      [user.account_id]
+    );
+    user.resend_count = 0;
   }
 
+  // 🔹 Giới hạn số lần gửi trong 24h: 5 lần
+  if (user.resend_count >= 5) {
+    throw new Error("Bạn đã đạt giới hạn 5 lần gửi lại trong 24 giờ. Vui lòng thử lại sau.");
+  }
+
+  // 🔹 Giới hạn thời gian giữa các lần gửi: 2 phút
+  const lastSent = user.last_verification_email_at ? new Date(user.last_verification_email_at) : null;
+  if (lastSent && now.getTime() - lastSent.getTime() < 2 * 60 * 1000) {
+    const wait = Math.ceil((2 * 60 * 1000 - (now.getTime() - lastSent.getTime())) / 1000);
+    throw new Error(`Vui lòng đợi ${wait} giây trước khi gửi lại email xác thực.`);
+  }
+
+  // 🔹 Sinh token mới
   const newToken = crypto.randomBytes(32).toString("hex");
 
+  // 🔹 Cập nhật token + thời gian hết hạn (10 phút) + thống kê gửi
   await pool.query(
     `UPDATE account 
-     SET verify_token = ?, verify_expires_at = DATE_ADD(NOW(), INTERVAL 3 MINUTE), status = 'PENDING'
+     SET verify_token = ?, 
+         verify_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE),
+         last_verification_email_at = NOW(),
+         resend_count = resend_count + 1,
+         status = 'PENDING'
      WHERE account_id = ?`,
     [newToken, user.account_id]
   );
@@ -114,6 +148,7 @@ export async function resendVerificationEmail(email: string): Promise<boolean> {
   return true;
 }
 
+
 // 🟢 Hàm lấy tài khoản theo email (dùng cho login)
 export async function findAccountByEmail(  email: string): Promise<Account | null> {
   const [rows]: any = await pool.execute("SELECT * FROM account WHERE email = ?", [email]);
@@ -121,7 +156,7 @@ export async function findAccountByEmail(  email: string): Promise<Account | nul
 }
 
 // xác thực email và mật khẩu
-export async function veriflyLoginCredentials(email:string, password: string): Promise<Account> {
+export async function verifyLoginCredentials(email:string, password: string): Promise<Account> {
     // tìm account theo email
     const account = await findAccountByEmail(email);
     
