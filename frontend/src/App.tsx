@@ -1,8 +1,15 @@
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./routes/AppRoutes";
+
 function App() {
   return (
-    <div>
-      <h1>Hello React!</h1>
-    </div>
+    <BrowserRouter>
+      <div className="min-h-screen flex flex-col">
+        <main className="flex-grow">
+          <AppRoutes />
+        </main>
+      </div>
+    </BrowserRouter>
   );
 }
 

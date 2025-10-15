@@ -11,8 +11,9 @@ export async function isEmailExisting(email: string): Promise<boolean> {
   return rows[0].count > 0;
 }
 
-// 🟢 Tạo tài khoản người dùng mới
-export async function createAccountforUser(  full_name: string,  email: string,  password_hash: string,  verify_token: string,  phone_number?: string): Promise<string> {
+// Tạo tài khoản người dùng mới
+export async function createAccountforUser(  full_name: string,  
+  email: string,  password_hash: string,  verify_token: string,  phone_number?: string): Promise<string> {
   const account_Id = await generateAccountId();
   const query = `
     INSERT INTO account (account_id, full_name, email, password_hash, phone_number, verify_token, status, verify_expires_at)
@@ -48,7 +49,7 @@ export function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// 🟢 Xác thực email qua token
+// Xác thực email qua token
 export async function verifyEmailToken(token: string): Promise<boolean> {
   const [rows]: any = await pool.query(
     `SELECT account_id, verify_expires_at 
