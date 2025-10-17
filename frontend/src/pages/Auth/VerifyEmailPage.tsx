@@ -12,8 +12,18 @@ function VerifyEmailPage() {
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(20);
+  const [countdown, setCountdown] = useState(5);
   const hasCalledAPI = useRef(false); // Đảm bảo API chỉ được gọi 1 lần
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Cleanup countdown timer khi component unmount
+    return () => {
+      if (countdownTimerRef.current) {
+        clearTimeout(countdownTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Nếu đã gọi API rồi thì không gọi lại
@@ -22,10 +32,10 @@ function VerifyEmailPage() {
 
     const params = new URLSearchParams(location.search);
     const token = params.get("token");
-    console.log("🔍 Token từ URL:", token);
+    console.log("Token từ URL:", token);
     
     if (!token) {
-      console.error("❌ Không có token");
+      console.error("Không có token");
       setError("Không tìm thấy token xác thực!");
       setLoading(false);
       return;
@@ -34,18 +44,18 @@ function VerifyEmailPage() {
     console.log("📡 Gửi request xác thực với token:", token);
     api.get(`/api/auth/verify-email?token=${token}`)
       .then(res => {
-        console.log("✅ Response từ BE:", res.data);
+        console.log("Response từ BE:", res.data);
         setLoading(false);
         if (res.data.success) {
           console.log("🎉 Xác thực thành công!");
           setSuccess(true);
         } else {
-          console.error("❌ Xác thực thất bại:", res.data.message);
+          console.error("Xác thực thất bại:", res.data.message);
           setError(res.data.message || "Xác thực thất bại!");
         }
       })
       .catch((err) => {
-        console.error("❌ Lỗi request:", err.response?.data);
+        console.error("Lỗi request:", err.response?.data);
         setLoading(false);
         if (err.response?.data?.success === false) {
           setError(err.response.data.message || "Xác thực thất bại!");
@@ -57,10 +67,14 @@ function VerifyEmailPage() {
 
   useEffect(() => {
     if (success && countdown > 0) {
-      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-      return () => clearTimeout(timer);
+      countdownTimerRef.current = setTimeout(() => setCountdown((c) => c - 1), 1000);
+      return () => {
+        if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
+      };
     }
     if (success && countdown === 0) {
+      // Đảm bảo cleanup timer trước khi navigate
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
       navigate("/login");
     }
   }, [success, countdown, navigate]);
@@ -68,7 +82,7 @@ function VerifyEmailPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 relative z-10">
         {loading && <Loading message="Đang xác thực email của bạn..." />}
         
         {!loading && !error && !success && (
@@ -76,16 +90,16 @@ function VerifyEmailPage() {
         )}
         
         {!loading && error && !success && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center max-w-md w-full border-l-4 border-red-500">
+          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center max-w-md w-full border-l-4 border-red-500 relative z-20 pointer-events-auto">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
             <h2 className="text-2xl font-bold text-red-600 mb-3">Xác thực thất bại!</h2>
             <p className="text-gray-700 text-center mb-6">{error}</p>
-            <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium underline">Quay lại đăng nhập</a>
+            <a href="/login" className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors select-none cursor-pointer pointer-events-auto">Quay lại đăng nhập</a>
           </div>
         )}
 
         {!loading && success && !error && (
-          <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center max-w-md w-full border-t-4 border-green-500">
+          <div className="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center max-w-md w-full border-t-4 border-green-500 relative z-20 pointer-events-auto">
             <CheckCircle className="w-20 h-20 text-green-500 mb-6" />
             <h2 className="text-3xl font-bold text-green-600 mb-4 text-center">Xác thực thành công!</h2>
             
@@ -107,7 +121,7 @@ function VerifyEmailPage() {
 
             <a 
               href="/login" 
-              className="text-blue-600 hover:text-blue-800 font-semibold text-sm underline hover:no-underline transition-all"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-8 rounded-lg transition-colors select-none cursor-pointer pointer-events-auto"
             >
               ← Quay lại đăng nhập ngay
             </a>

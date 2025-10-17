@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import SearchTypeTabs from './SearchTypeTabs';
 import SearchTab from './SearchTab';
 import DateRangePicker, { FlexibleDate } from './DateRangePicker';
 import RoomGuestPicker from './RoomGuestPicker';
-import { Search } from 'lucide-react';
-
+import { Search, MapPin, Loader, Clock, Star, X } from 'lucide-react';
+import { searchLocations, formatLocationDisplay, formatLocationDetail, Location } from '../../services/locationService';
 
 interface SearchBarProps {
   onSearch: (params: any) => void;
 }
-
 
 export default function SearchBar({ onSearch }: SearchBarProps) {
   const [searchType, setSearchType] = useState('hotel');
@@ -21,6 +20,138 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   const [rooms, setRooms] = useState(1);
   const [children, setChildren] = useState(0);
   const [roomGuestOpen, setRoomGuestOpen] = useState(false);
+  
+  // Autocomplete states
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [hotLocations, setHotLocations] = useState<Location[]>([]);
+  const [recentSearches, setRecentSearches] = useState<Location[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load hot locations khi component mount
+  useEffect(() => {
+    const loadHotLocations = async () => {
+      try {
+        const result = await searchLocations('', 20); // Tăng lên 20 items
+        if (result.success && result.items.length > 0) {
+          setHotLocations(result.items);
+        }
+      } catch (error) {
+        console.error('Lỗi load hot locations:', error);
+      }
+    };
+
+    // Load recent searches từ localStorage
+    const loadRecents = () => {
+      const stored = localStorage.getItem('recentSearches');
+      if (stored) {
+        try {
+          const recents = JSON.parse(stored);
+          setRecentSearches(recents.slice(0, 5)); // Top 5 recents
+        } catch (error) {
+          console.error('Lỗi load recents:', error);
+        }
+      }
+    };
+
+    loadHotLocations();
+    loadRecents();
+  }, []);
+
+  // Close dropdown khi click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDropdown]);
+
+  // Search locations khi destination thay đổi
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    if (destination.trim().length < 1) {
+      setLocations([]);
+      setIsUserTyping(false);
+      return;
+    }
+
+    // Chỉ tìm kiếm khi user đang typing
+    if (!isUserTyping) {
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        // Try search with original text (backend will normalize)
+        let result = await searchLocations(destination, 10);
+        
+        // If no results and destination has comma, try extracting city name
+        if ((!result.success || result.items.length === 0) && destination.includes(',')) {
+          const cityName = destination.split(',')[0].trim();
+          if (cityName && cityName !== destination) {
+            result = await searchLocations(cityName, 10);
+          }
+        }
+        
+        if (result.success && result.items.length > 0) {
+          setLocations(result.items);
+        } else {
+          setLocations([]);
+        }
+      } catch (error) {
+        console.error('Lỗi tìm kiếm địa điểm:', error);
+        setLocations([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, [destination, isUserTyping]);
+
+  const handleSelectLocation = (location: Location) => {
+    const displayName = formatLocationDisplay(location);
+    setDestination(displayName);
+    setSelectedLocation(location);
+    setShowDropdown(false);
+    setLocations([]);
+    setIsUserTyping(false); // Reset trạng thái typing
+
+    // Save to recent searches
+    try {
+      const stored = localStorage.getItem('recentSearches');
+      let recents: Location[] = stored ? JSON.parse(stored) : [];
+      
+      // Remove duplicates (by locationId)
+      recents = recents.filter(r => r.locationId !== location.locationId);
+      
+      // Add to front
+      recents.unshift(location);
+      
+      // Keep only top 10
+      recents = recents.slice(0, 10);
+      
+      localStorage.setItem('recentSearches', JSON.stringify(recents));
+      setRecentSearches(recents.slice(0, 5));
+    } catch (error) {
+      console.error('Lỗi save recent:', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,16 +177,196 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       )}
 
       <div className="flex flex-col gap-3 md:gap-4">
-        {/* Input điểm đến */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        {/* Input điểm đến với autocomplete */}
+        <div className="relative" ref={dropdownRef}>
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
           <input
             type="text"
-            className="w-full pl-12 pr-4 py-2.5 md:py-3.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-12 pr-12 py-2.5 md:py-3.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Nhập điểm đến (ví dụ: Vũng Tàu, Đà Nẵng...)"
             value={destination}
-            onChange={e => setDestination(e.target.value)}
+            onChange={e => {
+              setDestination(e.target.value);
+              setIsUserTyping(true); // User đang typing
+            }}
+            onFocus={() => {
+              setShowDropdown(true);
+              // Nếu đã có location được chọn, không bật tìm kiếm
+              if (selectedLocation) {
+                setIsUserTyping(false);
+              }
+            }}
+            autoComplete="off"
           />
+          
+          {/* Clear button */}
+          {destination && (
+            <button
+              type="button"
+              onClick={() => {
+                setDestination('');
+                setSelectedLocation(null);
+                setLocations([]);
+                setShowDropdown(false);
+                setIsUserTyping(false);
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Loading indicator */}
+          {isSearching && !destination && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            </div>
+          )}
+
+          {/* Dropdown danh sách locations */}
+          {showDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+              {isUserTyping && destination.trim().length > 0 ? (
+                // 🔍 Khi có search query VÀ đang typing
+                locations.length > 0 ? (
+                  <div className="py-2">
+                    {locations.map((location) => (
+                      <button
+                        key={location.locationId}
+                        type="button"
+                        className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors focus:outline-none focus:bg-blue-100 flex items-center gap-3 group"
+                        onClick={() => handleSelectLocation(location)}
+                      >
+                        <MapPin className="w-5 h-5 text-blue-500 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {[location.city, location.district].filter(Boolean).join(', ')}
+                          </div>
+                          <div className="text-sm text-gray-500 truncate">
+                            {formatLocationDetail(location)}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : !isSearching ? (
+                  <div className="p-8 text-center">
+                    <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">Không tìm thấy kết quả</p>
+                    <p className="text-gray-400 text-sm mt-1">Hãy thử từ khóa khác</p>
+                  </div>
+                ) : null
+              ) : (
+                // 🌟 Khi input rỗng - hiển thị recents + hot locations
+                <div className="py-4 px-4">
+                  {/* Recent Searches - 3 Columns */}
+                  {recentSearches.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-600" />
+                        <span>Tìm kiếm gần đây</span>
+                      </h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {recentSearches.map((location) => (
+                          <button
+                            key={`recent-${location.locationId}`}
+                            type="button"
+                            className="text-left px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 group"
+                            onClick={() => handleSelectLocation(location)}
+                          >
+                            <div className="font-medium text-gray-800 text-sm group-hover:text-blue-600 truncate">
+                              {location.city}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {location.district || 'Toàn thành phố'}
+                            </div>
+                          </button>
+                        ))}
+                        {recentSearches.length < 3 && (
+                          <>
+                            {Array.from({ length: 3 - recentSearches.length }).map((_, i) => (
+                              <div
+                                key={`empty-recent-${i}`}
+                                className="px-3 py-2 bg-gray-50 rounded-lg border border-dashed border-gray-300"
+                              ></div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Divider */}
+                  {recentSearches.length > 0 && (
+                    <div className="border-t border-gray-100 mb-6"></div>
+                  )}
+
+                  {/* Hot Locations + Famous Cities - 2 Sections */}
+                  {hotLocations.length > 0 ? (
+                    <div className="flex gap-0">
+                      {/* Left: Hot Locations (3 columns, 6 items) */}
+                      <div className="flex-1 mr-2">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                          <Star className="w-4 h-4 text-gray-600" strokeWidth={2} />
+                          <span>Điểm đến phổ biến</span>
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2">
+                          {hotLocations.slice(0, 6).map((location) => (
+                            <button
+                              key={location.locationId}
+                              type="button"
+                              className="text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 group"
+                              onClick={() => handleSelectLocation(location)}
+                            >
+                              <div className="font-semibold text-gray-900 text-sm truncate group-hover:text-blue-700">
+                                {location.city}
+                              </div>
+                              <div className="text-xs text-gray-600 truncate">
+                                {location.district || 'Toàn thành phố'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-l border-gray-200 mx-2"></div>
+
+                      {/* Right: Famous Cities (1 column) */}
+                      <div className="flex-0 w-48">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3">Thành phố nổi tiếng</h3>
+                        <div className="flex flex-col gap-2">
+                          {hotLocations.slice(4, 10).map((location) => (
+                            <button
+                              key={`famous-${location.locationId}`}
+                              type="button"
+                              className="text-left px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 group"
+                              onClick={() => handleSelectLocation(location)}
+                            >
+                              <div className="font-semibold text-gray-800 text-sm group-hover:text-blue-600 truncate">
+                                {location.city}
+                              </div>
+                              <div className="text-xs text-gray-500 group-hover:text-gray-600 truncate">
+                                {[location.district, location.ward].filter(Boolean).join(', ') || 'Toàn thành phố'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                        <Loader className="w-6 h-6 text-gray-400 animate-spin" />
+                      </div>
+                      <p className="text-gray-500 font-medium">Đang tải</p>
+                      <p className="text-gray-400 text-sm mt-1">Vui lòng chờ...</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Date và Room/Guest Picker */}
@@ -97,7 +408,7 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
         <div className="flex justify-center">
           <button
             type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white text-xs md:text-sm font-semibold py-2.5 md:py-3 px-8 md:px-12 rounded-lg transition-colors shadow-md w-full md:w-auto"
+            className="bg-blue-500 hover:bg-blue-600 text-white text-xs md:text-sm font-semibold py-2.5 md:py-4 px-8 md:px-60 rounded-lg transition-colors shadow-md w-full md:w-auto"
           >
             TÌM
           </button>

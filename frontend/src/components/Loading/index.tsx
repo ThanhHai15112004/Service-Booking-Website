@@ -1,7 +1,7 @@
 import React from "react";
 
 const Loading: React.FC<{ message?: string }> = ({ message }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-20">
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 pointer-events-auto">
     <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg min-w-[120px]">
       <svg className="animate-spin h-8 w-8 text-blue-600" viewBox="0 0 24 24">
         <circle

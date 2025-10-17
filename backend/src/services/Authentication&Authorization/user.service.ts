@@ -103,7 +103,6 @@ export async function resendVerificationEmail(email: string): Promise<boolean> {
 
   const now = new Date();
 
-  // 🔹 Reset bộ đếm nếu đã qua 24h
   const lastReset = user.last_resend_reset_at ? new Date(user.last_resend_reset_at) : null;
   const isNewDay = !lastReset || now.getTime() - lastReset.getTime() > 24 * 60 * 60 * 1000;
 
@@ -117,22 +116,18 @@ export async function resendVerificationEmail(email: string): Promise<boolean> {
     user.resend_count = 0;
   }
 
-  // 🔹 Giới hạn số lần gửi trong 24h: 5 lần
   if (user.resend_count >= 5) {
     throw new Error("Bạn đã đạt giới hạn 5 lần gửi lại trong 24 giờ. Vui lòng thử lại sau.");
   }
 
-  // 🔹 Giới hạn thời gian giữa các lần gửi: 2 phút
   const lastSent = user.last_verification_email_at ? new Date(user.last_verification_email_at) : null;
   if (lastSent && now.getTime() - lastSent.getTime() < 2 * 60 * 1000) {
     const wait = Math.ceil((2 * 60 * 1000 - (now.getTime() - lastSent.getTime())) / 1000);
     throw new Error(`Vui lòng đợi ${wait} giây trước khi gửi lại email xác thực.`);
   }
 
-  // 🔹 Sinh token mới
   const newToken = crypto.randomBytes(32).toString("hex");
 
-  // 🔹 Cập nhật token + thời gian hết hạn (10 phút) + thống kê gửi
   await pool.query(
     `UPDATE account 
      SET verify_token = ?, 
@@ -158,21 +153,18 @@ export async function findAccountByEmail(  email: string): Promise<Account | nul
 
 // xác thực email và mật khẩu
 export async function verifyLoginCredentials(email:string, password: string): Promise<Account> {
-    // tìm account theo email
+
     const account = await findAccountByEmail(email);
     
     if(!account) throw new Error("Email không tồn tại trong hệ thống.");
 
-    //kiểm trạng trạng thái tài khoản
     if(account.status == "BANNED") throw new Error("Tài khoản của bạn đã bị khóa");
     if(account.status == "DELETED") throw new Error("Tài khoản của bạn đã bị xóa");
     if(!account.is_verified || account.status == "PENDING") throw new Error("Vui lòng xác thực trước khi đăng nhập");
 
-    // kiểm tra mật khẩu
     const isMatch = await bcrypt.compare(password, account.password_hash);
     if(!isMatch) throw new Error("Mật khẩu không chính xác.")
 
-    //Nếu hợp lệ thì trả thông tin account
     const{password_hash, verify_token, verify_expires_at, ...safeAccount} = account;
     return safeAccount as Account;
     

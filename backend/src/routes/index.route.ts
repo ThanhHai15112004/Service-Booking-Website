@@ -1,43 +1,42 @@
 import { Router, Express } from "express";
-import { Register, verifyEmailController, resendVerificationController, Login, Logout, forgotPasswordController, verifyResetTokenController, resetPasswordController, refreshAccessToken, checkEmailExistsController } from "../controllers/Authentication&Authorization/auth.controller";
+import {  Register,  verifyEmailController,  resendVerificationController,  Login,  Logout,  forgotPasswordController,  verifyResetTokenController,  resetPasswordController,  refreshAccessToken,  checkEmailExistsController} from "../controllers/Authentication&Authorization/auth.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
-import { getProfile, updatePassword, updateProfile } from "../controllers/Authentication&Authorization/profile.controller";
+import {  getProfile,  updatePassword,  updateProfile} from "../controllers/Authentication&Authorization/profile.controller";
+import { getLocationController } from "../controllers/HotelModules/location.controller";
 
 const router = Router();
- 
-//Authentication & Authorization api endpoints
-// Check if email exists
-router.get('/check-email', checkEmailExistsController, );
-//register + mail 
-router.post("/register", Register);
-router.get("/verify-email", verifyEmailController);
-router.post("/resend-verification", resendVerificationController);
 
-//login
-router.post("/login", Login);
-router.post("/refresh-token", refreshAccessToken);
+// 🔐 AUTHENTICATION & ACCOUN
+// Check email tồn tại
+router.get("/auth/check-email", checkEmailExistsController);
 
-//logout
-router.post("/logout", Logout);
+// Đăng ký + xác minh email
+router.post("/auth/register", Register);
+router.get("/auth/verify-email", verifyEmailController);
+router.post("/auth/resend-verification", resendVerificationController);
 
-//forgot-password
-router.post("/forgot-password", forgotPasswordController);
-router.get("/verify-reset-token", verifyResetTokenController);
-router.post("/reset-password", resetPasswordController);
+// Đăng nhập / refresh / logout
+router.post("/auth/login", Login);
+router.post("/auth/refresh-token", refreshAccessToken);
+router.post("/auth/logout", Logout);
 
-// account manager
-router.get("/profile", authenticateJWT, getProfile);
-router.put("/profile", authenticateJWT, updateProfile);
-router.put("/profile/password", authenticateJWT, updatePassword);
+// Quên mật khẩu / reset password
+router.post("/auth/forgot-password", forgotPasswordController);
+router.get("/auth/verify-reset-token", verifyResetTokenController);
+router.post("/auth/reset-password", resetPasswordController);
 
-router.get("/test", (req, res) => {
-    res.json({ message: "Backend ok ✅" });
-  });
+// Profile
+router.get("/auth/profile", authenticateJWT, getProfile);
+router.put("/auth/profile", authenticateJWT, updateProfile);
+router.put("/auth/profile/password", authenticateJWT, updatePassword);
+
+//HOTEL MODULES
+// Tìm kiếm địa điểm
+router.get("/locations", getLocationController);
+
 
 export function initRoutes(app: Express): void {
-  app.use("/api/auth", router);
-  
-
+  app.use("/api", router); 
 }
 
 export default router;

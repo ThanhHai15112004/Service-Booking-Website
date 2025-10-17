@@ -188,7 +188,6 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, tab = 'ov
           </div>
           {tab === 'overnight' && (
             <>
-              <span className="mx-2 text-gray-400">-</span>
               <div className="flex flex-col flex-1">
                 <span className="text-xs text-gray-500">Trả phòng</span>
                 <span className="text-sm text-black font-medium">{checkOut ? format(parseISO(checkOut), 'dd/MM/yyyy') : 'Chọn ngày'}</span>

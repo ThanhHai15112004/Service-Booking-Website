@@ -15,7 +15,7 @@ export function authenticateJWT(req: any, res: any, next: any) {
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
-    res.locals.accountId = decoded.account_id; // 🟢 lưu tạm vào res.locals
+    res.locals.accountId = decoded.account_id;
     next();
   } catch (err) {
     return res

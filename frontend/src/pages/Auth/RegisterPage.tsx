@@ -1,7 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MainLayout from '../../layouts/MainLayout';
 import { Mail, ChevronLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { checkEmailExists, registerAccount } from '../../services/authService';
+// Countdown circle component
+function CountdownCircle({ seconds, total }: { seconds: number; total: number }) {
+  const radius = 18;
+  const stroke = 3;
+  const normalizedRadius = radius - stroke / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const progress = seconds / total;
+  const offset = circumference * (1 - progress);
+  return (
+    <svg height={radius * 2} width={radius * 2} className="inline-block align-middle" style={{ transform: 'scale(0.85)', transformOrigin: 'center' }}>
+      <circle
+        stroke="#e5e7eb"
+        fill="none"
+        strokeWidth={stroke}
+        r={normalizedRadius}
+        cx={radius}
+        cy={radius}
+      />
+      <circle
+        stroke="#2563eb"
+        fill="none"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        r={normalizedRadius}
+        cx={radius}
+        cy={radius}
+        style={{ transition: 'stroke-dashoffset 1s linear' }}
+      />
+      <text
+        x="50%"
+        y="50%"
+        textAnchor="middle"
+        dy=".35em"
+        fontSize="13"
+        fill="#2563eb"
+        fontWeight="bold"
+      >
+        {seconds}s
+      </text>
+    </svg>
+  );
+}
+import { checkEmailExists, registerAccount, resendVerificationEmail } from '../../services/authService';
 import Toast from "../../components/Toast";
 import Loading from "../../components/Loading";
 
@@ -22,6 +66,13 @@ function RegisterPage() {
   const [toast, setToast] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // resend email state
+  const [resendCount, setResendCount] = useState(0); // số lần đã gửi lại
+  const [resendCooldown, setResendCooldown] = useState(0); // giây còn lại
+  const resendMax = 5;
+  const cooldownSeconds = 180;
+  const resendTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Thêm state để hiện/ẩn mật khẩu
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -31,6 +82,71 @@ function RegisterPage() {
     setToast(toastObj);
     setTimeout(() => setToast(null), 2500);
   };
+  // Đếm ngược cooldown gửi lại email
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      resendTimerRef.current = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    } else if (resendTimerRef.current) {
+      clearTimeout(resendTimerRef.current);
+    }
+    return () => {
+      if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
+    };
+  }, [resendCooldown]);
+
+  // Reset resend state khi quay lại step trước
+  useEffect(() => {
+    if (step !== 'verify') {
+      setResendCooldown(0);
+      setResendCount(0);
+    }
+  }, [step]);
+
+  // Cleanup: Clear all timers khi component unmount
+  useEffect(() => {
+    return () => {
+      if (resendTimerRef.current) {
+        clearTimeout(resendTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Nếu user đã xác thực email thành công (navigate từ VerifyEmailPage), redirect tới login
+  useEffect(() => {
+    // Check xem có thông báo từ VerifyEmailPage (qua URL params hoặc sessionStorage)
+    const params = new URLSearchParams(window.location.search);
+    const verifySuccess = params.get('verified') === 'true';
+    
+    if (verifySuccess) {
+      // Clear form data và redirect
+      sessionStorage.removeItem('registerData');
+      window.location.href = '/login';
+    }
+  }, []);
+
+  // Monitor verify step - nếu quá lâu thì reset
+  useEffect(() => {
+    if (step !== 'verify') return;
+
+    const verifyTimeout = setTimeout(() => {
+      setStep('method');
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+        agreeTerms: false,
+        agreeMarketing: false
+      });
+      setResendCooldown(0);
+      setResendCount(0);
+      showToast({ type: 'error', message: 'Phiên đăng ký đã hết hạn. Vui lòng thử lại.' });
+    }, 30 * 60 * 1000); // 30 phút
+
+    return () => clearTimeout(verifyTimeout);
+  }, [step]);
 
   const handleMethodSelect = (method: 'email' | 'social') => {
     if (method === 'email') {
@@ -425,17 +541,54 @@ function RegisterPage() {
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 relative">
+                  {/* Overlay loading khi gửi lại */}
+                  {loading && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 rounded-lg">
+                      <svg className="animate-spin h-8 w-8 text-blue-600 mb-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      <span className="text-blue-600 font-medium">Đang gửi lại...</span>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    onClick={() => {
-                      // TODO: Resend verification email
-                      alert('Đã gửi lại email xác thực!');
+                    className={`w-full bg-blue-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-1 ${resendCooldown > 0 || resendCount >= resendMax || loading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                    onClick={async () => {
+                      if (resendCooldown > 0 || resendCount >= resendMax || loading) return;
+                      setLoading(true);
+                      try {
+                        const data = await resendVerificationEmail(formData.email);
+                        if (data.success) {
+                          showToast({ type: 'success', message: 'Đã gửi lại email xác thực!' });
+                          setResendCount(c => c + 1);
+                          setResendCooldown(cooldownSeconds);
+                        } else {
+                          showToast({ type: 'error', message: data.message || 'Gửi lại email thất bại!' });
+                        }
+                      } catch (err) {
+                        showToast({ type: 'error', message: 'Gửi lại email thất bại!' });
+                      }
+                      setLoading(false);
                     }}
+                    disabled={resendCooldown > 0 || resendCount >= resendMax || loading}
                   >
-                    Gửi lại email
+                    {resendCooldown > 0 ? (
+                      <>
+                        <CountdownCircle seconds={resendCooldown} total={cooldownSeconds} />
+                        <span>Vui lòng chờ để gửi lại</span>
+                        <span className="font-bold">{Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, '0')}</span>
+                      </>
+                    ) : resendCount >= resendMax ? (
+                      <span>Bạn đã vượt quá số lần gửi lại!</span>
+                    ) : (
+                      <span>Gửi lại email xác thực</span>
+                    )}
                   </button>
+                  <p className={`text-xs text-center mt-1 ${resendCount >= resendMax ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                    Bạn chỉ có thể gửi lại tối đa 5 lần mỗi ngày. ({resendCount}/{resendMax})
+                  </p>
 
                   <button
                     type="button"
@@ -443,16 +596,6 @@ function RegisterPage() {
                     onClick={() => window.location.href = '/login'}
                   >
                     Về trang đăng nhập
-                  </button>
-                </div>
-
-                <div className="mt-6 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setStep('info')}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    Sửa thông tin đăng ký
                   </button>
                 </div>
 

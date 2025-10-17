@@ -13,27 +13,21 @@ function parseExpireToMinutes(raw: string | undefined): number {
     return parseInt(val, 10);
 }
 
-/**
- * Không tiết lộ việc email có tồn tại hay không.
- * Nếu email tồn tại: tạo token, lưu hạn, gửi mail.
- * Nếu không tồn tại: vẫn trả OK.
- */
+
+//Yêu cầu reset mật khẩu.
 export async function requestPasswordReset(email: string): Promise<void> {
   // Kiểm tra account theo email
   const [rows]: any = await pool.execute("SELECT account_id FROM account WHERE email = ?", [email]);
 
-  // Luôn trả OK sau cùng, nhưng chỉ tạo token khi có account
   if (rows.length === 0) {
-    return; // email không tồn tại -> im lặng để tránh dò
+    return; 
   }
 
   const accountId = rows[0].account_id as string;
 
-  // Tạo token & hạn
   const token = crypto.randomBytes(32).toString("hex");
   const minutes = parseExpireToMinutes(process.env.PASSWORD_RESET_EXPIRES_IN);
 
-  // Lưu token vào DB (bảng account)
   await pool.execute(
     `
       UPDATE account 
@@ -43,7 +37,6 @@ export async function requestPasswordReset(email: string): Promise<void> {
     [token, minutes, accountId]
   );
 
-  // Gửi email chứa link reset
   await sendPasswordResetEmail(email, token);
 }
 
@@ -58,7 +51,6 @@ export async function verifyResetToken(token: string): Promise<boolean> {
     [token]
   );
 
-  // Không có kết quả → token không hợp lệ hoặc hết hạn
   if (rows.length === 0) return false;
 
   return true;
@@ -66,15 +58,8 @@ export async function verifyResetToken(token: string): Promise<boolean> {
 
 
 
-/**
- * Đổi mật khẩu mới bằng reset token.
- * - Kiểm tra token còn hạn
- * - Hash mật khẩu mới
- * - Cập nhật account + xoá reset_token
- * - Thu hồi toàn bộ refresh tokens của account (force logout)
- */
+// Reset mật khẩu với token
 export async function resetPasswordWithToken(token: string, newPassword: string): Promise<void> {
-  // Tìm account theo token còn hạn
   const [rows]: any = await pool.query(
     `SELECT account_id 
        FROM account 
@@ -89,16 +74,13 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
 
   const accountId: string = rows[0].account_id;
 
-  // Hash mật khẩu mới
   const saltRounds = 10;
   const password_hash = await bcrypt.hash(newPassword, saltRounds);
 
-  // Transaction: update account + revoke refresh tokens
   const conn = await (pool as any).getConnection();
   try {
     await conn.beginTransaction();
 
-    // Cập nhật mật khẩu + xoá reset token
     await conn.execute(
       `UPDATE account
           SET password_hash = ?, 
@@ -109,7 +91,6 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
       [password_hash, accountId]
     );
 
-    // Thu hồi toàn bộ refresh tokens đang lưu (bắt buộc đăng nhập lại)
     await conn.execute(
       `DELETE FROM refresh_tokens WHERE account_id = ?`,
       [accountId]
