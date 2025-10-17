@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { validateRegisterInput } from "../../utils/validator";
+import { validateRegisterInput, isDisposableEmail, validateEmailFormat } from "../../utils/validator";
 import { isEmailExisting, createAccountforUser, generateVerificationToken, verifyEmailToken, resendVerificationEmail, verifyLoginCredentials  } from "../../services/Authentication&Authorization/user.service";
 import { sendVerificationEmail } from "../../services/Authentication&Authorization/email.service";  
 import bcrypt from "bcrypt";
@@ -10,6 +10,34 @@ import { requestPasswordReset, resetPasswordWithToken, verifyResetToken } from "
 import pool from "../../config/db";
 import jwt from "jsonwebtoken";
 
+export const checkEmailExistsController = async (req: Request, res: Response) => {
+  try {
+    let email = req.query.email;
+    if (Array.isArray(email)) email = email[0];
+
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(200).json({ exists: false, message: "Thiếu email", isValid: false });
+    }
+
+    const normalized = email.trim().toLowerCase();
+
+    // Kiểm tra định dạng email
+    if (!validateEmailFormat(normalized)) {
+      return res.status(200).json({ exists: false, message: "Email không hợp lệ", isValid: false });
+    }
+
+    // Kiểm tra email rác
+    if (isDisposableEmail(normalized)) {
+      return res.status(200).json({ exists: false, message: "Không được dùng email tạm thời", isValid: false });
+    }
+
+    const exists = await isEmailExisting(normalized);
+    return res.status(200).json({ exists, isValid: true });
+  } catch (error) {
+    console.error("❌ checkEmailExistsController:", error);
+    return res.status(200).json({ exists: false, message: "Lỗi server", isValid: false });
+  }
+};
 
 export const Register = async (req: Request, res: Response) => {
     try {

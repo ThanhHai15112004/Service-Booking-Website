@@ -30,7 +30,7 @@ export async function createAccountforUser(  full_name: string,
   return account_Id;
 }
 
-// 🟢 Tạo id account
+// Tạo id account
 async function generateAccountId(): Promise<string> {
   const today = new Date();
   const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
@@ -44,7 +44,7 @@ async function generateAccountId(): Promise<string> {
   return `AC${datePart}${String(nextNum).padStart(4, "0")}`;
 }
 
-// 🟢 Sinh token ngẫu nhiên
+// Sinh token ngẫu nhiên
 export function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -150,7 +150,7 @@ export async function resendVerificationEmail(email: string): Promise<boolean> {
 }
 
 
-// 🟢 Hàm lấy tài khoản theo email (dùng cho login)
+// Hàm lấy tài khoản theo email (dùng cho login)
 export async function findAccountByEmail(  email: string): Promise<Account | null> {
   const [rows]: any = await pool.execute("SELECT * FROM account WHERE email = ?", [email]);
   return rows.length > 0 ? (rows[0] as Account) : null;
