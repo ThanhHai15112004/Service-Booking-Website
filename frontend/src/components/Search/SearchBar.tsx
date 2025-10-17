@@ -33,11 +33,10 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load hot locations khi component mount
   useEffect(() => {
     const loadHotLocations = async () => {
       try {
-        const result = await searchLocations('', 20); // Tăng lên 20 items
+        const result = await searchLocations('', 20); 
         if (result.success && result.items.length > 0) {
           setHotLocations(result.items);
         }
@@ -63,7 +62,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     loadRecents();
   }, []);
 
-  // Close dropdown khi click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -77,7 +75,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDropdown]);
 
-  // Search locations khi destination thay đổi
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
 
@@ -87,7 +84,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       return;
     }
 
-    // Chỉ tìm kiếm khi user đang typing
     if (!isUserTyping) {
       return;
     }
@@ -95,10 +91,8 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     setIsSearching(true);
     searchTimeout.current = setTimeout(async () => {
       try {
-        // Try search with original text (backend will normalize)
         let result = await searchLocations(destination, 10);
         
-        // If no results and destination has comma, try extracting city name
         if ((!result.success || result.items.length === 0) && destination.includes(',')) {
           const cityName = destination.split(',')[0].trim();
           if (cityName && cityName !== destination) {
@@ -117,7 +111,7 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       } finally {
         setIsSearching(false);
       }
-    }, 300); // Debounce 300ms
+    }, 300); 
 
     return () => {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -130,20 +124,16 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     setSelectedLocation(location);
     setShowDropdown(false);
     setLocations([]);
-    setIsUserTyping(false); // Reset trạng thái typing
+    setIsUserTyping(false); 
 
-    // Save to recent searches
     try {
       const stored = localStorage.getItem('recentSearches');
       let recents: Location[] = stored ? JSON.parse(stored) : [];
       
-      // Remove duplicates (by locationId)
       recents = recents.filter(r => r.locationId !== location.locationId);
       
-      // Add to front
       recents.unshift(location);
       
-      // Keep only top 10
       recents = recents.slice(0, 10);
       
       localStorage.setItem('recentSearches', JSON.stringify(recents));
@@ -163,7 +153,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       <SearchTypeTabs value={searchType} onChange={setSearchType} />
       <SearchTab value={tab} onChange={setTab} />
       
-      {/* Mô tả chỗ ở trong ngày */}
       {tab === 'dayuse' && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg mb-4 bg-red-50 border border-red-200">
           <span className="text-red-600 text-xl">🏨</span>
@@ -177,7 +166,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       )}
 
       <div className="flex flex-col gap-3 md:gap-4">
-        {/* Input điểm đến với autocomplete */}
         <div className="relative" ref={dropdownRef}>
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
           <input
@@ -187,11 +175,10 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
             value={destination}
             onChange={e => {
               setDestination(e.target.value);
-              setIsUserTyping(true); // User đang typing
+              setIsUserTyping(true);
             }}
             onFocus={() => {
               setShowDropdown(true);
-              // Nếu đã có location được chọn, không bật tìm kiếm
               if (selectedLocation) {
                 setIsUserTyping(false);
               }
@@ -223,11 +210,9 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
             </div>
           )}
 
-          {/* Dropdown danh sách locations */}
           {showDropdown && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
               {isUserTyping && destination.trim().length > 0 ? (
-                // 🔍 Khi có search query VÀ đang typing
                 locations.length > 0 ? (
                   <div className="py-2">
                     {locations.map((location) => (
@@ -257,9 +242,7 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                   </div>
                 ) : null
               ) : (
-                // 🌟 Khi input rỗng - hiển thị recents + hot locations
                 <div className="py-4 px-4">
-                  {/* Recent Searches - 3 Columns */}
                   {recentSearches.length > 0 && (
                     <div className="mb-6">
                       <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -296,15 +279,12 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                     </div>
                   )}
 
-                  {/* Divider */}
                   {recentSearches.length > 0 && (
                     <div className="border-t border-gray-100 mb-6"></div>
                   )}
 
-                  {/* Hot Locations + Famous Cities - 2 Sections */}
                   {hotLocations.length > 0 ? (
                     <div className="flex gap-0">
-                      {/* Left: Hot Locations (3 columns, 6 items) */}
                       <div className="flex-1 mr-2">
                         <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                           <Star className="w-4 h-4 text-gray-600" strokeWidth={2} />
@@ -329,10 +309,8 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                         </div>
                       </div>
 
-                      {/* Divider */}
                       <div className="border-l border-gray-200 mx-2"></div>
 
-                      {/* Right: Famous Cities (1 column) */}
                       <div className="flex-0 w-48">
                         <h3 className="text-sm font-bold text-gray-800 mb-3">Thành phố nổi tiếng</h3>
                         <div className="flex flex-col gap-2">
@@ -369,7 +347,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
           )}
         </div>
 
-        {/* Date và Room/Guest Picker */}
         <div className="flex flex-col md:flex-row gap-3 md:gap-4">
           <div className="flex-1">
             <DateRangePicker
@@ -380,8 +357,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                 setCheckIn(ci);
                 setCheckOut(co);
                 if (typeof ci === 'object' && ci.flexible) {
-                  // Xử lý logic khi chọn lịch linh hoạt ở đây
-                  // Ví dụ: console.log('Lịch linh hoạt:', ci);
                 } else if (ci && co) {
                   setTimeout(() => setRoomGuestOpen(true), 350);
                 }
@@ -404,7 +379,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
           </div>
         </div>
 
-        {/* Nút tìm kiếm */}
         <div className="flex justify-center">
           <button
             type="submit"
