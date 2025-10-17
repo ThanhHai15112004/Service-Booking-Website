@@ -14,7 +14,7 @@ export default function Navigation() {
       <ul className="flex items-center gap-6 text-[15px]">
         <li className="relative">
           <Badge>Mới!</Badge>
-           <a href="/hotel" className="flex items-center gap-1.5 hover:text-gray-700">
+           <a href="/hotels" className="flex items-center gap-1.5 hover:text-gray-700">
             <Bed className="h-4 w-4" />
             <span>Khách sạn</span>
             <ChevronDown className="h-4 w-4" />
