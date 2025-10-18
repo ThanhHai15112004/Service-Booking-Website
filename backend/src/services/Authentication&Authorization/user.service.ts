@@ -31,7 +31,7 @@ export async function createAccountforUser(  full_name: string,
 }
 
 // Tạo id account
-async function generateAccountId(): Promise<string> {
+export async function generateAccountId(): Promise<string> {
   const today = new Date();
   const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
 

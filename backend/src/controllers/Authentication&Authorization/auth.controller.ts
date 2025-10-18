@@ -9,6 +9,7 @@ import { revokeRefreshToken, saveRefreshToken } from "../../services/Authenticat
 import { requestPasswordReset, resetPasswordWithToken, verifyResetToken } from "../../services/Authentication&Authorization/password.service";
 import pool from "../../config/db";
 import jwt from "jsonwebtoken";
+import { loginWithGoogle } from "../../services/Authentication&Authorization/google.service";
 
 export const checkEmailExistsController = async (req: Request, res: Response) => {
   try {
@@ -372,5 +373,45 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(403).json({ message: "Refresh token không hợp lệ hoặc đã hết hạn." });
+  }
+};
+
+
+export const googleLoginController = async (req: Request, res: Response) => {
+  try {
+    const { id_token } = req.body;
+
+    if (!id_token) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu ID token từ Google.",
+      });
+    }
+
+    const { user, tokens } = await loginWithGoogle(id_token);
+
+    return res.status(200).json({
+      success: true,
+      message: "Đăng nhập bằng Google thành công.",
+      data: {
+        user: {
+          account_id: user.account_id,
+          full_name: user.full_name,
+          username: user.username,
+          email: user.email,
+          avatar_url: user.avatar_url,
+          provider: user.provider,
+          role: user.role,
+          status: user.status,
+        },
+        tokens,
+      },
+    });
+  } catch (error: any) {
+    console.error("Lỗi đăng nhập Google:", error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Đăng nhập Google thất bại.",
+    });
   }
 };

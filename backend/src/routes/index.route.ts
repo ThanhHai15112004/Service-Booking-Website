@@ -1,5 +1,5 @@
 import { Router, Express } from "express";
-import {  Register,  verifyEmailController,  resendVerificationController,  Login,  Logout,  forgotPasswordController,  verifyResetTokenController,  resetPasswordController,  refreshAccessToken,  checkEmailExistsController} from "../controllers/Authentication&Authorization/auth.controller";
+import {  Register,  verifyEmailController,  resendVerificationController,  Login,  Logout,  forgotPasswordController,  verifyResetTokenController,  resetPasswordController,  refreshAccessToken,  checkEmailExistsController, googleLoginController} from "../controllers/Authentication&Authorization/auth.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import {  getProfile,  updatePassword,  updateProfile} from "../controllers/Authentication&Authorization/profile.controller";
 import { getLocationController } from "../controllers/HotelModules/location.controller";
@@ -19,6 +19,9 @@ router.post("/auth/resend-verification", resendVerificationController);
 router.post("/auth/login", Login);
 router.post("/auth/refresh-token", refreshAccessToken);
 router.post("/auth/logout", Logout);
+
+// Đăng nhập bằng Google
+router.post("/auth/google", googleLoginController);
 
 // Quên mật khẩu / reset password
 router.post("/auth/forgot-password", forgotPasswordController);

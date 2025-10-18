@@ -1,4 +1,5 @@
 import api from "../api/axiosClient";
+import axios from 'axios';
 
 // Gửi lại email xác thực
 export async function resendVerificationEmail(email: string) {
@@ -70,5 +71,14 @@ export const resetPassword = async (token: string, newPassword: string) => {
     return res.data;
   } catch (error: any) {
     return { success: false, message: error?.response?.data?.message || 'Đặt lại mật khẩu thất bại!' };
+  }
+};
+
+export const googleLogin = async (id_token: string) => {
+  try {
+    const response = await api.post('/api/auth/google', { id_token });
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: 'Lỗi không xác định' };
   }
 };

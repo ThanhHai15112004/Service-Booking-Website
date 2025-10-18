@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { googleLogin } from '../services/authService';
 
 interface User {
-  account_id: number;
+  account_id: string;
   full_name: string;
   username?: string;
   email: string;
@@ -11,6 +12,7 @@ interface User {
   created_at: string;
   updated_at: string;
   is_verified: boolean;
+  avatar_url?: string;
 }
 
 interface AuthContextType {
@@ -18,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   login: (user: User, accessToken: string, refreshToken: string) => void;
+  googleLoginHandler: (id_token: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -62,6 +65,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoggedIn(true);
   };
 
+  const googleLoginHandler = async (id_token: string) => {
+    const data = await googleLogin(id_token);
+    if (data.success && data.data?.user && data.data?.tokens?.access_token) {
+      login(data.data.user, data.data.tokens.access_token, data.data.tokens.refresh_token);
+    } else {
+      throw new Error(data.message || 'Đăng nhập Google thất bại');
+    }
+  };
+
   const logout = () => {
     // Clear localStorage
     localStorage.removeItem('accessToken');
@@ -75,7 +87,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, accessToken, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, accessToken, login, googleLoginHandler, logout }}>
       {children}
     </AuthContext.Provider>
   );

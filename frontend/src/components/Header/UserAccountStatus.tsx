@@ -4,6 +4,7 @@ import { ChevronDown, Star, LogOut, User, Heart, Wallet, List } from 'lucide-rea
 import { logout as logoutAPI } from '../../services/authService';
 import Loading from '../Loading';
 import { useAuth } from '../../contexts/AuthContext';
+import defaultAvatar from '../../assets/imgs/avatars/user.png';
 
 // Fake user data for demo (colors/tier)
 const userDisplayDefaults = {
@@ -35,24 +36,16 @@ export default function UserAccountStatus() {
     try {
       setLogoutLoading(true);
       const refreshToken = localStorage.getItem('refreshToken') || '';
-      
-      // Gọi API logout trước
+
+      // Gọi API logout
       const response = await logoutAPI(refreshToken);
-      
-      // Chỉ xóa localStorage & context AFTER API response thành công
-      if (response.success) {
-        logoutContext();
-        setLogoutLoading(false);
-        navigate('/');
-      } else {
-        // Nếu API trả về error nhưng status 200, vẫn xóa và redirect
-        logoutContext();
-        setLogoutLoading(false);
-        navigate('/');
-      }
+
+      // Xóa context và localStorage
+      logoutContext();
+      setLogoutLoading(false);
+      navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
-      // Xóa context anyway nếu có lỗi
       logoutContext();
       setLogoutLoading(false);
       navigate('/');
@@ -61,42 +54,78 @@ export default function UserAccountStatus() {
 
   if (!authUser) return null;
 
-  // Lấy initials từ full_name
+  const avatarUrl =
+    ((authUser.avatar_url ?? '').trim() !== '')
+      ? (authUser.avatar_url as string)
+      : defaultAvatar;
+
   const initials = authUser.full_name.charAt(0).toUpperCase();
 
   return (
     <div className="relative" ref={ref}>
       {logoutLoading && <Loading message="Đang đăng xuất..." />}
+
       <button
         className="flex items-center gap-3 px-3 py-2 rounded-full hover:bg-gray-100 transition min-w-[180px]"
         onClick={() => setOpen((v) => !v)}
       >
-        {/* Avatar */}
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg" style={{ background: userDisplayDefaults.avatarColor }}>
-          {initials}
+        <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gray-200">
+          {avatarUrl === defaultAvatar ? (
+            <span
+              className="text-white font-bold text-lg w-full h-full flex items-center justify-center"
+              style={{ background: userDisplayDefaults.avatarColor }}
+            >
+              {initials}
+            </span>
+          ) : (
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )}
         </div>
-        {/* Info */}
+
         <div className="flex flex-col items-start min-w-0">
           <span className="font-medium text-sm truncate max-w-[90px]">{authUser.full_name}</span>
           <div className="flex items-center gap-1 mt-0.5">
             <span className="flex items-center bg-black text-white text-xs px-1.5 py-0.5 rounded font-semibold">
               <Star className="w-3 h-3 mr-1" fill="white" /> VIP
             </span>
-            <span className="bg-[#d08c60] text-white text-xs px-2 py-0.5 rounded font-semibold ml-1">Đồng</span>
+            <span className="bg-[#d08c60] text-white text-xs px-2 py-0.5 rounded font-semibold ml-1">
+              {userDisplayDefaults.tier}
+            </span>
           </div>
         </div>
-        {/* Balance */}
-        <span className="ml-2 text-[#6c47ff] font-bold text-sm whitespace-nowrap">{userDisplayDefaults.balance} đ</span>
+
+        <span className="ml-2 text-[#6c47ff] font-bold text-sm whitespace-nowrap">
+          {userDisplayDefaults.balance} đ
+        </span>
         <ChevronDown className="ml-1 w-4 h-4 text-gray-500" />
       </button>
-      {/* Dropdown */}
+
       {open && (
         <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border z-50 animate-fade-in">
-          <div className="px-4 py-3 border-b font-semibold text-gray-700">TÀI KHOẢN CỦA TÔI</div>
+          <div className="px-4 py-3 border-b font-semibold text-gray-700">
+            TÀI KHOẢN CỦA TÔI
+          </div>
           <ul className="py-2 text-sm text-gray-700">
-            <li><button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"><List className="w-4 h-4" /> Đơn đặt chỗ</button></li>
-            <li><button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"><User className="w-4 h-4" /> Hồ sơ của tôi</button></li>
-            <li><button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"><Heart className="w-4 h-4" /> Danh sách yêu thích</button></li>
+            <li>
+              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+                <List className="w-4 h-4" /> Đơn đặt chỗ
+              </button>
+            </li>
+            <li>
+              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+                <User className="w-4 h-4" /> Hồ sơ của tôi
+              </button>
+            </li>
+            <li>
+              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+                <Heart className="w-4 h-4" /> Danh sách yêu thích
+              </button>
+            </li>
             <li>
               <div className="w-full flex items-center gap-2 px-4 py-2">
                 <span className="flex items-center bg-black text-white text-xs px-2 py-0.5 rounded font-semibold">
@@ -111,10 +140,19 @@ export default function UserAccountStatus() {
                 </span>
               </div>
             </li>
-            <li><button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"><Wallet className="w-4 h-4 text-[#6c47ff]" /> Số dư tài khoản <span className="ml-auto bg-[#f3f0ff] text-[#6c47ff] px-2 py-0.5 rounded text-xs font-bold">{userDisplayDefaults.balance} đ</span></button></li>
+            <li>
+              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+                <Wallet className="w-4 h-4 text-[#6c47ff]" /> 
+                Số dư tài khoản 
+                <span className="ml-auto bg-[#f3f0ff] text-[#6c47ff] px-2 py-0.5 rounded text-xs font-bold">
+                  {userDisplayDefaults.balance} đ
+                </span>
+              </button>
+            </li>
           </ul>
-          <button 
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 border-t hover:bg-gray-100 font-semibold disabled:opacity-50 disabled:cursor-not-allowed" 
+
+          <button
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 border-t hover:bg-gray-100 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleLogout}
             disabled={logoutLoading}
           >
