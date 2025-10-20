@@ -5,9 +5,8 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { login as loginAPI } from '../../services/authService';
 import Toast from '../../components/Toast';
 import Loading from '../../components/Loading';
-import { useAuth } from '../../contexts/AuthContext';
-import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
-import googleLogo from "../../assets/imgs/icons/google.png"; 
+import { useAuth } from '../../contexts/AuthContext'; 
+import { GoogleLogin } from '@react-oauth/google';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -84,22 +83,6 @@ function LoginPage() {
 
   const { googleLoginHandler } = useAuth(); 
 
-  const handleGoogleLoginSuccess = async (credentialResponse: any) => {
-    setLoading(true);
-    try {
-      await googleLoginHandler(credentialResponse.credential); 
-      showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
-      navigate('/');
-    } catch (error: any) {
-      showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
-    }
-    setLoading(false);
-  };
-
-  const googleLogin = useGoogleLogin({
-    onSuccess: handleGoogleLoginSuccess,
-    onError: () => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' }),
-  });
 
   const handleRememberMeChange = (checked: boolean) => {
     setFormData(prev => ({ ...prev, rememberMe: checked }));
@@ -220,14 +203,25 @@ function LoginPage() {
 
             {/* Social Login */}
             <div className="space-y-3">
-              <button
-                    type="button"
-                    onClick={() => googleLogin()}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-gray-700 text-sm md:text-base"
-                  >
-                    <img src={googleLogo} alt="Google" className="w-5 h-5" />
-                    <span>Đăng nhập bằng Google</span>
-                </button>
+              
+
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                if (!credentialResponse.credential) {
+                  showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
+                  return;
+                }
+                try {
+                  await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
+                  showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
+                  navigate('/');
+                } catch (error: any) {
+                  showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
+                }
+              }}
+              onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
+            />
+
 
 
 

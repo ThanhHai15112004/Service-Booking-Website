@@ -47,3 +47,4 @@ export async function searchLocations(q: string, limit = 8) {
     conn.release();
   }
 }
+

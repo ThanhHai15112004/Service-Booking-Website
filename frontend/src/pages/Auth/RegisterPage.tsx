@@ -5,8 +5,8 @@ import { checkEmailExists, registerAccount, resendVerificationEmail } from '../.
 import Toast from "../../components/Toast";
 import Loading from "../../components/Loading";
 import { useAuth } from '../../contexts/AuthContext';
-import { useGoogleLogin, GoogleLogin } from "@react-oauth/google";
-import googleLogo from "../../assets/imgs/icons/google.png"; 
+import { GoogleLogin } from "@react-oauth/google";
+import { useNavigate } from 'react-router-dom';
 
 
 // Countdown circle component
@@ -58,27 +58,6 @@ function CountdownCircle({ seconds, total }: { seconds: number; total: number })
 type RegisterStep = 'method' | 'email' | 'info' | 'password' | 'verify';
 
 function RegisterPage() {
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const idToken = tokenResponse.access_token;
-
-        if (idToken) {
-          await googleLoginHandler(idToken);
-          showToast({ type: "success", message: "Đăng nhập Google thành công!" });
-          window.location.href = "/";
-        } else {
-          showToast({ type: "error", message: "Không nhận được token từ Google." });
-        }
-      } catch (err) {
-        console.error(err);
-        showToast({ type: "error", message: "Đăng nhập Google thất bại!" });
-      }
-    },
-    onError: () => showToast({ type: "error", message: "Đăng nhập Google thất bại!" }),
-  });
-
-
   const [step, setStep] = useState<RegisterStep>('method');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -93,6 +72,7 @@ function RegisterPage() {
   const [toast, setToast] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
   const { googleLoginHandler } = useAuth();
 
 
@@ -297,14 +277,22 @@ function RegisterPage() {
 
                 <div className="space-y-2 md:space-y-3 mb-4 md:mb-6">
                   {/* Google */}
-                 <button
-                    type="button"
-                    onClick={() => googleLogin()}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-gray-700 text-sm md:text-base"
-                  >
-                    <img src={googleLogo} alt="Google" className="w-5 h-5" />
-                    <span>Đăng ký bằng Google</span>
-                </button>
+                 <GoogleLogin
+                    onSuccess={async (credentialResponse) => {
+                      if (!credentialResponse.credential) {
+                        showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
+                        return;
+                      }
+                      try {
+                        await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
+                        showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
+                        navigate('/');
+                      } catch (error: any) {
+                        showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
+                      }
+                    }}
+                    onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
+                  />
 
                   {/* Facebook */}
                   <button

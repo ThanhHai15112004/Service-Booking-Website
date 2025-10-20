@@ -18,7 +18,7 @@ export function mapLocationRow(row: any): Location{
         city: row.city,
         district: row.district,
         ward: row.ward,
-        areaName: row.areaName,
+        areaName: row.area_name ?? row.areaName ?? null,
         longitude: row.longitude ? Number(row.longitude) : null,
         latitude: row.latitude ? Number(row.latitude) : null,
         distanceCenter: row.distance_center ? Number(row.distance_center) : null,
