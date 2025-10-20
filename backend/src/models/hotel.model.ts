@@ -42,23 +42,24 @@ export interface HotelBestOffer{
     payLater?: boolean;
 }
 
-export interface HotelSearchParams{
-    stayType: "overnight" | "dayuse";
-    q: string;
-    checkin?: string;
-    checkout?: string;
-    date?: string;
-    rooms: number;
-    adults: number;
-    children: number;
-    price_min?: number;
-    price_max?: number;
-    star_min?: number;
-    facilities?: string[];
-    max_distance?: number;
-    limit?: number;
-    offset?: number;
-    sort?: "price_asc" | "price_desc" | "star_desc" | "rating_desc" | "distance_asc";
+export interface HotelSearchParams {
+  stayType: "overnight" | "dayuse";
+  q: string;
+  checkin?: string;
+  checkout?: string;
+  date?: string;
+  rooms: number;
+  adults: number;
+  children: number;
+  childAges?: number[];        
+  price_min?: number;
+  price_max?: number;
+  star_min?: number;
+  facilities?: string[];
+  max_distance?: number;
+  limit?: number;
+  offset?: number;
+  sort?: "price_asc" | "price_desc" | "star_desc" | "rating_desc" | "distance_asc";
 }
 
 

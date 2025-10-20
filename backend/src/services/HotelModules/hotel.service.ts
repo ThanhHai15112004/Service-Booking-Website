@@ -1,34 +1,83 @@
-import { ChildrenPolicy } from './../../utils/occupancy.helper';
+import { ChildrenPolicy } from "./../../utils/occupancy.helper";
 import pool from "../../config/db";
 import { mapSortToSQL } from "../../helpers/sortMapping.helper";
 import { HotelSearchParams } from "../../models/hotel.model";
-import { validateHotelSearchDayuse, validateHotelSearchOvernight } from "../../utils/hotelSearch.validator";
+import {  validateHotelSearchDayuse,  validateHotelSearchOvernight,} from "../../utils/hotelSearch.validator";
 import { evaluateChildrenPolicy } from "../../utils/occupancy.helper";
+import {  sanitizeArrayStrings,  sanitizeNumber,} from "../../helpers/filter.helper";
 
-
-
+// Tìm kiếm khách sạn với bộ lọc
 export async function searchHotelsWithFilters(params: HotelSearchParams) {
-    const {stayType} = params;
+  // Sanitize inputs
+  const safeParams: HotelSearchParams = {
+    ...params,
+    q: String(params.q || "").slice(0, 120),
+    price_min: sanitizeNumber(params.price_min, 0, 0),
+    price_max: sanitizeNumber(params.price_max, 999999999, 0),
+    star_min: sanitizeNumber(params.star_min, 0, 0, 5),
+    max_distance: sanitizeNumber(params.max_distance, 999, 0),
+    limit: sanitizeNumber(params.limit, 10, 1, 100),
+    offset: sanitizeNumber(params.offset, 0, 0),
+    facilities: sanitizeArrayStrings(params.facilities, 50),
 
-    if(stayType === "overnight"){
-        return await searchHotelsOvernight(params);
-    }else if(stayType === "dayuse"){
-        return await searchHotelsDayuse(params);
-    }
+    childAges: Array.isArray(params.childAges)
+      ? params.childAges
+          .map((n) => Number(n))
+          .filter((n) => Number.isFinite(n) && n >= 0 && n <= 17)
+      : [],
 
-    return {succes: false, message: "Loại hình lưu trú không hợp lệ."};
+    sort: ((): HotelSearchParams["sort"] => {
+      const allow = new Set([
+        "price_asc",
+        "price_desc",
+        "star_desc",
+        "rating_desc",
+        "distance_asc",
+      ]);
+      return allow.has(String(params.sort))
+        ? (params.sort as any)
+        : "price_asc";
+    })(),
+  };
+
+  // Đảm bảo price_max >= price_min
+  if (safeParams.price_max! < safeParams.price_min!) {
+    const temp = safeParams.price_min;
+    safeParams.price_min = safeParams.price_max;
+    safeParams.price_max = temp;
+  }
+
+  // Gọi hàm tìm kiếm theo loại lưu trú
+  if (safeParams.stayType === "overnight") {
+    return await searchHotelsOvernight(safeParams);
+  }
+
+  // Gọi hàm tìm kiếm theo loại lưu trú
+  if (safeParams.stayType === "dayuse") {
+    return await searchHotelsDayuse(safeParams);
+  }
+
+  return { success: false, items: [], message: "Loại lưu trú không hợp lệ." };
 }
 
 // Tìm kiếm khách sạn qua đêm
 export async function searchHotelsOvernight(params: HotelSearchParams) {
+  // validation
   const validation = validateHotelSearchOvernight(params);
   if (!validation.success) {
     return { success: false, items: [], message: validation.message };
   }
 
   const {
-    q, checkin, checkout, rooms, adults, children, childAges,
-    requiredPerRoom, nights,
+    q,
+    checkin,
+    checkout,
+    rooms,
+    adults,
+    children,
+    childAges,
+    requiredPerRoom,
+    nights,
   } = validation.data!;
 
   const {
@@ -47,15 +96,20 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
 
   const conn = await pool.getConnection();
   try {
+    // Build dynamic SQL for facilities
     const facilitiesExistsSql =
       facilities && facilities.length > 0
-        ? facilities.map((_, i) =>
-            `EXISTS (SELECT 1 FROM hotel_facility hf${i} WHERE hf${i}.hotel_id = h.hotel_id AND hf${i}.facility_id = ?)`
-          ).join(" AND ")
+        ? facilities
+            .map(
+              (_, i) =>
+                `EXISTS (SELECT 1 FROM hotel_facility hf${i} WHERE hf${i}.hotel_id = h.hotel_id AND hf${i}.facility_id = ?)`
+            )
+            .join(" AND ")
         : "";
 
     const requireChildrenAllowed = (children ?? 0) > 0;
 
+    // sql overnight
     const sql = `
       WITH agg AS (
         SELECT
@@ -88,7 +142,11 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
           AND a.days_count = ?
           AND a.min_avail >= ?
           AND r.capacity >= ?
-          ${requireChildrenAllowed ? "AND COALESCE(rp.children_allowed, 1) = 1" : ""}
+          ${
+            requireChildrenAllowed
+              ? "AND COALESCE(rp.children_allowed, 1) = 1"
+              : ""
+          }
       ),
       best AS (
         SELECT
@@ -118,14 +176,24 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
     `;
 
     const values: any[] = [
-      checkin, checkout,
-      nights, rooms, requiredPerRoom,
-      rooms, nights,
-      keyword, keyword, keyword,
-      star_min, max_distance,
+      checkin,
+      checkout,
+      nights,
+      rooms,
+      requiredPerRoom,
+      rooms,
+      nights,
+      keyword,
+      keyword,
+      keyword,
+      star_min,
+      max_distance,
       ...(facilities && facilities.length > 0 ? facilities : []),
-      nights, price_min, price_max,
-      limit, offset,
+      nights,
+      price_min,
+      price_max,
+      limit,
+      offset,
     ];
 
     const [rows] = await conn.query(sql, values);
@@ -159,7 +227,8 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
           city: r.city,
           district: r.district,
           areaName: r.area_name,
-          distanceCenter: r.distance_center != null ? Number(r.distance_center) : null,
+          distanceCenter:
+            r.distance_center != null ? Number(r.distance_center) : null,
         },
         bestOffer: {
           stayType: "overnight",
@@ -185,14 +254,14 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
       };
     });
 
-    // Lưu ý: sort trong SQL hiện sắp theo base price.
-    // Nếu muốn sắp theo finalTotalPrice (đã cộng phí trẻ), cần sort lại ở Node:
-    // items.sort((a, b) => a.bestOffer.finalTotalPrice - b.bestOffer.finalTotalPrice);
-
     return { success: true, items };
   } catch (err) {
     console.error("❌ searchHotelsOvernight error:", err);
-    return { success: false, items: [], message: "Lỗi tìm kiếm khách sạn (overnight)." };
+    return {
+      success: false,
+      items: [],
+      message: "Lỗi tìm kiếm khách sạn (overnight).",
+    };
   } finally {
     conn.release();
   }
@@ -200,46 +269,53 @@ export async function searchHotelsOvernight(params: HotelSearchParams) {
 
 // Tìm kiếm khách sạn trong ngày
 export async function searchHotelsDayuse(params: HotelSearchParams) {
-    // validation
-    const validation = validateHotelSearchDayuse(params);
-    if(!validation.success){
-        return {success: false, items: [], message: validation.message};
-    }
+  // validation
+  const validation = validateHotelSearchDayuse(params);
+  if (!validation.success) {
+    return { success: false, items: [], message: validation.message };
+  }
 
-    const {
-        q, checkin: date, rooms, adults, children, childAges,
-        requiredPerRoom, nights,
-    } = validation.data!;
+  const {
+    q,
+    checkin: date,
+    rooms,
+    adults,
+    children,
+    childAges,
+    requiredPerRoom,
+    nights,
+  } = validation.data!;
 
-    //filter
-    const{
-        price_min = 0,
-        price_max = 999999999,
-        star_min = 0,
-        facilities = [],
-        max_distance = 999,
-        sort = "price_asc",
-        limit = 10,
-        offset = 0,
-    } = params;
+  //filter
+  const {
+    price_min = 0,
+    price_max = 999999999,
+    star_min = 0,
+    facilities = [],
+    max_distance = 999,
+    sort = "price_asc",
+    limit = 10,
+    offset = 0,
+  } = params;
 
-    const sortSql = mapSortToSQL(sort);
-    const keyword = `%${q.toLowerCase()}%`;
-    const requireChildrenAllowed = (children ?? 0) > 0;
+  const sortSql = mapSortToSQL(sort);
+  const keyword = `%${q.toLowerCase()}%`;
+  const requireChildrenAllowed = (children ?? 0) > 0;
 
-    const conn = await pool.getConnection();
-    try {
-        const facilitiesExistsSql =
-            facilities && facilities.length > 0
-                ? facilities
-                    .map((_, i) =>
-              `EXISTS (SELECT 1 FROM hotel_facility hf${i} WHERE hf${i}.hotel_id = h.hotel_id AND hf${i}.facility_id = ?)`
+  const conn = await pool.getConnection();
+  try {
+    const facilitiesExistsSql =
+      facilities && facilities.length > 0
+        ? facilities
+            .map(
+              (_, i) =>
+                `EXISTS (SELECT 1 FROM hotel_facility hf${i} WHERE hf${i}.hotel_id = h.hotel_id AND hf${i}.facility_id = ?)`
             )
             .join(" AND ")
         : "";
-        
-        // sql dayuse
-        const sql = `
+
+    // sql dayuse
+    const sql = `
             WITH day_price AS (
                 SELECT
                 rps.room_id,
@@ -273,7 +349,11 @@ export async function searchHotelsDayuse(params: HotelSearchParams) {
                 WHERE r.status = 'ACTIVE'
                 AND d.min_avail >= ?
                 AND r.capacity >= ?
-                ${requireChildrenAllowed ? "AND COALESCE(rp.children_allowed, 1) = 1" : ""}
+                ${
+                  requireChildrenAllowed
+                    ? "AND COALESCE(rp.children_allowed, 1) = 1"
+                    : ""
+                }
             ),
             best AS (
                 SELECT
@@ -302,76 +382,85 @@ export async function searchHotelsDayuse(params: HotelSearchParams) {
             LIMIT ? OFFSET ?;
             `;
 
-            const values: any[] = [
-                date,
-                rooms,
-                requiredPerRoom,
-                rooms,
-                keyword, keyword, keyword,
-                star_min,
-                max_distance,
-                ...(facilities && facilities.length > 0 ? facilities : []),
-                price_min, price_max,
-                limit, offset,
-            ];
+    const values: any[] = [
+      date,
+      rooms,
+      requiredPerRoom,
+      rooms,
+      keyword,
+      keyword,
+      keyword,
+      star_min,
+      max_distance,
+      ...(facilities && facilities.length > 0 ? facilities : []),
+      price_min,
+      price_max,
+      limit,
+      offset,
+    ];
 
-            const [rows] = await conn.query(sql, values);
-            const resultRows = rows as any[];
+    const [rows] = await conn.query(sql, values);
+    const resultRows = rows as any[];
 
-            //Post-process: children policy + tổng giá cuối
-            const items = resultRows.map((r) => {
-                const policty = {
-                    childrenAllowed: !!r.children_allowed,
-                    freeChildAgeLimit: Number(r.free_child_age_limit ?? 6),
-                    adultAgeThreshold: Number(r.adult_age_threshold ?? 12),
-                    extraBedFee: Number(r.extra_bed_fee ?? 0),
-                };
+    //Post-process: children policy + tổng giá cuối
+    const items = resultRows.map((r) => {
+      const policty = {
+        childrenAllowed: !!r.children_allowed,
+        freeChildAgeLimit: Number(r.free_child_age_limit ?? 6),
+        adultAgeThreshold: Number(r.adult_age_threshold ?? 12),
+        extraBedFee: Number(r.extra_bed_fee ?? 0),
+      };
 
-                const childAgesArr = Array.isArray(childAges) ? childAges : [];
-                const childPolicy = evaluateChildrenPolicy(childAgesArr, policty, nights);
-                
-                const totalPriceBase = Number(r.total_price);
-                const extraChildFee = childPolicy.allowed ? childPolicy.extraFeeTotal : 0;
-                const finalTotalPrice = totalPriceBase + extraChildFee;
+      const childAgesArr = Array.isArray(childAges) ? childAges : [];
+      const childPolicy = evaluateChildrenPolicy(childAgesArr, policty, nights);
 
-                return {
-                    hotelId: r.hotel_id,
-                    name: r.name,
-                    starRating: r.star_rating ? Number(r.star_rating) : null,
-                    avgRating: r.avg_rating ? Number(r.avg_rating) : null,
-                    reviewCount: r.review_count ? Number(r.review_count) : null,
-                    mainImage: r.main_image || null,
-                    location: {
-                        city: r.city,
-                        district: r.district,
-                        areaName: r.area_name,
-                        distanceCenter: r.distance_center != null ? Number(r.distance_center) : null,
-                    },
-                    bestOffer: {
-                        stayType: "dayuse",
-                        nights,
-                        date, 
-                        adults: adults ?? 1,
-                        children: children ?? 0,
-                        roomTypeId: r.room_type_id,
-                        roomName: r.room_name,
-                        capacity: r.capacity ? Number(r.capacity) : undefined,
-                        availableRooms: r.available_rooms ? Number(r.available_rooms) : 0,
-                        totalPrice: totalPriceBase,
-                        pricePerUnit: Number(r.unit_price),
-                        ChildrenPolicy: {
-                            ...policty,
-                            result: childPolicy,
-                        },
-                        extraChildFee,
-                        finalTotalPrice,
-                    },
-                };
-            });
-    } catch (err) {
-        console.error("Tìm kiếm khách sạn (day-use) lỗi:", err);
-        return { success: false, items: [], message: "Lỗi tìm kiếm khách sạn (day-use)." };
-    } finally {
-        conn.release();
-    }
+      const totalPriceBase = Number(r.total_price);
+      const extraChildFee = childPolicy.allowed ? childPolicy.extraFeeTotal : 0;
+      const finalTotalPrice = totalPriceBase + extraChildFee;
+
+      return {
+        hotelId: r.hotel_id,
+        name: r.name,
+        starRating: r.star_rating ? Number(r.star_rating) : null,
+        avgRating: r.avg_rating ? Number(r.avg_rating) : null,
+        reviewCount: r.review_count ? Number(r.review_count) : null,
+        mainImage: r.main_image || null,
+        location: {
+          city: r.city,
+          district: r.district,
+          areaName: r.area_name,
+          distanceCenter:
+            r.distance_center != null ? Number(r.distance_center) : null,
+        },
+        bestOffer: {
+          stayType: "dayuse",
+          nights,
+          date,
+          adults: adults ?? 1,
+          children: children ?? 0,
+          roomTypeId: r.room_type_id,
+          roomName: r.room_name,
+          capacity: r.capacity ? Number(r.capacity) : undefined,
+          availableRooms: r.available_rooms ? Number(r.available_rooms) : 0,
+          totalPrice: totalPriceBase,
+          pricePerUnit: Number(r.unit_price),
+          ChildrenPolicy: {
+            ...policty,
+            result: childPolicy,
+          },
+          extraChildFee,
+          finalTotalPrice,
+        },
+      };
+    });
+  } catch (err) {
+    console.error("Tìm kiếm khách sạn (day-use) lỗi:", err);
+    return {
+      success: false,
+      items: [],
+      message: "Lỗi tìm kiếm khách sạn (day-use).",
+    };
+  } finally {
+    conn.release();
+  }
 }

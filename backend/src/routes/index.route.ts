@@ -3,6 +3,7 @@ import {  Register,  verifyEmailController,  resendVerificationController,  Logi
 import { authenticateJWT } from "../middleware/auth.middleware";
 import {  getProfile,  updatePassword,  updateProfile} from "../controllers/Authentication&Authorization/profile.controller";
 import { getLocationController } from "../controllers/HotelModules/location.controller";
+import { getHotelSearchController } from "../controllers/HotelModules/hotel.controller";
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.put("/auth/profile/password", authenticateJWT, updatePassword);
 //HOTEL MODULES
 // Tìm kiếm địa điểm
 router.get("/locations", getLocationController);
+router.get("/search", getHotelSearchController);
 
 
 export function initRoutes(app: Express): void {
