@@ -28,7 +28,7 @@ export interface HotelFacility{
 export interface HotelBestOffer{
     stayType: "overnight" | "dayuse";
     nights?: number;
-    data?: string;
+    date?: string;
     rooms: number;
     adults: number;
     children: number;

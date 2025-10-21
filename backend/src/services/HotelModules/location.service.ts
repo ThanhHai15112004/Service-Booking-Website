@@ -31,7 +31,7 @@ export async function searchLocations(q: string, limit = 8) {
       [q.toLowerCase(), q.toLowerCase(), q.toLowerCase(), limit]
     );
 
-    // ⚙️ ép kiểu rows sang any[]
+    // ép kiểu rows sang any[]
     const resultRows = rows as any[];
 
     if (resultRows.length > 0) {

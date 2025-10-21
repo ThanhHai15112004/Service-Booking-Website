@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import MainLayout from '../../layouts/MainLayout';
-import SearchBar from '../../components/Search';
 import HotelCard from '../../components/HotelCard';
 import { mockHotels, popularDestinations } from '../../data/mockData';
 import { SearchParams } from '../../types';
 import { TrendingUp, Award, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { MainSearchBar } from '../../components/Search';
 
 export default function HomePage() {
   const [, setSearchParams] = useState<SearchParams | null>(null);
@@ -48,7 +48,7 @@ export default function HomePage() {
           </div>
 
           <div className="relative -mb-16 md:-mb-32">
-            <SearchBar onSearch={handleSearch} />
+            <MainSearchBar onSearch={handleSearch} />
           </div>
         </div>
       </div>

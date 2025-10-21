@@ -37,7 +37,7 @@ router.put("/auth/profile/password", authenticateJWT, updatePassword);
 //HOTEL MODULES
 // Tìm kiếm địa điểm
 router.get("/locations", getLocationController);
-router.get("/search", getHotelSearchController);
+router.get("/hotels/search", getHotelSearchController);
 
 
 export function initRoutes(app: Express): void {

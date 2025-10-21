@@ -5,12 +5,13 @@ import DateRangePicker, { FlexibleDate } from './DateRangePicker';
 import RoomGuestPicker from './RoomGuestPicker';
 import { Search, MapPin, Loader, Clock, Star, X } from 'lucide-react';
 import { searchLocations, formatLocationDisplay, formatLocationDetail, Location } from '../../services/locationService';
+import { searchHotels } from '../../services/hotelService';
 
-interface SearchBarProps {
+interface MainSearchBarProps {
   onSearch: (params: any) => void;
 }
 
-export default function SearchBar({ onSearch }: SearchBarProps) {
+export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
   const [searchType, setSearchType] = useState('hotel');
   const [tab, setTab] = useState<'overnight' | 'dayuse'>('overnight');
   const [destination, setDestination] = useState('');
@@ -21,15 +22,15 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   const [children, setChildren] = useState(0);
   const [roomGuestOpen, setRoomGuestOpen] = useState(false);
   
-  // Autocomplete states
   const [locations, setLocations] = useState<Location[]>([]);
   const [hotLocations, setHotLocations] = useState<Location[]>([]);
   const [recentSearches, setRecentSearches] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+  
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -45,13 +46,12 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       }
     };
 
-    // Load recent searches từ localStorage
     const loadRecents = () => {
       const stored = localStorage.getItem('recentSearches');
       if (stored) {
         try {
           const recents = JSON.parse(stored);
-          setRecentSearches(recents.slice(0, 5)); // Top 5 recents
+          setRecentSearches(recents.slice(0, 5));
         } catch (error) {
           console.error('Lỗi load recents:', error);
         }
@@ -131,9 +131,7 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       let recents: Location[] = stored ? JSON.parse(stored) : [];
       
       recents = recents.filter(r => r.locationId !== location.locationId);
-      
       recents.unshift(location);
-      
       recents = recents.slice(0, 10);
       
       localStorage.setItem('recentSearches', JSON.stringify(recents));
@@ -143,9 +141,68 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch({ searchType, tab, destination, checkIn, checkOut, guests, rooms, children });
+
+    if (!destination || destination.trim().length === 0) {
+      alert("Vui lòng chọn điểm đến.");
+      return;
+    }
+
+    const ci = typeof checkIn === "object" && "flexible" in checkIn ? "" : checkIn;
+
+    if (!ci || ci.trim().length === 0) {
+      alert("Vui lòng chọn ngày nhận phòng.");
+      return;
+    }
+
+    if (tab === 'overnight' && (!checkOut || checkOut.trim().length === 0)) {
+      alert("Vui lòng chọn ngày trả phòng.");
+      return;
+    }
+
+    if (!rooms || rooms < 1) {
+      alert("Số phòng phải >= 1.");
+      return;
+    }
+
+    if (!guests || guests < 1) {
+      alert("Số người lớn phải >= 1.");
+      return;
+    }
+
+    if (children < 0) {
+      alert("Số trẻ em không hợp lệ.");
+      return;
+    }
+
+    try {
+      setIsLoadingSearch(true);
+      
+      const params = {
+        destination,
+        checkIn: ci,
+        checkOut,
+        guests,
+        rooms,
+        children,
+        stayType: tab,
+      };
+
+      const res = await searchHotels(params);
+
+      if (res.success) {
+        console.log("✅ Kết quả tìm kiếm:", res);
+        onSearch(params);
+      } else {
+        alert(res.message || "Không tìm thấy khách sạn phù hợp.");
+      }
+    } catch (error: any) {
+      console.error("❌ Lỗi tìm kiếm:", error);
+      alert("Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.");
+    } finally {
+      setIsLoadingSearch(false);
+    }
   };
 
   return (
@@ -186,7 +243,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
             autoComplete="off"
           />
           
-          {/* Clear button */}
           {destination && (
             <button
               type="button"
@@ -201,13 +257,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
             >
               <X className="w-5 h-5" />
             </button>
-          )}
-          
-          {/* Loading indicator */}
-          {isSearching && !destination && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            </div>
           )}
 
           {showDropdown && (
@@ -265,16 +314,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                             </div>
                           </button>
                         ))}
-                        {recentSearches.length < 3 && (
-                          <>
-                            {Array.from({ length: 3 - recentSearches.length }).map((_, i) => (
-                              <div
-                                key={`empty-recent-${i}`}
-                                className="px-3 py-2 bg-gray-50 rounded-lg border border-dashed border-gray-300"
-                              ></div>
-                            ))}
-                          </>
-                        )}
                       </div>
                     </div>
                   )}
@@ -284,8 +323,8 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                   )}
 
                   {hotLocations.length > 0 ? (
-                    <div className="flex gap-0">
-                      <div className="flex-1 mr-2">
+                    <div className="flex gap-4">
+                      <div className="flex-1">
                         <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                           <Star className="w-4 h-4 text-gray-600" strokeWidth={2} />
                           <span>Điểm đến phổ biến</span>
@@ -308,39 +347,8 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
                           ))}
                         </div>
                       </div>
-
-                      <div className="border-l border-gray-200 mx-2"></div>
-
-                      <div className="flex-0 w-48">
-                        <h3 className="text-sm font-bold text-gray-800 mb-3">Thành phố nổi tiếng</h3>
-                        <div className="flex flex-col gap-2">
-                          {hotLocations.slice(4, 10).map((location) => (
-                            <button
-                              key={`famous-${location.locationId}`}
-                              type="button"
-                              className="text-left px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 group"
-                              onClick={() => handleSelectLocation(location)}
-                            >
-                              <div className="font-semibold text-gray-800 text-sm group-hover:text-blue-600 truncate">
-                                {location.city}
-                              </div>
-                              <div className="text-xs text-gray-500 group-hover:text-gray-600 truncate">
-                                {[location.district, location.ward].filter(Boolean).join(', ') || 'Toàn thành phố'}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                     </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
-                        <Loader className="w-6 h-6 text-gray-400 animate-spin" />
-                      </div>
-                      <p className="text-gray-500 font-medium">Đang tải</p>
-                      <p className="text-gray-400 text-sm mt-1">Vui lòng chờ...</p>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -382,9 +390,17 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
         <div className="flex justify-center">
           <button
             type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white text-xs md:text-sm font-semibold py-2.5 md:py-4 px-8 md:px-60 rounded-lg transition-colors shadow-md w-full md:w-auto"
+            disabled={isLoadingSearch}
+            className={`${isLoadingSearch ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white text-xs md:text-sm font-semibold py-2.5 md:py-4 px-8 md:px-60 rounded-lg transition-colors shadow-md w-full md:w-auto flex items-center justify-center gap-2`}
           >
-            TÌM
+            {isLoadingSearch ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                <span>ĐANG TÌM...</span>
+              </>
+            ) : (
+              'TÌM'
+            )}
           </button>
         </div>
       </div>

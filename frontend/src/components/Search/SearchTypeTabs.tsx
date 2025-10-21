@@ -1,4 +1,4 @@
-import { Hotel, Home, Plane, Activity, Car } from 'lucide-react';
+import { Hotel, Home, Plane, Car } from 'lucide-react';
 
 interface SearchTypeTabsProps {
   value: string;

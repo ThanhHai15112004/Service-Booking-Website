@@ -2,7 +2,7 @@ import { off } from 'process';
 import { Request, Response } from "express";
 import { clamp, parseChildAges, parseStringArr, toFloat, toInt } from "../../helpers/convertValue.helper";
 import { Hotel, HotelSearchParams } from '../../models/hotel.model';
-import { searchHotelsWithFilters } from '../../services/HotelModules/hotel.service';
+import { searchHotelsOvernight, searchHotelsDayuse } from '../../services/HotelModules/searchHotel.service';
 
 
 export async function getHotelSearchController(req: Request, res: Response) {
@@ -69,7 +69,15 @@ export async function getHotelSearchController(req: Request, res: Response) {
         };
 
         // gọi service
-        const result = await searchHotelsWithFilters(params);
+        let result;
+
+        if (params.stayType === "overnight") {
+        result = await searchHotelsOvernight(params);
+        } else if (params.stayType === "dayuse") {
+        result = await searchHotelsDayuse(params);
+        } else {
+        result = { success: false, items: [], message: "Invalid stayType" };
+        }
 
         return res.status(200).json(result);
     } catch (err) {
@@ -80,4 +88,8 @@ export async function getHotelSearchController(req: Request, res: Response) {
         message: "Lỗi server khi tìm kiếm khách sạn",
         });
     }
+}
+
+function searchHotelsDayUse(params: HotelSearchParams): any {
+    throw new Error('Function not implemented.');
 }

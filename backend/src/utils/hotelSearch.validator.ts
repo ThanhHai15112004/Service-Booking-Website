@@ -6,14 +6,17 @@ export interface ValidatedSearch {
   message?: string;
   data?: {
     q: string;
-    checkin: string;
-    checkout: string;
+    checkin?: string;
+    checkout?: string;
+    nights?: number;
+
+    date?: string;
+
     rooms: number;
     adults: number;
     children: number;
     childAges: number[];
     requiredPerRoom: number;
-    nights: number;
   };
 }
 
@@ -99,18 +102,16 @@ export function validateHotelSearchDayuse(params: HotelSearchParams): ValidatedS
 
   const nights = 1;
 
-  return{
+   return {
     success: true,
     data: {
       q,
-      checkin: date,
-      checkout: date,
+      date,
       rooms,
       adults,
       children,
       childAges,
       requiredPerRoom,
-      nights,
     },
   }
 
