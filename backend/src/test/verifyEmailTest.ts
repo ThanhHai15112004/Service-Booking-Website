@@ -1,4 +1,4 @@
-import { sendVerificationEmail } from "../services/Authentication&Authorization/email.service";
+import { sendVerificationEmail } from "../services/Auth/email.service";
 
 (async () => {
   const fakeEmail = "recipient@gmail.com";

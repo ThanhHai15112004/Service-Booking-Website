@@ -1,5 +1,5 @@
-export function removeVietnameseTones(str: string): string{
-    return str
+export function normalizeString(value: string){
+    return value
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/đ/g, "d")
@@ -8,3 +8,4 @@ export function removeVietnameseTones(str: string): string{
         .trim()
         .toLowerCase();
 }
+

@@ -1,12 +1,12 @@
 import pool from "../../config/db";
-import { removeVietnameseTones } from "../../utils/normalize.util";
 import { mapLocationRow, Location } from "../../models/location.model";
+import { normalizeString } from "../../utils/normalize.util";
 
 export async function searchLocations(q: string, limit = 8) {
   const conn = await pool.getConnection();
   try {
     // Normalize query using the same util function
-    const normalizedQ = removeVietnameseTones(q.toLowerCase());
+    const normalizedQ = normalizeString(q.toLowerCase());
 
     const [rows] = await conn.query(
       `

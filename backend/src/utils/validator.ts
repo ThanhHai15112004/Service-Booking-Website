@@ -5,7 +5,7 @@ export function validateRegisterInput(
   full_name: string,
   email: string,
   password: string,
-  phone_number: string
+  phone_number: string | undefined
 ): string | null {
   //  Kiểm tra họ và tên
   if (!full_name || full_name.trim().length < 2) {

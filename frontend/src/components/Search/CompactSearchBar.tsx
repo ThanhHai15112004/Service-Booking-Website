@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, X, ChevronDown, Loader, Calendar } from 'lucide-react';
+import { Search, MapPin, X, ChevronDown, Loader, Calendar, Users } from 'lucide-react';
 import { searchLocations, formatLocationDisplay, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 import BookingDatePicker from './BookingDatePicker';
@@ -156,7 +156,7 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              className="w-full h-[60px] pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-[50px] pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Điểm đến"
               value={destination}
               onChange={e => {
@@ -332,46 +332,54 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
 
 
           {/* Guests & Rooms */}
-          <div className="relative flex-[1] min-w-[120px]">
+          <div className="relative flex-[1] min-w-[100px] max-w-[200px]">
             <button
               type="button"
               onClick={() => setRoomGuestOpen(!roomGuestOpen)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 whitespace-nowrap bg-white"
+              className="w-full h-[50px] px-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              👥 {guests} · {rooms} phòng
-              <ChevronDown className="w-3 h-3" />
+              <Users className="w-5 h-5 text-gray-600 flex-shrink-0" />
+              <div className="flex flex-col items-start flex-1">
+                <span className="font-semibold text-black text-sm">
+                  {guests} {children > 0 ? `người, ${children} trẻ` : 'người'}
+                </span>
+                <span className="text-xs text-gray-600">
+                  {rooms} phòng
+                </span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
             {roomGuestOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-40 min-w-48">
-                <div className="space-y-2">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-40 min-w-60">
+                <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium">Người lớn</label>
+                    <label className="text-xs font-medium text-gray-700">Người lớn</label>
                     <input
                       type="number"
                       min="1"
                       value={guests}
                       onChange={e => setGuests(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded mt-1"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium">Phòng</label>
+                    <label className="text-xs font-medium text-gray-700">Phòng</label>
                     <input
                       type="number"
                       min="1"
                       value={rooms}
                       onChange={e => setRooms(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded mt-1"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium">Trẻ em</label>
+                    <label className="text-xs font-medium text-gray-700">Trẻ em</label>
                     <input
                       type="number"
                       min="0"
                       value={children}
                       onChange={e => setChildren(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded mt-1"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>

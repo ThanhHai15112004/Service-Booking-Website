@@ -203,31 +203,6 @@ export default function BookingDatePicker({ checkIn, checkOut, onChange, onClose
         </button>
       </div>
 
-      {/* Selected Dates Header - Show based on activeTab */}
-      {(activeTab === 'overnight' || activeTab === 'dayuse') && (checkIn || checkOut) && (
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 flex-shrink-0">
-          {activeTab === 'overnight' ? (
-            // Overnight: Show both checkIn and checkOut
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <div className="text-xs text-gray-500">Nhận phòng</div>
-                <div className="text-sm font-semibold text-gray-900">{checkIn ? format(parseISO(checkIn), 'dd/MM/yyyy') : ''}</div>
-              </div>
-              <div className="flex-1">
-                <div className="text-xs text-gray-500">Trả phòng</div>
-                <div className="text-sm font-semibold text-gray-900">{checkOut ? format(parseISO(checkOut), 'dd/MM/yyyy') : ''}</div>
-              </div>
-            </div>
-          ) : (
-            // Dayuse: Show only checkIn (no checkout needed)
-            <div>
-              <div className="text-xs text-gray-500">Ngày</div>
-              <div className="text-sm font-semibold text-gray-900">{checkIn ? format(parseISO(checkIn), 'dd/MM/yyyy') : ''}</div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Calendar Content for Overnight */}
       {activeTab === 'overnight' && (
         <div className="p-3 md:p-4 flex-1 overflow-y-auto">

@@ -8,6 +8,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.17.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -19,6 +20,7 @@
     "mysql2": "^3.15.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.9",
+    "prisma": "^6.17.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
