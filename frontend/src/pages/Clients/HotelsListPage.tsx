@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import { searchHotels } from '../../services/hotelService';
-import { SlidersHorizontal, ChevronDown, Loader } from 'lucide-react';
+import { SlidersHorizontal, Loader } from 'lucide-react';
 import CompactSearchBar from '../../components/Search/CompactSearchBar';
 
 interface HotelSearchResult {
@@ -38,6 +38,7 @@ export default function HotelsListPage() {
     guests: parseInt(searchParams.get('guests') || '2'),
     rooms: parseInt(searchParams.get('rooms') || '1'),
     children: parseInt(searchParams.get('children') || '0'),
+    stayType: (searchParams.get('stayType') as 'overnight' | 'dayuse') || 'overnight',
   });
 
   const [filters, setFilters] = useState({
@@ -54,6 +55,7 @@ export default function HotelsListPage() {
     const guests = searchParams.get('guests');
     const rooms = searchParams.get('rooms');
     const children = searchParams.get('children');
+    const stayType = (searchParams.get('stayType') || 'overnight') as 'overnight' | 'dayuse';
 
     if (destination && checkIn) {
       const fetchHotels = async () => {
@@ -68,6 +70,7 @@ export default function HotelsListPage() {
             guests: parseInt(guests || '2'),
             rooms: parseInt(rooms || '1'),
             children: parseInt(children || '0'),
+            stayType: stayType,
           };
 
           const res = await searchHotels(params);

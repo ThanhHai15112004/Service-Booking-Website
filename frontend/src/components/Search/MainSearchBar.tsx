@@ -3,7 +3,7 @@ import SearchTypeTabs from './SearchTypeTabs';
 import SearchTab from './SearchTab';
 import DateRangePicker, { FlexibleDate } from './DateRangePicker';
 import RoomGuestPicker from './RoomGuestPicker';
-import { Search, MapPin, Loader, Clock, Star, X } from 'lucide-react';
+import { Search, MapPin, Clock, Star, X } from 'lucide-react';
 import { searchLocations, formatLocationDisplay, formatLocationDetail, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 
@@ -149,16 +149,26 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
       return;
     }
 
-    const ci = typeof checkIn === "object" && "flexible" in checkIn ? "" : checkIn;
+    // Xử lý checkIn - nếu là flexible date thì lấy rỗng
+    const ci = typeof checkIn === "object" && "flexible" in checkIn ? "" : (checkIn as string);
 
     if (!ci || ci.trim().length === 0) {
       alert("Vui lòng chọn ngày nhận phòng.");
       return;
     }
 
-    if (tab === 'overnight' && (!checkOut || checkOut.trim().length === 0)) {
-      alert("Vui lòng chọn ngày trả phòng.");
-      return;
+    // Xử lý checkOut
+    let co = typeof checkOut === "object" ? "" : (checkOut as string);
+
+    // Chỉ yêu cầu checkOut khi ở mode overnight
+    if (tab === 'overnight') {
+      if (!co || co.trim().length === 0) {
+        alert("Vui lòng chọn ngày trả phòng.");
+        return;
+      }
+    } else {
+      // Mode dayuse: checkOut = checkIn
+      co = ci;
     }
 
     if (!rooms || rooms < 1) {
@@ -182,7 +192,7 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
       const params = {
         destination,
         checkIn: ci,
-        checkOut,
+        checkOut: co,
         guests,
         rooms,
         children,
@@ -365,8 +375,13 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
                 setCheckIn(ci);
                 setCheckOut(co);
                 if (typeof ci === 'object' && ci.flexible) {
+                  // Flexible date - không tự động mở room picker
                 } else if (ci && co) {
-                  setTimeout(() => setRoomGuestOpen(true), 350);
+                  // Overnight: chọn xong cả checkIn và checkOut mới mở room picker
+                  // Dayuse: checkIn === checkOut nên cũng tự động mở
+                  if (tab === 'overnight' || (tab === 'dayuse' && ci === co)) {
+                    setTimeout(() => setRoomGuestOpen(true), 350);
+                  }
                 }
               }}
             />

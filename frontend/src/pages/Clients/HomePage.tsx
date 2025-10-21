@@ -20,7 +20,9 @@ export default function HomePage() {
       checkIn: params.checkIn || '',
       checkOut: params.checkOut || '',
       guests: params.guests?.toString() || '2',
-      rooms: params.rooms?.toString() || '1'
+      rooms: params.rooms?.toString() || '1',
+      children: params.children?.toString() || '0',
+      stayType: params.stayType || 'overnight'
     });
     
     navigate(`/hotels/search?${queryParams.toString()}`);

@@ -30,6 +30,12 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, tab = 'ov
   const [flexibleMonthScroll, setFlexibleMonthScroll] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Reset state khi tab thay đổi (overnight <-> dayuse)
+  useEffect(() => {
+    setSelectingStart(true);
+    setCurrentMonth(new Date());
+  }, [tab]);
+
   useEffect(() => {
     function handle(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -237,25 +243,27 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, tab = 'ov
             <div className="flex border-b border-gray-200 flex-shrink-0">
               <button
                 type="button"
-                className={`flex-1 px-5 py-2 text-sm font-medium transition-colors relative ${
+                className={`flex-1 px-5 p-5 text-base font-bold transition-colors relative flex items-center justify-center gap-2 ${
                   activeTab === 'calendar'
                     ? 'text-blue-600'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
                 onClick={() => setActiveTab('calendar')}
               >
+                <Calendar className="w-5 h-5" />
                 Lịch
                 {activeTab === 'calendar' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
               </button>
               <button
                 type="button"
-                className={`flex-1 px-5 py-2 text-sm font-medium transition-colors relative ${
+                className={`flex-1 px-5 py-3 text-base font-bold transition-colors relative flex items-center justify-center gap-2 ${
                   activeTab === 'flexible'
                     ? 'text-blue-600'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
                 onClick={() => setActiveTab('flexible')}
               >
+                <ChevronRight className="w-5 h-5" />
                 Linh hoạt
                 {activeTab === 'flexible' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
               </button>

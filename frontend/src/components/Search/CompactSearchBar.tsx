@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, X, ChevronDown, Loader } from 'lucide-react';
+import { Search, MapPin, X, ChevronDown, Loader, Calendar } from 'lucide-react';
 import { searchLocations, formatLocationDisplay, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
+import BookingDatePicker from './BookingDatePicker';
 
 interface CompactSearchBarProps {
   onSearch: (params: any) => void;
@@ -15,14 +16,19 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
   const [guests, setGuests] = useState(initialSearchParams?.guests || 2);
   const [rooms, setRooms] = useState(initialSearchParams?.rooms || 1);
   const [children, setChildren] = useState(initialSearchParams?.children || 0);
-  
+  const [stayType, setStayType] = useState<'overnight' | 'dayuse'>('overnight'); // ✅ Add stayType
+
   const [locations, setLocations] = useState<Location[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [roomGuestOpen, setRoomGuestOpen] = useState(false);
-  
+  // datePickerOpen: 'checkIn' | 'checkOut' | false
+  const [datePickerOpen, setDatePickerOpen] = useState<'checkIn' | 'checkOut' | null>(null);
+
+  const pickerRef = useRef<HTMLDivElement>(null);
+
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -33,9 +39,10 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
 
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -87,11 +94,12 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
     }
 
     if (!checkIn || checkIn.trim().length === 0) {
-      alert("Vui lòng chọn ngày nhận phòng.");
+      alert("Vui lòng chọn ngày.");
       return;
     }
 
-    if (!checkOut || checkOut.trim().length === 0) {
+    // Only require checkout for overnight mode
+    if (stayType === 'overnight' && (!checkOut || checkOut.trim().length === 0)) {
       alert("Vui lòng chọn ngày trả phòng.");
       return;
     }
@@ -111,7 +119,7 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
         guests,
         rooms,
         children,
-        stayType: 'overnight',
+        stayType: stayType as 'overnight' | 'dayuse', // ✅ Use stayType from state
       };
 
       const res = await searchHotels(params);
@@ -130,8 +138,8 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
   };
 
   return (
-    <div className="bg-white border-b border-gray-200 shadow-md sticky top-16 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative">
+    <div className="bg-gray-100 bg-opacity-80 border-b border-gray-200 shadow-md sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2 relative">
         {/* Overlay that blocks the whole form when searching */}
         {isLoadingSearch && (
           <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50 rounded-lg">
@@ -142,13 +150,13 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-row items-center gap-2 md:gap-3">
           {/* Destination */}
-          <div className="relative flex-1 min-w-[200px]" ref={dropdownRef}>
+          <div className="relative flex-[2.2] min-w-[220px] max-w-[460px]" ref={dropdownRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-[60px] pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Điểm đến"
               value={destination}
               onChange={e => {
@@ -158,7 +166,6 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
               onFocus={() => setShowDropdown(true)}
               autoComplete="off"
             />
-            
             {/* Clear button */}
             {destination && (
               <button
@@ -173,7 +180,6 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
                 <X className="w-4 h-4" />
               </button>
             )}
-
             {/* Dropdown */}
             {showDropdown && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
@@ -202,33 +208,139 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
             )}
           </div>
 
-          {/* Check In */}
-          <input
-            type="date"
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
-            value={checkIn}
-            onChange={e => setCheckIn(e.target.value)}
-          />
+          {/* Cụm chọn ngày nhận/trả phòng tối ưu */}
+          <div
+            ref={pickerRef}
+            className="relative flex-[1.1] max-w-[400px] min-w-[240px] h-[50px] flex items-center bg-white rounded-lg border border-gray-300"
+            style={{ fontSize: '14px' }}
+          >
+            {stayType === 'overnight' ? (
+              <>
+                {/* Button nhận phòng - Overnight Mode */}
+                <button
+                  type="button"
+                  className={`flex-1 h-full flex items-center gap-2 px-3 border-r border-gray-200 focus:outline-none hover:bg-gray-50 ${
+                    datePickerOpen === 'checkIn' ? 'bg-gray-50' : ''
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDatePickerOpen((prev) => (prev === 'checkIn' ? null : 'checkIn'));
+                  }}
+                >
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold text-black">
+                      {checkIn
+                        ? new Date(checkIn).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : 'Nhận phòng'}
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      {checkIn
+                        ? ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][new Date(checkIn).getDay()]
+                        : ''}
+                    </span>
+                  </div>
+                </button>
 
-          {/* Check Out */}
-          <input
-            type="date"
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
-            value={checkOut}
-            onChange={e => setCheckOut(e.target.value)}
-          />
+                {/* Button trả phòng - Overnight Mode */}
+                <button
+                  type="button"
+                  className={`flex-1 h-full flex items-center gap-2 px-3 focus:outline-none hover:bg-gray-50 ${
+                    datePickerOpen === 'checkOut' ? 'bg-gray-50' : ''
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDatePickerOpen((prev) => (prev === 'checkOut' ? null : 'checkOut'));
+                  }}
+                >
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold text-black">
+                      {checkOut
+                        ? new Date(checkOut).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : 'Trả phòng'}
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      {checkOut
+                        ? ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][new Date(checkOut).getDay()]
+                        : ''}
+                    </span>
+                  </div>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Button Ngày duy nhất - Dayuse Mode */}
+                <button
+                  type="button"
+                  className={`flex-1 h-full flex items-center gap-2 px-3 focus:outline-none hover:bg-gray-50 ${
+                    datePickerOpen ? 'bg-gray-50' : ''
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDatePickerOpen((prev) => (prev ? null : 'checkIn'));
+                  }}
+                >
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold text-black text-15px">
+                      {checkIn
+                        ? new Date(checkIn).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : 'Chọn ngày'}
+                    </span>
+                    <span className="text-14px text-gray-600 ">
+                      {checkIn
+                        ? `${['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'][new Date(checkIn).getDay()]} | Trả phòng trong ngày`
+                        : 'Trả phòng trong ngày'}
+                    </span>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* Popup lịch */}
+            {datePickerOpen && (
+              <div className="absolute left-0 top-full mt-2 z-[9999]">
+                <BookingDatePicker
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  onChange={(ci, co, type) => {
+                    setCheckIn(ci);
+                    setCheckOut(co);
+                    if (type) {
+                      setStayType(type); // ✅ Update stayType based on picker tab
+                    }
+                  }}
+                  onClose={() => setDatePickerOpen(null)}
+                />
+              </div>
+            )}
+          </div>
+
+
 
           {/* Guests & Rooms */}
-          <div className="relative">
+          <div className="relative flex-[1] min-w-[120px]">
             <button
               type="button"
               onClick={() => setRoomGuestOpen(!roomGuestOpen)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 whitespace-nowrap"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 whitespace-nowrap bg-white"
             >
               👥 {guests} · {rooms} phòng
               <ChevronDown className="w-3 h-3" />
             </button>
-            
             {roomGuestOpen && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-40 min-w-48">
                 <div className="space-y-2">

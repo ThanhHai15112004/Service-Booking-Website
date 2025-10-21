@@ -1,5 +1,4 @@
 import api from "../api/axiosClient";
-import axios from 'axios';
 
 // Gửi lại email xác thực
 export async function resendVerificationEmail(email: string) {
