@@ -7,11 +7,15 @@ export class LocationService {
   async search(q: string, limit = 8) {
     try {
       if (!q?.trim()) {
-        return { success: false, items: [], message: "Thiếu từ khóa tìm kiếm." };
+        // Trả về các địa điểm phổ biến khi không có từ khóa
+        const items = await this.repo.getHotLocations(limit);
+        if (!items.length) {
+          return { success: false, items: [], message: "Không có địa điểm phổ biến." };
+        }
+        return { success: true, items };
       }
 
       const normalizedQ = normalizeString(q);
-
       const items = await this.repo.search(normalizedQ, limit);
 
       if (!items.length) {

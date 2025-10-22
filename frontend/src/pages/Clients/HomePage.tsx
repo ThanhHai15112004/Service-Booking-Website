@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import MainLayout from '../../layouts/MainLayout';
-import HotelCard from '../../components/HotelCard';
+import HotelCard from '../../components/HotelListPage/HotelCard';
 import { mockHotels, popularDestinations } from '../../data/mockData';
 import { SearchParams } from '../../types';
 import { TrendingUp, Award, Shield } from 'lucide-react';

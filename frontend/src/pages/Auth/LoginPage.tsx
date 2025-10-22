@@ -77,7 +77,7 @@ function LoginPage() {
       }
     } catch (error: any) {
       setLoading(false);
-      showToast({ type: "error", message: error.response?.data?.massage || "Lỗi đăng nhập. Vui lòng thử lại!" });
+      showToast({ type: "error", message: error.response?.data?.message || "Lỗi đăng nhập. Vui lòng thử lại!" });
     }
   };
 

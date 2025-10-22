@@ -30,4 +30,26 @@ export class LocationRepository {
       conn.release();
     }
   }
+
+   async getHotLocations(limit: number): Promise<Location[]> {
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.query(
+        `
+        SELECT 
+          location_id, country, city, district, ward, area_name,
+          latitude, longitude, distance_center, created_at,
+          CONCAT_WS(' ', country, city, district, ward, area_name) AS full_address
+        FROM hotel_location
+        WHERE is_hot = 1
+        ORDER BY distance_center ASC
+        LIMIT ?
+        `,
+        [limit]
+      );
+      return (rows as any[]).map(mapLocationRow);
+    } finally {
+      conn.release();
+    }
+  }
 }

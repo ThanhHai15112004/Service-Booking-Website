@@ -1,5 +1,5 @@
 import { MapPin, Star } from 'lucide-react';
-import { Hotel } from '../types';
+import { Hotel } from '../../types';
 
 interface HotelCardProps {
   hotel: Hotel;

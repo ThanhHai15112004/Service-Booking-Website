@@ -38,7 +38,7 @@ export default function UserAccountStatus() {
       const refreshToken = localStorage.getItem('refreshToken') || '';
 
       // Gọi API logout
-      const response = await logoutAPI(refreshToken);
+      await logoutAPI(refreshToken);
 
       // Xóa context và localStorage
       logoutContext();
@@ -112,17 +112,35 @@ export default function UserAccountStatus() {
           </div>
           <ul className="py-2 text-sm text-gray-700">
             <li>
-              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+              <button 
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/bookings');
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              >
                 <List className="w-4 h-4" /> Đơn đặt chỗ
               </button>
             </li>
             <li>
-              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+              <button 
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/profile');
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              >
                 <User className="w-4 h-4" /> Hồ sơ của tôi
               </button>
             </li>
             <li>
-              <button className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100">
+              <button 
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/favorites');
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              >
                 <Heart className="w-4 h-4" /> Danh sách yêu thích
               </button>
             </li>
