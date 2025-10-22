@@ -112,6 +112,7 @@ export function validateHotelSearchDayuse(params: HotelSearchParams): ValidatedS
       children,
       childAges,
       requiredPerRoom,
+      nights: 1,
     },
   }
 
