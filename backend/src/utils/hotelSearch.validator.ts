@@ -1,4 +1,4 @@
-import { HotelSearchParams } from "../models/hotel.model";
+import { HotelSearchParams } from "../models/Hotel/hotel.model";
 import { computeRequiredPerRoom } from "./occupancy.helper";
 
 export interface ValidatedSearch {

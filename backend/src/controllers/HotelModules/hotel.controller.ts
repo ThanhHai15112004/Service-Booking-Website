@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { HotelService } from "../../services/HotelModules/searchHotel.service";
+import { HotelService } from "../../services/Hotel/Hotel.service";
 
 const hotelService = new HotelService();
 

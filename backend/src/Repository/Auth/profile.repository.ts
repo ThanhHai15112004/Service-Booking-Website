@@ -1,5 +1,5 @@
 import pool from "../../config/db";
-import { Account } from "../../models/account.model";
+import { Account } from "../../models/Auth/account.model";
 
 export class ProfileRepository {
   // Lấy thông tin user

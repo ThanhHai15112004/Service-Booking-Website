@@ -2,7 +2,7 @@
 import { OAuth2Client } from "google-auth-library";
 import { TokenService } from "./token.service";
 import { AuthService } from "./auth.service";
-import { Account } from "../../models/account.model";
+import { Account } from "../../models/Auth/account.model";
 import { AccountRepository } from "../../Repository/Auth/account.repository";
 
 export class GoogleAuthService {

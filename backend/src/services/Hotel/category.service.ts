@@ -1,5 +1,5 @@
-import { HotelCategory } from "../../models/category.model";
-import { Hotel } from "../../models/hotel.model";
+import { HotelCategory } from "../../models/Hotel/category.model";
+import { Hotel } from "../../models/Hotel/hotel.model";
 import { CategoryRepository } from "../../Repository/Hotel/category.repository";
 
 

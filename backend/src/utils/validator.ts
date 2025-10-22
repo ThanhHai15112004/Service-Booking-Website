@@ -1,5 +1,5 @@
 import disposableDomains from "disposable-email-domains";
-import { HotelSearchParams } from "../models/hotel.model";
+import { HotelSearchParams } from "../models/Hotel/hotel.model";
 
 export function validateRegisterInput(
   full_name: string,

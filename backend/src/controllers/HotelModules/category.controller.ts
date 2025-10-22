@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CategoryService } from "../../services/HotelModules/category.service";
+import { CategoryService } from "../../services/Hotel/category.service";
 
 const categoryService = new CategoryService();
 

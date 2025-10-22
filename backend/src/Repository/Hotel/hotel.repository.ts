@@ -1,6 +1,6 @@
 import pool from "../../config/db";
 import { mapSortToSQL } from "../../helpers/sortMapping.helper";
-import { HotelSearchParams, HotelSearchResult } from "../../models/hotel.model";
+import { HotelSearchParams, HotelSearchResult } from "../../models/Hotel/hotel.model";
 
 // interface hỗ trợ
 interface OfferContext {

@@ -1,14 +1,24 @@
 import { Express } from "express";
-import authRoutes from "./auth.route";
-import profileRoutes from "./profile.route";
-import hotelRoutes from "./hotel.route";
-import locationRoutes from "./location.route";
-import categoryRoute from "./category.route";
+import authRoutes from "./Auth/auth.route";
+import profileRoutes from "./Auth/profile.route";
+
+import hotelRoutes from "./Hotel/searchHotel.route";
+import locationRoutes from "./Hotel/location.route";
+import categoryRoute from "./Hotel/category.route";
+import facilityRoute from "./Hotel/facility.route";
+import policyRoute from "./Hotel/policy.route";
+import bedTypeRoutes from "./Hotel/bedType.route";
 
 export function initRoutes(app: Express): void {
+  //Auth
   app.use("/api/auth", authRoutes);
   app.use("/api/profile", profileRoutes);
-  app.use("/api/hotels", hotelRoutes);
+
+  //Hotel
+  app.use("/api/hotels/search", hotelRoutes);
   app.use("/api/locations", locationRoutes);
   app.use("/api/categories", categoryRoute);
+  app.use("/api/facilities", facilityRoute);
+  app.use("/api/policies", policyRoute);
+  app.use("/api/bed-types", bedTypeRoutes);
 }

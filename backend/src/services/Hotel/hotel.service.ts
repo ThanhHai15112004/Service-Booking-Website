@@ -1,8 +1,8 @@
 import {  validateHotelSearchDayuse,  validateHotelSearchOvernight,} from "../../utils/hotelSearch.validator";
 import {  sanitizeArrayStrings,  sanitizeNumber,} from "../../helpers/filter.helper";
 import { normalizeString } from "../../utils/normalize.util";
-import {  OvernightSearchRepository,  DayuseSearchRepository,} from "../../Repository/Hotel/hotelSearch.repository";
-import { HotelSearchParams } from "../../models/hotel.model";
+import {  OvernightSearchRepository,  DayuseSearchRepository,} from "../../Repository/Hotel/hotel.repository";
+import { HotelSearchParams } from "../../models/Hotel/hotel.model";
 
 // Hàm tính số đêm giữa ngày nhận và ngày trả phòng
 function calculateNights(checkin?: string, checkout?: string): number {

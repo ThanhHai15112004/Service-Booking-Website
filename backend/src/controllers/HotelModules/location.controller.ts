@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { LocationService } from "../../services/HotelModules/location.service";
+import { LocationService } from "../../services/Hotel/location.service";
 
 const locationService = new LocationService();
 

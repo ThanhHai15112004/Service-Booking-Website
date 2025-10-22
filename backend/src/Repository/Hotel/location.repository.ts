@@ -1,5 +1,5 @@
 import pool from "../../config/db";
-import { Location, mapLocationRow } from "../../models/location.model";
+import { Location, mapLocationRow } from "../../models/Hotel/location.model";
 
 export class LocationRepository {
   async search(q: string, limit: number): Promise<Location[]> {

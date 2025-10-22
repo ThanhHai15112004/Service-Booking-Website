@@ -1,5 +1,5 @@
 import pool from "../../config/db";
-import { HotelCategory } from "../../models/category.model";
+import { HotelCategory } from "../../models/Hotel/category.model";
 
 export class CategoryRepository {
     async getALL(): Promise<HotelCategory[]> {

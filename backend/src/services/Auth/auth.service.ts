@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import { Account } from "../../models/account.model";
+import { Account } from "../../models/Auth/account.model";
 import { AccountRepository } from "../../Repository/Auth/account.repository";
 import {
   validateRegisterInput,
