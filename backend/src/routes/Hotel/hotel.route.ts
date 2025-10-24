@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { searchHotelsController } from "../../controllers/HotelModules/searchHotel.controller";
+import express from "express";
+import { searchHotelsController } from "../../controllers/HotelModules/hotel.controller";
 
-const router = Router();
+const router = express.Router();
 
 // Tìm kiếm khách sạn
 router.get("/", searchHotelsController);

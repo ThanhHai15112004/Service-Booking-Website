@@ -1,7 +1,7 @@
-import { Router } from "express";
+import express from "express";
 import { getLocationController } from "../../controllers/HotelModules/location.controller";
 
-const router = Router();
+const router = express.Router();
 
 // Lấy danh sách địa điểm
 router.get("/", getLocationController);

@@ -1,6 +1,9 @@
 import pool from "../../config/db";
 import { mapSortToSQL } from "../../helpers/sortMapping.helper";
-import { HotelSearchParams, HotelSearchResult } from "../../models/Hotel/hotel.model";
+import {
+  HotelSearchParams,
+  HotelSearchResult,
+} from "../../models/Hotel/hotel.model";
 
 // interface hỗ trợ
 interface OfferContext {
@@ -26,6 +29,7 @@ interface PreparedParams {
   sortSql: string;
   facilitiesSql: string;
   nights: number;
+  category_id?: string;
 }
 
 // hotel search repository base class
@@ -90,12 +94,12 @@ export abstract class HotelSearchRepository {
   abstract search(params: HotelSearchParams): Promise<HotelSearchResult[]>;
 }
 
-
 // overnight search repository
 export class OvernightSearchRepository extends HotelSearchRepository {
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
     const prepared = this.prepareParams(params);
-    const sql = this.buildSql(prepared.facilitiesSql, prepared.sortSql);
+    const sql = this.buildSql(params, prepared.facilitiesSql, prepared.sortSql);
+
     const values = this.buildValues(prepared);
     const rows = await this.query(sql, values);
     return this.mapResults(rows, prepared);
@@ -120,7 +124,6 @@ export class OvernightSearchRepository extends HotelSearchRepository {
     const keyword = `%${q.trim().toLowerCase()}%`;
     const sortSql = mapSortToSQL(sort);
     const facilitiesSql = this.buildFacilitySql(facilities);
-
     const nights =
       Math.max(
         1,
@@ -145,10 +148,15 @@ export class OvernightSearchRepository extends HotelSearchRepository {
       sortSql,
       facilitiesSql,
       nights,
+      category_id: params.category_id, // ✅ thêm dòng này
     };
   }
 
-  private buildSql(facilitiesSql: string, sortSql: string): string {
+  private buildSql(
+    params: HotelSearchParams,
+    facilitiesSql: string,
+    sortSql: string
+  ): string {
     return `
       WITH cheapest AS (
         SELECT 
@@ -185,6 +193,7 @@ export class OvernightSearchRepository extends HotelSearchRepository {
         AND h.star_rating >= ?
         AND hl.distance_center <= ?
         ${facilitiesSql ? `AND ${facilitiesSql}` : ""}
+        ${params.category_id ? `AND h.category_id = ?` : ""}
       ${sortSql}
       LIMIT ? OFFSET ?;
     `;
@@ -202,6 +211,7 @@ export class OvernightSearchRepository extends HotelSearchRepository {
       p.star_min,
       p.max_distance,
       ...(p.facilities.length ? p.facilities : []),
+      ...(p.category_id ? [p.category_id] : []), // ✅ đúng key
       p.limit,
       p.offset,
     ];
@@ -220,12 +230,12 @@ export class OvernightSearchRepository extends HotelSearchRepository {
   }
 }
 
-
 // dayuse search repository
 export class DayuseSearchRepository extends HotelSearchRepository {
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
     const prepared = this.prepareParams(params);
-    const sql = this.buildSql(prepared.facilitiesSql, prepared.sortSql);
+    const sql = this.buildSql(params, prepared.facilitiesSql, prepared.sortSql);
+
     const values = this.buildValues(prepared);
     const rows = await this.query(sql, values);
     return this.mapResults(rows, prepared);
@@ -244,6 +254,7 @@ export class DayuseSearchRepository extends HotelSearchRepository {
       sort = "price_asc",
       limit = 10,
       offset = 0,
+      category_id,
     } = params;
 
     const keyword = `%${q.trim().toLowerCase()}%`;
@@ -272,7 +283,11 @@ export class DayuseSearchRepository extends HotelSearchRepository {
     };
   }
 
-  private buildSql(facilitiesSql: string, sortSql: string): string {
+  private buildSql(
+    params: HotelSearchParams,
+    facilitiesSql: string,
+    sortSql: string
+  ): string {
     return `
       WITH cheapest AS (
         SELECT 
@@ -309,12 +324,14 @@ export class DayuseSearchRepository extends HotelSearchRepository {
         AND h.star_rating >= ?
         AND hl.distance_center <= ?
         ${facilitiesSql ? `AND ${facilitiesSql}` : ""}
+        
+        ${params.category_id ? `AND h.category_id = ?` : ""}
       ${sortSql}
       LIMIT ? OFFSET ?;
     `;
   }
 
-  private buildValues(p: PreparedParams): any[] {
+  private buildValues(p: PreparedParams & { category_id?: string }): any[] {
     return [
       p.checkin,
       p.rooms,
@@ -324,6 +341,9 @@ export class DayuseSearchRepository extends HotelSearchRepository {
       p.star_min,
       p.max_distance,
       ...(p.facilities.length ? p.facilities : []),
+      // category_id filter
+      ...(p.category_id ? [p.category_id] : []),
+
       p.limit,
       p.offset,
     ];

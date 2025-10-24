@@ -1,6 +1,6 @@
 // src/Repository/Auth/token.repository.ts
 import pool from "../../config/db";
-import { RefreshToken } from "../../models/refresh_token.model";
+import { RefreshToken } from "../../models/Auth/refresh_token.model";
 
 export class TokenRepository {
     // Lưu refresh token

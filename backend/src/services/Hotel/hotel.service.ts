@@ -92,6 +92,8 @@ export class HotelService {
       rooms: Number(params.rooms ?? 1),
       adults: Number(params.adults ?? 1),
       children: Number(params.children ?? 0),
+
+      category_id: params.category_id ? String(params.category_id).trim() : undefined,
     };
   }
 }
