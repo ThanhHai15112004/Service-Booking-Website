@@ -2,7 +2,7 @@ import { Express } from "express";
 import authRoutes from "./Auth/auth.route";
 import profileRoutes from "./Auth/profile.route";
 
-import hotelRoutes from "./Hotel/searchHotel.route";
+import hotelRoutes from "./Hotel/hotel.route";
 import locationRoutes from "./Hotel/location.route";
 import categoryRoute from "./Hotel/category.route";
 import facilityRoute from "./Hotel/facility.route";
