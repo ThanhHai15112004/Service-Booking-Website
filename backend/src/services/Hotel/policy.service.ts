@@ -6,23 +6,18 @@ export class PolicyService {
 
   async getAllPolicies() {
     try {
-      const data: PolicyFlags = await this.repo.getAllPolicies();
+      // Lấy metadata từ DB (labels, descriptions)
+      const policyMetadata = await this.repo.getPolicyMetadata();
+      
+      // Lấy thông tin policies nào đang available
+      const availableFlags: PolicyFlags = await this.repo.getAvailablePolicies();
 
-      const map: Record<keyof PolicyFlags, { label: string }> = {
-        free_cancellation: { label: "Miễn phí hủy" },
-        pay_later: { label: "Thanh toán sau" },
-        no_credit_card: { label: "Không cần thẻ tín dụng" },
-        children_allowed: { label: "Cho phép trẻ em" },
-        pets_allowed: { label: "Cho phép thú cưng" },
-      };
-
-      const items: Policy[] = (Object.keys(map) as (keyof PolicyFlags)[]).map(
-        (key) => ({
-          key,
-          label: map[key].label,
-          available: !!data[key],
-        })
-      );
+      // Map metadata với available flags
+      const items: Policy[] = policyMetadata.map((meta) => ({
+        key: meta.policy_key,
+        label: meta.name_vi, // Lấy từ DB thay vì hardcoded
+        available: !!availableFlags[meta.policy_key as keyof PolicyFlags],
+      }));
 
       return {
         success: true,

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 27, 2025 lúc 10:05 AM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 04:50 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -58,6 +58,32 @@ INSERT INTO `account` (`account_id`, `full_name`, `email`, `password_hash`, `pho
 ('AC202510170002', 'Phan Thanh Hải', 'phanthanhhai151104@gmail.com', '', NULL, 'ACTIVE', 'USER', '2025-10-17 22:16:34', '2025-10-17 22:16:34', 1, 'GOOGLE', '112247884444270419636', 'https://lh3.googleusercontent.com/a/ACg8ocJkTdvdmNo1Wo5LF82heAfwQoPdVj6Y5qEs7Zb3cb7-6aNCQ7Y=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL),
 ('AC202510170003', 'Thanh Hải Phan', 'thanhhai81004@gmail.com', '$2b$10$YNlgtODlRUF5BHttdtBujudEzeEgFs5h1GbpedurOteQADlMpBTlO', NULL, 'ACTIVE', 'USER', '2025-10-17 22:16:41', '2025-10-21 10:52:32', 1, 'GOOGLE', '107882645059152305358', 'https://lh3.googleusercontent.com/a/ACg8ocLOfe8iVmQVpBs9tBlgMhuT_VjCJoyvp9iIf5LWnwZ8NHievHU=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL),
 ('AC202510170004', 'Thanh Hải Phan', 'thanhhailop11a6@gmail.com', '', NULL, 'ACTIVE', 'USER', '2025-10-17 21:57:17', '2025-10-17 21:57:17', 1, 'GOOGLE', '111644191343221764040', 'https://lh3.googleusercontent.com/a/ACg8ocKNLZ2rEaUk0uB0q8PTMXl5ccsU2xCoD78O2NUMBN4iec6s7LE=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `bed_type_metadata`
+--
+
+CREATE TABLE `bed_type_metadata` (
+  `bed_type_key` varchar(50) NOT NULL,
+  `name_vi` varchar(100) NOT NULL,
+  `name_en` varchar(100) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `bed_type_metadata`
+--
+
+INSERT INTO `bed_type_metadata` (`bed_type_key`, `name_vi`, `name_en`, `description`, `display_order`) VALUES
+('Bunk', 'Giường tầng', 'Bunk Bed', 'Giường tầng, phù hợp cho gia đình có trẻ em', 6),
+('Double', 'Giường đôi', 'Double Bed', 'Giường đôi tiêu chuẩn (140-150cm)', 2),
+('King', 'Giường King', 'King Bed', 'Giường King (180-200cm)', 4),
+('Queen', 'Giường Queen', 'Queen Bed', 'Giường Queen (152-160cm)', 3),
+('Single', 'Giường đơn', 'Single Bed', 'Giường đơn cho 1 người (90-120cm)', 1),
+('Twin', 'Giường đôi nhỏ (Twin)', 'Twin Beds', 'Hai giường đơn trong cùng phòng', 5);
 
 -- --------------------------------------------------------
 
@@ -192,7 +218,7 @@ INSERT INTO `hotel` (`hotel_id`, `name`, `description`, `category_id`, `location
 ('H001', 'Hanoi Old Quarter Hotel', 'Khách sạn 3 sao giữa lòng phố cổ Hà Nội.', 'CAT001', 'LOC_HN_05', '12 Hàng Bạc, Hoàn Kiếm, Hà Nội', 21.033000, 105.850000, 3.0, 8.5, 245, '14:00:00', '12:00:00', '024-88888888', 'contact@hoqhotel.vn', 'https://hoqhotel.vn', 30, 'https://lh3.googleusercontent.com/gps-cs-s/AC9h4nquZO-cO1woQvrkFfrWaRZ0CMK8t6pL-IBcPwZ9dmojDrqngeCEC8GC50oxeizk4gsLeDMtxYFZ2rytPcrA5VF45WDIX__jp73xW3VgzhLIdYJ0S1KoLr1yJrgLxUD3roOk2COT=w252-h189-k-no', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:10:49'),
 ('H002', 'My Khe Beach Resort', 'Resort ven biển với hồ bơi và nhà hàng.', 'CAT002', 'LOC_DN_04', '99 Võ Nguyên Giáp, Đà Nẵng', 16.070000, 108.250000, 5.0, 9.2, 530, '14:00:00', '12:00:00', '0236-7777777', 'info@mykheresort.vn', 'https://mykheresort.vn', 80, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/456591942.jpg?k=edd1274281b31d340a1626d37a1a7799a54f1f9a1b6e249a2a2cb61781797e57&o=', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
 ('H003', 'Saigon Riverside Hotel', 'Khách sạn 5 sao cao cấp tại trung tâm TP.HCM.', 'CAT001', 'LOC_HCM_06', '45 Nguyễn Huệ, Quận 1, HCM', 10.776000, 106.700000, 5.0, 9.1, 340, '14:00:00', '12:00:00', '028-88889999', 'info@saigonriverside.vn', 'https://saigonriverside.vn', 60, 'https://lh3.googleusercontent.com/p/AF1QipORkI-MSORzrexdvvlSEUv93xE-cd83W2zDTpc=s1360-w1360-h1020-rw', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-27 16:04:25'),
-('H004', 'Sofitel Legend Metropole Hanoi', 'Khách sạn 5 sao sang trọng tại trung tâm Hà Nội', 'CAT001', 'LOC_HN_05', '15 Ngô Quyền, Hoàn Kiếm, Hà Nội', 21.023000, 105.855000, 5.0, 9.3, 450, '14:00:00', '12:00:00', '024-38266919', 'reservations@sofitel.com', 'https://sofitel-legend-metropole-hanoi.com', 50, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/123456789.jpg', 'ACTIVE', '2025-10-27 15:52:19', '2025-10-27 15:52:19');
+('H004', 'Sofitel Legend Metropole Hanoi', 'Khách sạn 5 sao sang trọng tại trung tâm Hà Nội', 'CAT001', 'LOC_HN_05', '15 Ngô Quyền, Hoàn Kiếm, Hà Nội', 21.023000, 105.855000, 5.0, 9.3, 450, '14:00:00', '12:00:00', '024-38266919', 'reservations@sofitel.com', 'https://sofitel-legend-metropole-hanoi.com', 50, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490234.jpg?k=9ca2d7802e06a240856cc628d2fee2496888874845b72c0654c0a89966f03d5d&o=', 'ACTIVE', '2025-10-27 15:52:19', '2025-10-27 18:51:24');
 
 -- --------------------------------------------------------
 
@@ -265,6 +291,32 @@ CREATE TABLE `hotel_image` (
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Đang đổ dữ liệu cho bảng `hotel_image`
+--
+
+INSERT INTO `hotel_image` (`image_id`, `hotel_id`, `image_url`, `is_primary`, `caption`, `sort_order`, `created_at`) VALUES
+('IMG001', 'H001', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/577971876.jpg?k=cf3747b58c0876d5c782c99f32c5e5f8a0f6949adf255868ae5fe02730893fdd&o=', 1, 'Mặt tiền khách sạn Hanoi Old Quarter', 1, '2025-10-27 18:50:37'),
+('IMG002', 'H001', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/550366605.jpg?k=1cb7aa8a6e8fe5e63c83b2357c6d44bb1e01d3462091e67f283f29ae15352590&o=', 0, 'Phòng Deluxe giường đôi', 2, '2025-10-27 18:50:37'),
+('IMG003', 'H001', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/577971871.jpg?k=aaa6e2a10f7afe222d492d7629bd6a25e120680fed51f47a845ff5b228dcf3a4&o=', 0, 'Sảnh tiếp tân', 3, '2025-10-27 18:50:37'),
+('IMG004', 'H001', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/577971870.jpg?k=7e783a27edc84a1890c3e97ae8a17b3d0538816f6e4d5ac2a97eabec75930ae2&o=', 0, 'Nhà hàng trong khách sạn', 4, '2025-10-27 18:50:37'),
+('IMG005', 'H001', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/550366627.jpg?k=1728b4c91b3d3b16a517cced46def54fb51e8ca1908675be93fc095461b55244&o=', 0, 'Phòng tắm tiện nghi', 5, '2025-10-27 18:50:37'),
+('IMG006', 'H002', 'https://cf.bstatic.com/xdata/images/hotel/max300/391190389.jpg?k=f80d35f4b0a96d838bc8737df824783c8133db415ba90f1fe375eebd84d0bfd6&o=', 1, 'Resort ven biển Mỹ Khê', 1, '2025-10-27 18:50:37'),
+('IMG007', 'H002', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/366406995.jpg?k=7bb6b450fa4265cf6d173e34e9eb09df4e967c17e6ea9d81cdaf643e7c8fa875&o=', 0, 'Hồ bơi ngoài trời', 2, '2025-10-27 18:50:37'),
+('IMG008', 'H002', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/380813487.jpg?k=ef003049a2f94ce5f99c8375bbecf64dee32300a8e199ad7e3aee58769984597&o=', 0, 'Phòng view biển', 3, '2025-10-27 18:50:37'),
+('IMG009', 'H002', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/349627163.jpg?k=3f4e1079cc5346d3fcc332e449998ad2e011f42be83d651fa4e0242ecf30f31f&o=', 0, 'Nhà hàng hải sản', 4, '2025-10-27 18:50:37'),
+('IMG010', 'H002', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/389122399.jpg?k=18665e0d4b69d37198670d6b3cfb947e257335e21fc818d8e43aab2027d27507&o=', 0, 'Khuôn viên resort', 5, '2025-10-27 18:50:37'),
+('IMG011', 'H003', 'https://www.riversidehotelsg.com/wp-content/uploads/2024/06/2023-06-11-e1718358552453.jpg', 1, 'Khách sạn bên sông Sài Gòn', 1, '2025-10-27 18:50:37'),
+('IMG012', 'H003', 'https://www.riversidehotelsg.com/wp-content/uploads/2018/08/services.png', 0, 'Phòng hạng sang', 2, '2025-10-27 18:50:37'),
+('IMG013', 'H003', 'https://www.riversidehotelsg.com/wp-content/uploads/2024/06/z5448403378925_bf842340cae818400724a1a89f7f64a9.jpg', 0, 'Hồ bơi trên cao', 3, '2025-10-27 18:50:37'),
+('IMG014', 'H003', 'https://www.riversidehotelsg.com/wp-content/uploads/2024/07/Nha-hang-an-sang.jpg', 0, 'Khu ẩm thực', 4, '2025-10-27 18:50:37'),
+('IMG015', 'H003', 'https://www.riversidehotelsg.com/wp-content/uploads/2024/07/Rooftop1.jpg', 0, 'Quầy bar sang trọng', 5, '2025-10-27 18:50:37'),
+('IMG016', 'H004', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490227.jpg?k=a34dd4c8439eaa5193340168cf685103eaed89067edcbeff635d14a190f74da9&o=', 1, 'Sofitel Legend Metropole Hanoi cổ điển', 1, '2025-10-27 18:50:37'),
+('IMG017', 'H004', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490423.jpg?k=8d56e3fca44f3ac145856784192e897050c9a200b1b644a3c164367644cec7cc&o=', 0, 'Phòng ngủ sang trọng', 2, '2025-10-27 18:50:37'),
+('IMG018', 'H004', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490303.jpg?k=bf9248e75205795ba4542d8e501a0565f72de6a143b27037d174100ed3e2026e&o=', 0, 'Nhà hàng Le Beaulieu', 3, '2025-10-27 18:50:37'),
+('IMG019', 'H004', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/649684407.jpg?k=245678761e66d0154b39456851080cfbc51068ecd17119fb74dcc89525cbbc36&o=', 0, 'Hồ bơi Metropole', 4, '2025-10-27 18:50:37'),
+('IMG020', 'H004', 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490235.jpg?k=f1796ef8a0f4312362f1dce3224c7c9cd6f94345c92971765ce04add1dd69f9a&o=', 0, 'Khu spa thư giãn', 5, '2025-10-27 18:50:37');
+
 -- --------------------------------------------------------
 
 --
@@ -332,6 +384,31 @@ CREATE TABLE `payment` (
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `policy_type`
+--
+
+CREATE TABLE `policy_type` (
+  `policy_key` varchar(50) NOT NULL,
+  `name_vi` varchar(100) NOT NULL,
+  `name_en` varchar(100) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `policy_type`
+--
+
+INSERT INTO `policy_type` (`policy_key`, `name_vi`, `name_en`, `description`, `display_order`) VALUES
+('children_allowed', 'Cho phép trẻ em', 'Children Allowed', 'Khách sạn chấp nhận khách mang theo trẻ em', 4),
+('free_cancellation', 'Miễn phí hủy', 'Free Cancellation', 'Có thể hủy đặt phòng mà không mất phí', 1),
+('no_credit_card', 'Không cần thẻ tín dụng', 'No Credit Card Required', 'Đặt phòng không yêu cầu thẻ tín dụng', 3),
+('pay_later', 'Thanh toán sau', 'Pay Later', 'Không cần thanh toán ngay, trả tiền khi nhận phòng', 2),
+('pets_allowed', 'Cho phép thú cưng', 'Pets Allowed', 'Khách sạn cho phép mang theo thú cưng', 5);
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `refresh_tokens`
 --
 
@@ -349,7 +426,8 @@ CREATE TABLE `refresh_tokens` (
 
 INSERT INTO `refresh_tokens` (`id`, `account_id`, `token`, `expires_at`, `created_at`) VALUES
 (57, 'AC202510170003', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiQUMyMDI1MTAxNzAwMDMiLCJlbWFpbCI6InRoYW5oaGFpODEwMDRAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3NjEwNzMwNjYsImV4cCI6MTc2MTMzMjI2Nn0.JogqGUgMaQ9csFaEJH9afrBJkwR_NdAVBkbzUXUC2mw', '2025-10-22 04:57:46', '2025-10-22 01:57:46'),
-(58, 'AC202510170003', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiQUMyMDI1MTAxNzAwMDMiLCJlbWFpbCI6InRoYW5oaGFpODEwMDRAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3NjExMDc3MzcsImV4cCI6MTc2MTM2NjkzN30.OXHWBH-IjXQj88DSvXs1aofZtVGfwwa8SSWkXiUfPQg', '2025-10-22 14:35:37', '2025-10-22 11:35:37');
+(58, 'AC202510170003', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiQUMyMDI1MTAxNzAwMDMiLCJlbWFpbCI6InRoYW5oaGFpODEwMDRAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3NjExMDc3MzcsImV4cCI6MTc2MTM2NjkzN30.OXHWBH-IjXQj88DSvXs1aofZtVGfwwa8SSWkXiUfPQg', '2025-10-22 14:35:37', '2025-10-22 11:35:37'),
+(59, 'AC202510170003', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiQUMyMDI1MTAxNzAwMDMiLCJlbWFpbCI6InRoYW5oaGFpODEwMDRAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3NjE2MjIxMTksImV4cCI6MTc2MTg4MTMxOX0.yWE7RlEUnRrMoCRUNg6d0aObXF5vyHZwd2_lwMM7kXA', '2025-10-28 13:28:39', '2025-10-28 10:28:39');
 
 -- --------------------------------------------------------
 
@@ -654,6 +732,12 @@ ALTER TABLE `account`
   ADD PRIMARY KEY (`account_id`);
 
 --
+-- Chỉ mục cho bảng `bed_type_metadata`
+--
+ALTER TABLE `bed_type_metadata`
+  ADD PRIMARY KEY (`bed_type_key`);
+
+--
 -- Chỉ mục cho bảng `booking`
 --
 ALTER TABLE `booking`
@@ -735,6 +819,12 @@ ALTER TABLE `payment`
   ADD KEY `booking_id` (`booking_id`);
 
 --
+-- Chỉ mục cho bảng `policy_type`
+--
+ALTER TABLE `policy_type`
+  ADD PRIMARY KEY (`policy_key`);
+
+--
 -- Chỉ mục cho bảng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
@@ -789,7 +879,7 @@ ALTER TABLE `room_type`
 -- AUTO_INCREMENT cho bảng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- Các ràng buộc cho các bảng đã đổ

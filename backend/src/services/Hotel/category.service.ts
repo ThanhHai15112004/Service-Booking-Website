@@ -18,11 +18,19 @@ export class CategoryService{
             };
         }
 
+        // Transform snake_case → camelCase cho frontend
+        const transformedItems = items.map(item => ({
+            categoryId: item.category_id,
+            name: item.name,
+            description: item.description,
+            icon: item.icon
+        }));
+
         return {
             success: true,
             message: "Danh sách loại hình nơi ở.",
-            count: items.length,
-            items,
+            count: transformedItems.length,
+            items: transformedItems,
         };
     }
 }

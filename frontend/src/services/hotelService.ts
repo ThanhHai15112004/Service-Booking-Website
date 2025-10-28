@@ -8,6 +8,13 @@ export const searchHotels = async (params: {
   rooms: number;
   children: number;
   stayType?: 'overnight' | 'dayuse';
+  categoryId?: string;
+  starMin?: number;
+  facilities?: string[];
+  bedTypes?: string[];
+  policies?: string[];
+  maxDistance?: number;
+  sort?: string;
 }) => {
   try {
     const beParams: any = {
@@ -15,16 +22,25 @@ export const searchHotels = async (params: {
       adults: params.guests,
       rooms: params.rooms,
       children: params.children,
-      stayType: params.stayType || 'overnight', // ✅ Thêm stayType
+      stayType: params.stayType || 'overnight',
     };
 
-    // Nếu là dayuse, gửi 'date', nếu overnight gửi 'checkin' và 'checkout'
+    // Date params
     if (params.stayType === 'dayuse') {
-      beParams.date = params.checkIn; // Chỉ gửi checkIn (là ngày được chọn)
+      beParams.date = params.checkIn;
     } else {
       beParams.checkin = params.checkIn;
       beParams.checkout = params.checkOut;
     }
+
+    // Filter params
+    if (params.categoryId) beParams.category_id = params.categoryId;
+    if (params.starMin) beParams.star_min = params.starMin;
+    if (params.facilities && params.facilities.length > 0) beParams.facilities = params.facilities.join(',');
+    if (params.bedTypes && params.bedTypes.length > 0) beParams.bed_types = params.bedTypes.join(',');
+    if (params.policies && params.policies.length > 0) beParams.policies = params.policies.join(',');
+    if (params.maxDistance) beParams.max_distance = params.maxDistance;
+    if (params.sort) beParams.sort = params.sort;
 
     const res = await api.get("/api/hotels/search", { params: beParams });
     return res.data;

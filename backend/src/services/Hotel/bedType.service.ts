@@ -7,20 +7,13 @@ export class BedTypeService {
 
   async getAllBedTypes() {
     try {
-      const data = await this.repo.getAllBedTypes();
+      // Lấy TẤT CẢ metadata từ DB - có bao nhiêu hiện bấy nhiêu
+      const bedTypeMetadata = await this.repo.getBedTypeMetadata();
 
-      const map: Record<string, string> = {
-        Single: "Giường đơn",
-        Double: "Giường đôi",
-        Queen: "Giường Queen",
-        King: "Giường King",
-        Twin: "Giường đôi nhỏ (Twin)",
-        Bunk: "Giường tầng",
-      };
-
-      const items: BedType[] = data.map((key) => ({
-        key,
-        label: map[key] || key,
+      // Map metadata thành format cho frontend
+      const items: BedType[] = bedTypeMetadata.map((meta) => ({
+        key: meta.bed_type_key,
+        label: meta.name_vi, // Lấy từ DB
       }));
 
       return {

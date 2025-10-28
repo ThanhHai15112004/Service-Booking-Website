@@ -32,8 +32,15 @@ export interface HotelBestOffer {
   availableRooms: number;
   totalPrice: number;
   avgPricePerNight?: number;
+  originalPricePerNight?: number;
+  totalOriginalPrice?: number;
+  discountPercent?: number;
   refundable?: boolean;
   payLater?: boolean;
+  freeCancellation?: boolean;
+  noCreditCard?: boolean;
+  petsAllowed?: boolean;
+  childrenAllowed?: boolean;
 }
 
 export interface HotelSearchParams {
@@ -56,6 +63,20 @@ export interface HotelSearchParams {
   sort?: "price_asc" | "price_desc" | "star_desc" | "rating_desc" | "distance_asc";
 }
 
+export interface HotelImage {
+  imageId: string;
+  imageUrl: string;
+  isPrimary: boolean;
+  caption?: string | null;
+  sortOrder: number;
+}
+
+export interface HotelFacility {
+  facilityId: string;
+  name: string;
+  icon?: string | null;
+}
+
 export interface HotelSearchResult {
   hotelId: string;
   name: string;
@@ -63,6 +84,9 @@ export interface HotelSearchResult {
   avgRating?: number | null;
   reviewCount?: number | null;
   mainImage?: string | null;
+  categoryName?: string | null;
+  images?: HotelImage[];
+  facilities?: HotelFacility[];
   location: HotelLocation;
   bestOffer: HotelBestOffer;
 }

@@ -1,4 +1,4 @@
-import HotelCard from '../HotelListPage/HotelCard';
+import HotelCard from '../HotelsListPage/HotelCard';
 import { ArrowRight } from 'lucide-react';
 import { Hotel } from '../../types';
 

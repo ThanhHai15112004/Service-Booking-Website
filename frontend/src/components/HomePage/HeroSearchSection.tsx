@@ -1,9 +1,10 @@
-interface HeroSectionProps {
+import { MainSearchBar } from '../Search';
+
+interface HeroSearchSectionProps {
   onSearch: (params: any) => void;
-  SearchBarComponent: React.ComponentType<{ onSearch: (params: any) => void }>;
 }
 
-export default function HeroSection({ onSearch, SearchBarComponent }: HeroSectionProps) {
+export default function HeroSearchSection({ onSearch }: HeroSearchSectionProps) {
   return (
     <div
       className="relative py-8 md:py-12 pb-2 md:pb-4 rounded-b-[40px] md:rounded-b-[80px] bg-cover bg-center bg-no-repeat"
@@ -23,11 +24,10 @@ export default function HeroSection({ onSearch, SearchBarComponent }: HeroSectio
         </div>
 
         <div className="relative -mb-16 md:-mb-32">
-          <SearchBarComponent onSearch={onSearch} />
+          <MainSearchBar onSearch={onSearch} />
         </div>
       </div>
     </div>
   );
 }
-
 

@@ -1,8 +1,27 @@
 import pool from "../../config/db";
-import { PolicyFlags } from "../../models/Hotel/policy.model";
+import { PolicyFlags, PolicyMetadata } from "../../models/Hotel/policy.model";
 
 export class PolicyRepository {
-  async getAllPolicies(): Promise<PolicyFlags> {
+  // Lấy metadata của tất cả các loại policies từ DB
+  async getPolicyMetadata(): Promise<PolicyMetadata[]> {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        policy_key,
+        name_vi,
+        name_en,
+        description,
+        display_order
+      FROM policy_type
+      ORDER BY display_order ASC
+      `
+    );
+
+    return rows as PolicyMetadata[];
+  }
+
+  // Kiểm tra xem policy nào đang có sẵn trong room_policy
+  async getAvailablePolicies(): Promise<PolicyFlags> {
     const [rows] = await pool.query(
       `
       SELECT 

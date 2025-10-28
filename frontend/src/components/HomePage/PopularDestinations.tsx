@@ -4,11 +4,11 @@ interface Destination {
   image: string;
 }
 
-interface DestinationsSectionProps {
+interface PopularDestinationsProps {
   destinations: Destination[];
 }
 
-export default function DestinationsSection({ destinations }: DestinationsSectionProps) {
+export default function PopularDestinations({ destinations }: PopularDestinationsProps) {
   return (
     <div className="mb-12 md:mb-16">
       <h2 className="text-2xl md:text-3xl font-bold text-black mb-2">
@@ -43,5 +43,4 @@ export default function DestinationsSection({ destinations }: DestinationsSectio
     </div>
   );
 }
-
 

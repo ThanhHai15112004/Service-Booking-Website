@@ -4,7 +4,7 @@ import SearchTab from './SearchTab';
 import DateRangePicker, { FlexibleDate } from './DateRangePicker';
 import RoomGuestPicker from './RoomGuestPicker';
 import { Search, MapPin, Clock, Star, X } from 'lucide-react';
-import { searchLocations, formatLocationDisplay, formatLocationDetail, Location } from '../../services/locationService';
+import { searchLocations, formatLocationDetail, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 
 interface MainSearchBarProps {
@@ -119,7 +119,8 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
   }, [destination, isUserTyping]);
 
   const handleSelectLocation = (location: Location) => {
-    const displayName = formatLocationDisplay(location);
+    // Chỉ gửi city + district (không country) để backend search match được
+    const displayName = [location.city, location.district].filter(Boolean).join(', ');
     setDestination(displayName);
     setSelectedLocation(location);
     setShowDropdown(false);

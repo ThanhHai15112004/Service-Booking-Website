@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, X, ChevronDown, Loader, Calendar, Users } from 'lucide-react';
-import { searchLocations, formatLocationDisplay, Location } from '../../services/locationService';
+import { searchLocations, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 import BookingDatePicker from './BookingDatePicker';
 
@@ -16,7 +16,7 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
   const [guests, setGuests] = useState(initialSearchParams?.guests || 2);
   const [rooms, setRooms] = useState(initialSearchParams?.rooms || 1);
   const [children, setChildren] = useState(initialSearchParams?.children || 0);
-  const [stayType, setStayType] = useState<'overnight' | 'dayuse'>('overnight'); // ✅ Add stayType
+  const [stayType, setStayType] = useState<'overnight' | 'dayuse'>(initialSearchParams?.stayType || 'overnight');
 
   const [locations, setLocations] = useState<Location[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -31,6 +31,19 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
 
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync state with initialSearchParams when it changes
+  useEffect(() => {
+    if (initialSearchParams) {
+      setDestination(initialSearchParams.destination || '');
+      setCheckIn(initialSearchParams.checkIn || '');
+      setCheckOut(initialSearchParams.checkOut || '');
+      setGuests(initialSearchParams.guests || 2);
+      setRooms(initialSearchParams.rooms || 1);
+      setChildren(initialSearchParams.children || 0);
+      setStayType(initialSearchParams.stayType || 'overnight');
+    }
+  }, [initialSearchParams]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -78,7 +91,8 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
   }, [destination, isUserTyping]);
 
   const handleSelectLocation = (location: Location) => {
-    const displayName = formatLocationDisplay(location);
+    // Chỉ gửi city + district (không country) để backend search match được
+    const displayName = [location.city, location.district].filter(Boolean).join(', ');
     setDestination(displayName);
     setShowDropdown(false);
     setLocations([]);
