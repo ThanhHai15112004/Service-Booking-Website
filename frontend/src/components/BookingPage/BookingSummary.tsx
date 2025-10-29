@@ -1,4 +1,4 @@
-import { Calendar, Users } from 'lucide-react';
+import { Calendar, Users, Home, Baby } from 'lucide-react';
 
 interface Hotel {
   name: string;
@@ -7,11 +7,19 @@ interface Hotel {
   price_per_night: number;
 }
 
+interface Room {
+  roomType?: string;
+  roomId?: string;
+}
+
 interface BookingSummaryProps {
   hotel: Hotel;
+  room?: Room | null;
   checkIn: string;
   checkOut: string;
   guests: number;
+  rooms?: number;
+  children?: number;
   nights: number;
   subtotal: number;
   tax: number;
@@ -20,9 +28,12 @@ interface BookingSummaryProps {
 
 export default function BookingSummary({
   hotel,
+  room,
   checkIn,
   checkOut,
   guests,
+  rooms = 1,
+  children = 0,
   nights,
   subtotal,
   tax,
@@ -47,6 +58,9 @@ export default function BookingSummary({
         />
         <h3 className="font-bold text-black text-lg mb-1">{hotel.name}</h3>
         <p className="text-gray-600 text-sm">{hotel.address}</p>
+        {room?.roomType && (
+          <p className="text-gray-700 text-sm font-medium mt-2">Loại phòng: {room.roomType}</p>
+        )}
       </div>
 
       <div className="space-y-3 mb-6 pb-6 border-b border-gray-200">
@@ -71,21 +85,39 @@ export default function BookingSummary({
         </div>
 
         <div className="flex items-center gap-3">
+          <Home className="w-5 h-5 text-gray-400" />
+          <div className="flex-1">
+            <div className="text-sm text-gray-600">Số phòng</div>
+            <div className="font-medium text-black">{rooms} phòng</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           <Users className="w-5 h-5 text-gray-400" />
           <div className="flex-1">
-            <div className="text-sm text-gray-600">Số khách</div>
+            <div className="text-sm text-gray-600">Người lớn</div>
             <div className="font-medium text-black">{guests} người</div>
           </div>
         </div>
+
+        {children > 0 && (
+          <div className="flex items-center gap-3">
+            <Baby className="w-5 h-5 text-gray-400" />
+            <div className="flex-1">
+              <div className="text-sm text-gray-600">Trẻ em</div>
+              <div className="font-medium text-black">{children} trẻ</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
         <div className="flex justify-between text-gray-600">
-          <span>{formatPrice(hotel.price_per_night)} × {nights} đêm</span>
+          <span>{formatPrice(hotel.price_per_night)} × {nights} đêm × {rooms} phòng</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Thuế & phí</span>
+          <span>Thuế & phí (10%)</span>
           <span>{formatPrice(tax)}</span>
         </div>
         <div className="flex justify-between text-xl font-bold text-black pt-3 border-t border-gray-200">

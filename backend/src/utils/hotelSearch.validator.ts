@@ -151,8 +151,15 @@ export class HotelSearchValidator {
       return cleaned.length > 0 ? cleaned : undefined;
     }
 
-    const singleValue = String(value).trim();
-    return singleValue ? [singleValue] : undefined;
+    // Handle comma-separated string (e.g., "F001,F003" -> ["F001", "F003"])
+    const stringValue = String(value).trim();
+    if (!stringValue) return undefined;
+    
+    const items = stringValue.split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+    
+    return items.length > 0 ? items : undefined;
   }
 
   private static sanitizeSort(

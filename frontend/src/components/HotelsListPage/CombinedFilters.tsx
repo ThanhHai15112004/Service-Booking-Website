@@ -22,6 +22,8 @@ interface CombinedFiltersProps {
   fullFilterData: {
     facilities: Array<{ facilityId: string; name: string; category: string; icon?: string }>;
     categories: Array<{ categoryId: string; name: string; icon?: string }>;
+    bedTypes: Array<{ bedTypeId: string; name: string; icon?: string }>;
+    policies: Array<{ policyId: string; name: string; icon?: string }>;
   };
 }
 
@@ -91,10 +93,17 @@ export default function CombinedFilters({
 
   // Facilities
   filters.facilities.forEach((facilityId) => {
+    const facility = fullFilterData.facilities.find(f => f.facilityId === facilityId);
+    const iconElement = facility?.icon ? (
+      <img src={facility.icon} alt="" className="w-4 h-4 object-contain" />
+    ) : (
+      <Wifi className="w-4 h-4" />
+    );
+    
     activeChips.push({
       type: 'active',
       label: facilityNames.get(facilityId) || facilityId,
-      icon: <Wifi className="w-4 h-4" />,
+      icon: iconElement,
       color: 'bg-green-100 border-green-300 text-green-800',
       onRemove: () => onClearFilter('facilities', facilityId)
     });
@@ -102,10 +111,17 @@ export default function CombinedFilters({
 
   // Bed Types
   filters.bedTypes.forEach((bedType) => {
+    const bedTypeData = fullFilterData.bedTypes.find(b => b.bedTypeId === bedType);
+    const iconElement = bedTypeData?.icon ? (
+      <img src={bedTypeData.icon} alt="" className="w-4 h-4 object-contain" />
+    ) : (
+      <Bed className="w-4 h-4" />
+    );
+    
     activeChips.push({
       type: 'active',
       label: bedTypeNames.get(bedType) || bedType,
-      icon: <Bed className="w-4 h-4" />,
+      icon: iconElement,
       color: 'bg-indigo-100 border-indigo-300 text-indigo-800',
       onRemove: () => onClearFilter('bedTypes', bedType)
     });
@@ -113,10 +129,17 @@ export default function CombinedFilters({
 
   // Policies
   filters.policies.forEach((policy) => {
+    const policyData = fullFilterData.policies.find(p => p.policyId === policy);
+    const iconElement = policyData?.icon ? (
+      <img src={policyData.icon} alt="" className="w-4 h-4 object-contain" />
+    ) : (
+      <CreditCard className="w-4 h-4" />
+    );
+    
     activeChips.push({
       type: 'active',
       label: policyNames.get(policy) || policy,
-      icon: <CreditCard className="w-4 h-4" />,
+      icon: iconElement,
       color: 'bg-pink-100 border-pink-300 text-pink-800',
       onRemove: () => onClearFilter('policies', policy)
     });

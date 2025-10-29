@@ -1,5 +1,23 @@
 import { X, DollarSign, Star, Home, Wifi, Bed, CreditCard } from 'lucide-react';
 
+interface FacilityData {
+  facilityId: string;
+  name: string;
+  icon?: string;
+}
+
+interface BedTypeData {
+  bedTypeId: string;
+  name: string;
+  icon?: string;
+}
+
+interface PolicyData {
+  policyId: string;
+  name: string;
+  icon?: string;
+}
+
 interface ActiveFiltersProps {
   filters: {
     priceRange: number[];
@@ -15,6 +33,10 @@ interface ActiveFiltersProps {
   facilityNames: Map<string, string>;
   bedTypeNames: Map<string, string>;
   policyNames: Map<string, string>;
+  // Add full data for icons
+  facilitiesData?: FacilityData[];
+  bedTypesData?: BedTypeData[];
+  policiesData?: PolicyData[];
 }
 
 export default function ActiveFilters({
@@ -24,8 +46,28 @@ export default function ActiveFilters({
   categoryName,
   facilityNames,
   bedTypeNames,
-  policyNames
+  policyNames,
+  facilitiesData = [],
+  bedTypesData = [],
+  policiesData = []
 }: ActiveFiltersProps) {
+  // Helper to get facility icon
+  const getFacilityIcon = (facilityId: string) => {
+    const facility = facilitiesData.find(f => f.facilityId === facilityId);
+    return facility?.icon;
+  };
+
+  // Helper to get bed type icon
+  const getBedTypeIcon = (bedTypeId: string) => {
+    const bedType = bedTypesData.find(b => b.bedTypeId === bedTypeId);
+    return bedType?.icon;
+  };
+
+  // Helper to get policy icon
+  const getPolicyIcon = (policyId: string) => {
+    const policy = policiesData.find(p => p.policyId === policyId);
+    return policy?.icon;
+  };
   const hasActiveFilters = 
     filters.starRating.length > 0 ||
     filters.categoryId ||
@@ -96,46 +138,67 @@ export default function ActiveFilters({
         )}
 
         {/* Facilities */}
-        {filters.facilities.map((facilityId) => (
-          <div key={facilityId} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm border border-green-200">
-            <Wifi className="w-4 h-4" />
-            <span>{facilityNames.get(facilityId) || facilityId}</span>
-            <button
-              onClick={() => onClearFilter('facilities', facilityId)}
-              className="hover:bg-green-100 rounded-full p-0.5 ml-1"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
+        {filters.facilities.map((facilityId) => {
+          const iconUrl = getFacilityIcon(facilityId);
+          return (
+            <div key={facilityId} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm border border-green-200">
+              {iconUrl ? (
+                <img src={iconUrl} alt="" className="w-4 h-4 object-contain" />
+              ) : (
+                <Wifi className="w-4 h-4" />
+              )}
+              <span>{facilityNames.get(facilityId) || facilityId}</span>
+              <button
+                onClick={() => onClearFilter('facilities', facilityId)}
+                className="hover:bg-green-100 rounded-full p-0.5 ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
 
         {/* Bed Types */}
-        {filters.bedTypes.map((bedType) => (
-          <div key={bedType} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm border border-indigo-200">
-            <Bed className="w-4 h-4" />
-            <span>{bedTypeNames.get(bedType) || bedType}</span>
-            <button
-              onClick={() => onClearFilter('bedTypes', bedType)}
-              className="hover:bg-indigo-100 rounded-full p-0.5 ml-1"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
+        {filters.bedTypes.map((bedType) => {
+          const iconUrl = getBedTypeIcon(bedType);
+          return (
+            <div key={bedType} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm border border-indigo-200">
+              {iconUrl ? (
+                <img src={iconUrl} alt="" className="w-4 h-4 object-contain" />
+              ) : (
+                <Bed className="w-4 h-4" />
+              )}
+              <span>{bedTypeNames.get(bedType) || bedType}</span>
+              <button
+                onClick={() => onClearFilter('bedTypes', bedType)}
+                className="hover:bg-indigo-100 rounded-full p-0.5 ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
 
         {/* Policies */}
-        {filters.policies.map((policy) => (
-          <div key={policy} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pink-50 text-pink-700 rounded-full text-sm border border-pink-200">
-            <CreditCard className="w-4 h-4" />
-            <span>{policyNames.get(policy) || policy}</span>
-            <button
-              onClick={() => onClearFilter('policies', policy)}
-              className="hover:bg-pink-100 rounded-full p-0.5 ml-1"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
+        {filters.policies.map((policy) => {
+          const iconUrl = getPolicyIcon(policy);
+          return (
+            <div key={policy} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pink-50 text-pink-700 rounded-full text-sm border border-pink-200">
+              {iconUrl ? (
+                <img src={iconUrl} alt="" className="w-4 h-4 object-contain" />
+              ) : (
+                <CreditCard className="w-4 h-4" />
+              )}
+              <span>{policyNames.get(policy) || policy}</span>
+              <button
+                onClick={() => onClearFilter('policies', policy)}
+                className="hover:bg-pink-100 rounded-full p-0.5 ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

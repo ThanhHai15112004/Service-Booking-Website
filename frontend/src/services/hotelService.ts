@@ -45,7 +45,49 @@ export const searchHotels = async (params: {
     const res = await api.get("/api/hotels/search", { params: beParams });
     return res.data;
   } catch (error: any) {
-    console.error("Lỗi gọi API searchHotels:", error);
     return { success: false, message: "Không thể tìm kiếm khách sạn." };
+  }
+};
+
+export const getHotelDetail = async (hotelId: string, params: {
+  checkIn: string;
+  checkOut: string;
+  adults?: number;
+  children?: number;
+  rooms?: number;
+}) => {
+  try {
+    const res = await api.get(`/api/hotels/${hotelId}`, {
+      params: {
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: params.adults || 2,
+        children: params.children || 0,
+        rooms: params.rooms || 1
+      }
+    });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ getHotelDetail error:', error);
+    return { success: false, message: error.response?.data?.message || "Không thể lấy chi tiết khách sạn." };
+  }
+};
+
+/**
+ * Get hotel counts for breadcrumb navigation
+ */
+export const getHotelCounts = async (country: string, city?: string) => {
+  try {
+    const res = await api.get('/api/locations/hotel-counts', {
+      params: { country, city }
+    });
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ getHotelCounts error:', error);
+    return { 
+      success: false, 
+      message: "Không thể đếm khách sạn.",
+      data: { countryCount: 0, cityCount: 0 }
+    };
   }
 };

@@ -8,7 +8,7 @@ export const getLocationController = async (req: Request, res: Response) => {
     const q = String(req.query.q || "").trim();
     const limit = parseInt(String(req.query.limit || "8"), 10);
 
-    const result = await locationService.search(q, limit);
+    const result = await locationService.searchLocations(q, limit);
 
     return res.status(200).json({
       success: result.success,
@@ -22,6 +22,26 @@ export const getLocationController = async (req: Request, res: Response) => {
       success: false,
       message: "Lỗi server khi tìm kiếm địa điểm.",
       items: [],
+    });
+  }
+};
+
+export const getHotelCountsController = async (req: Request, res: Response) => {
+  try {
+    const country = String(req.query.country || "Vietnam");
+    const city = req.query.city ? String(req.query.city) : undefined;
+
+    console.log('🔢 Getting hotel counts:', { country, city });
+
+    const result = await locationService.getHotelCounts(country, city);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("❌ Lỗi API /api/locations/hotel-counts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi đếm khách sạn.",
+      data: { countryCount: 0, cityCount: 0 }
     });
   }
 };

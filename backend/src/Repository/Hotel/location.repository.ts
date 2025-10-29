@@ -52,4 +52,72 @@ export class LocationRepository {
       conn.release();
     }
   }
+
+  /**
+   * Count hotels by country
+   */
+  async countHotelsByCountry(country: string): Promise<number> {
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.query(
+        `
+        SELECT COUNT(DISTINCT h.hotel_id) as total
+        FROM hotel h
+        INNER JOIN hotel_location hl ON hl.location_id = h.location_id
+        WHERE hl.country = ?
+        `,
+        [country]
+      );
+      return (rows as any[])[0]?.total || 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /**
+   * Count hotels by city
+   */
+  async countHotelsByCity(city: string, country?: string): Promise<number> {
+    const conn = await pool.getConnection();
+    try {
+      let sql = `
+        SELECT COUNT(DISTINCT h.hotel_id) as total
+        FROM hotel h
+        INNER JOIN hotel_location hl ON hl.location_id = h.location_id
+        WHERE hl.city = ?
+      `;
+      const params: any[] = [city];
+
+      if (country) {
+        sql += ` AND hl.country = ?`;
+        params.push(country);
+      }
+
+      const [rows] = await conn.query(sql, params);
+      return (rows as any[])[0]?.total || 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /**
+   * Get hotel counts for breadcrumb
+   */
+  async getHotelCounts(country: string, city?: string): Promise<{
+    countryCount: number;
+    cityCount: number;
+  }> {
+    const conn = await pool.getConnection();
+    try {
+      const countryCount = await this.countHotelsByCountry(country);
+      const cityCount = city ? await this.countHotelsByCity(city, country) : 0;
+
+      return {
+        countryCount,
+        cityCount
+      };
+    } finally {
+      conn.release();
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SearchTypeTabs from './SearchTypeTabs';
 import SearchTab from './SearchTab';
 import DateRangePicker, { FlexibleDate } from './DateRangePicker';
@@ -6,20 +7,24 @@ import RoomGuestPicker from './RoomGuestPicker';
 import { Search, MapPin, Clock, Star, X } from 'lucide-react';
 import { searchLocations, formatLocationDetail, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
+import { useSearch } from '../../contexts/SearchContext';
 
 interface MainSearchBarProps {
   onSearch: (params: any) => void;
 }
 
 export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
+  const navigate = useNavigate();
+  const { searchParams, updateSearchParams } = useSearch();
+  
   const [searchType, setSearchType] = useState('hotel');
   const [tab, setTab] = useState<'overnight' | 'dayuse'>('overnight');
-  const [destination, setDestination] = useState('');
-  const [checkIn, setCheckIn] = useState<string | FlexibleDate>('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(2);
-  const [rooms, setRooms] = useState(1);
-  const [children, setChildren] = useState(0);
+  const [destination, setDestination] = useState(searchParams.destinationName || '');
+  const [checkIn, setCheckIn] = useState<string | FlexibleDate>(searchParams.checkIn);
+  const [checkOut, setCheckOut] = useState(searchParams.checkOut);
+  const [guests, setGuests] = useState(searchParams.adults);
+  const [rooms, setRooms] = useState(searchParams.rooms);
+  const [children, setChildren] = useState(searchParams.children);
   const [roomGuestOpen, setRoomGuestOpen] = useState(false);
   
   const [locations, setLocations] = useState<Location[]>([]);
@@ -42,7 +47,7 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
           setHotLocations(result.items);
         }
       } catch (error) {
-        console.error('Lỗi load hot locations:', error);
+        // Silent error handling
       }
     };
 
@@ -53,7 +58,7 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
           const recents = JSON.parse(stored);
           setRecentSearches(recents.slice(0, 5));
         } catch (error) {
-          console.error('Lỗi load recents:', error);
+          // Silent error handling
         }
       }
     };
@@ -106,7 +111,6 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
           setLocations([]);
         }
       } catch (error) {
-        console.error('Lỗi tìm kiếm địa điểm:', error);
         setLocations([]);
       } finally {
         setIsSearching(false);
@@ -138,7 +142,7 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
       localStorage.setItem('recentSearches', JSON.stringify(recents));
       setRecentSearches(recents.slice(0, 5));
     } catch (error) {
-      console.error('Lỗi save recent:', error);
+      // Silent error handling
     }
   };
 
@@ -190,6 +194,17 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
     try {
       setIsLoadingSearch(true);
       
+      // Lưu vào SearchContext
+      updateSearchParams({
+        destination: selectedLocation?.locationId || destination,
+        destinationName: destination,
+        checkIn: ci,
+        checkOut: co,
+        adults: guests,
+        rooms,
+        children,
+      });
+
       const params = {
         destination,
         checkIn: ci,
@@ -203,13 +218,27 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
       const res = await searchHotels(params);
 
       if (res.success) {
-        console.log("✅ Kết quả tìm kiếm:", res);
-        onSearch(params);
+        // Navigate to search results page with query params
+        const queryParams = new URLSearchParams({
+          destination: params.destination || '',
+          checkIn: params.checkIn || '',
+          checkOut: params.checkOut || '',
+          guests: params.guests?.toString() || '2',
+          rooms: params.rooms?.toString() || '1',
+          children: params.children?.toString() || '0',
+          stayType: params.stayType || 'overnight'
+        });
+        
+        navigate(`/hotels/search?${queryParams.toString()}`);
+        
+        // Also call onSearch callback if provided
+        if (onSearch) {
+          onSearch(params);
+        }
       } else {
         alert(res.message || "Không tìm thấy khách sạn phù hợp.");
       }
     } catch (error: any) {
-      console.error("❌ Lỗi tìm kiếm:", error);
       alert("Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.");
     } finally {
       setIsLoadingSearch(false);

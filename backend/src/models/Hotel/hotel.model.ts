@@ -96,3 +96,61 @@ export interface SearchFilter {
   conditions: string[];
   values: any[];
 }
+
+// Highlight for hotel detail page
+export interface HotelHighlight {
+  iconType: 'wifi' | 'parking' | 'reception' | 'pool' | 'restaurant' | 'gym' | 'spa' | 'other';
+  text: string;
+  tooltip?: string;
+}
+
+// Badge for hotel (e.g., "Popular", "New", "Recommended")
+export interface HotelBadge {
+  type: 'popular' | 'new' | 'recommended' | 'top_rated' | 'best_value';
+  label: string;
+  color?: string;
+}
+
+// Structured policies
+export interface HotelPolicies {
+  checkIn: {
+    from: string; // "14:00"
+    to?: string;
+  };
+  checkOut: {
+    before: string; // "12:00"
+  };
+  children?: string;
+  cancellation?: string;
+  smoking?: boolean;
+  pets?: boolean;
+  additionalPolicies?: Array<{
+    policyName: string;
+    description: string;
+  }>;
+}
+
+// Extended hotel detail response
+export interface HotelDetailData extends Hotel {
+  categoryName?: string;
+  address?: string;
+  phoneNumber?: string;
+  email?: string;
+  website?: string;
+  checkinTime?: string;
+  checkoutTime?: string;
+  totalRooms?: number;
+  city?: string;
+  district?: string;
+  ward?: string;
+  areaName?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  distanceCenter?: number;
+  images?: HotelImage[];
+  facilities?: HotelFacility[];
+  highlights?: HotelHighlight[];
+  badges?: HotelBadge[];
+  policies?: HotelPolicies;
+}

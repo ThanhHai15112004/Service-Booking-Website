@@ -17,22 +17,16 @@ export class HotelSearchRepository {
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
     const { sql, values } = this.buildSearchQuery(params);
     
-    console.log('🔍 SQL Query:', sql);
-    console.log('📦 Values:', values);
-    
     try {
       const rows = await this.query(sql, values);
-      console.log(`✅ Rows found: ${rows.length}`);
-      
       const results = this.mapResults(rows, params);
       
-      // Fetch images and facilities for all hotels
       await this.attachImagesToResults(results);
       await this.attachFacilitiesToResults(results);
       
       return results;
-    } catch (error) {
-      console.error('❌ SQL Error:', error);
+    } catch (error: any) {
+      console.error('Hotel Search DB Error:', error.message);
       throw error;
     }
   }
@@ -444,5 +438,408 @@ export class HotelSearchRepository {
         },
       };
     });
+  }
+
+  // ============================================================================
+  // HOTEL DETAIL METHODS
+  // ============================================================================
+
+  /**
+   * Get hotel detail by ID with all images, facilities, and policies
+   */
+  async getHotelById(hotelId: string): Promise<any | null> {
+    try {
+
+      // Get basic hotel info (includes policy fields from hotel table)
+      const hotelSql = `
+        SELECT 
+          h.hotel_id as hotelId,
+          h.name,
+          h.description,
+          h.star_rating as starRating,
+          h.avg_rating as avgRating,
+          h.review_count as reviewCount,
+          h.main_image as mainImage,
+          h.category_id as categoryId,
+          hc.name as categoryName,
+          h.address,
+          h.phone_number as phoneNumber,
+          h.email,
+          h.website,
+          h.checkin_time as checkinTime,
+          h.checkout_time as checkoutTime,
+          h.total_rooms as totalRooms,
+          hl.location_id as locationId,
+          hl.city,
+          hl.district,
+          hl.ward,
+          hl.area_name as areaName,
+          hl.country,
+          hl.latitude,
+          hl.longitude,
+          hl.distance_center as distanceCenter,
+          hl.description as locationDescription
+        FROM hotel h
+        LEFT JOIN hotel_category hc ON hc.category_id = h.category_id
+        LEFT JOIN hotel_location hl ON hl.location_id = h.location_id
+        WHERE h.hotel_id = ?
+      `;
+
+      const hotels = await this.query<any>(hotelSql, [hotelId]);
+      
+      if (hotels.length === 0) {
+        return null;
+      }
+
+      const hotel = hotels[0];
+
+      // Get images
+      const imagesSql = `
+        SELECT 
+          image_id as imageId,
+          image_url as imageUrl,
+          is_primary as isPrimary,
+          caption,
+          sort_order as sortOrder
+        FROM hotel_image
+        WHERE hotel_id = ?
+        ORDER BY sort_order ASC, is_primary DESC
+      `;
+      const images = await this.query<any>(imagesSql, [hotelId]);
+
+      // Get facilities
+      const facilitiesSql = `
+        SELECT 
+          f.facility_id as facilityId,
+          f.name,
+          f.icon
+        FROM hotel_facility hf
+        JOIN facility f ON f.facility_id = hf.facility_id
+        WHERE hf.hotel_id = ?
+        ORDER BY f.name ASC
+      `;
+      const facilities = await this.query<any>(facilitiesSql, [hotelId]);
+
+      // Build structured policies
+      const policies = {
+        checkIn: {
+          from: hotel.checkinTime || '14:00',
+          to: '23:59'
+        },
+        checkOut: {
+          before: hotel.checkoutTime || '12:00'
+        },
+        children: 'Cho phép trẻ em ở cùng',
+        cancellation: 'Miễn phí hủy trước 48 giờ',
+        smoking: false,
+        pets: false,
+        additionalPolicies: []
+      };
+
+      // Generate highlights based on facilities and hotel features
+      const highlights = this.generateHighlights(facilities, hotel);
+
+      // Generate badges based on rating and reviews
+      const badges = this.generateBadges(hotel);
+
+      return {
+        ...hotel,
+        images: images.map((img: any) => ({
+          imageId: img.imageId,
+          imageUrl: img.imageUrl,
+          isPrimary: Boolean(img.isPrimary),
+          caption: img.caption,
+          sortOrder: img.sortOrder
+        })),
+        facilities: facilities.map((fac: any) => ({
+          facilityId: fac.facilityId,
+          name: fac.name,
+          icon: fac.icon
+        })),
+        highlights,
+        badges,
+        policies
+      };
+    } catch (error: any) {
+      console.error('Get Hotel By ID DB Error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get available rooms for a hotel within a date range
+   */
+  async getAvailableRoomsByHotelId(
+    hotelId: string, 
+    checkIn: string, 
+    checkOut: string,
+    adults: number = 2,
+    children: number = 0
+  ): Promise<any[]> {
+    try {
+      const nights = this.calculateNights(checkIn, checkOut);
+
+      // Get all rooms with their price schedule for the date range
+      const sql = `
+        SELECT 
+          rt.room_type_id as roomTypeId,
+          rt.name as roomName,
+          rt.description as roomDescription,
+          rt.bed_type as bedType,
+          rt.area,
+          rt.image_url as roomImage,
+          r.room_id as roomId,
+          r.capacity,
+          rps.date,
+          rps.base_price as basePrice,
+          rps.discount_percent as discountPercent,
+          rps.available_rooms as availableRooms,
+          rps.refundable,
+          rps.pay_later as payLater,
+          rp.free_cancellation as freeCancellation,
+          rp.no_credit_card as noCreditCard,
+          rp.extra_bed_fee as extraBedFee,
+          rp.children_allowed as childrenAllowed,
+          rp.pets_allowed as petsAllowed
+        FROM room_type rt
+        JOIN room r ON r.room_type_id = rt.room_type_id
+        JOIN room_price_schedule rps ON rps.room_id = r.room_id
+        LEFT JOIN room_policy rp ON rp.room_id = r.room_id
+        WHERE rt.hotel_id = ?
+          AND r.status = 'ACTIVE'
+          AND CAST(rps.date AS DATE) >= ?
+          AND CAST(rps.date AS DATE) < ?
+          AND rps.available_rooms > 0
+        ORDER BY rt.room_type_id, r.room_id, rps.date
+      `;
+
+      const rows = await this.query<any>(sql, [hotelId, checkIn, checkOut]);
+
+      // Group by room_id
+      const roomsMap = new Map<string, any>();
+
+      for (const row of rows) {
+        const roomId = row.roomId;
+        
+        if (!roomsMap.has(roomId)) {
+          roomsMap.set(roomId, {
+            roomId: row.roomId,
+            roomTypeId: row.roomTypeId,
+            roomName: row.roomName,
+            roomDescription: row.roomDescription,
+            bedType: row.bedType,
+            area: row.area ? Number(row.area) : null,
+            roomImage: row.roomImage,
+            capacity: row.capacity ? Number(row.capacity) : 0,
+            dailyAvailability: [],
+            facilities: [],
+            refundable: Boolean(row.refundable),
+            payLater: Boolean(row.payLater),
+            freeCancellation: Boolean(row.freeCancellation),
+            noCreditCard: Boolean(row.noCreditCard),
+            extraBedFee: row.extraBedFee ? Number(row.extraBedFee) : 0,
+            childrenAllowed: Boolean(row.childrenAllowed),
+            petsAllowed: Boolean(row.petsAllowed)
+          });
+        }
+
+        const room = roomsMap.get(roomId)!;
+        
+        // Add daily price
+        const finalPrice = row.basePrice * (1 - row.discountPercent / 100);
+        room.dailyAvailability.push({
+          date: row.date,
+          basePrice: Number(row.basePrice),
+          discountPercent: Number(row.discountPercent),
+          finalPrice: Number(finalPrice),
+          availableRooms: Number(row.availableRooms)
+        });
+      }
+
+      // Filter rooms that have full availability (all dates covered)
+      const availableRooms = Array.from(roomsMap.values()).filter(room => {
+        return room.dailyAvailability.length >= nights;
+      });
+
+      // Calculate totals for each room
+      for (const room of availableRooms) {
+        const totalPrice = room.dailyAvailability.reduce((sum: number, day: any) => sum + day.finalPrice, 0);
+        const totalBasePrice = room.dailyAvailability.reduce((sum: number, day: any) => sum + day.basePrice, 0);
+        const minAvailable = Math.min(...room.dailyAvailability.map((day: any) => day.availableRooms));
+
+        room.totalPrice = Number(totalPrice.toFixed(2));
+        room.avgPricePerNight = Number((totalPrice / nights).toFixed(2));
+        room.totalBasePrice = Number(totalBasePrice.toFixed(2));
+        room.minAvailable = minAvailable;
+        room.hasFullAvailability = room.dailyAvailability.length >= nights;
+
+        // Check capacity
+        room.meetsCapacity = room.capacity >= (adults + children);
+      }
+
+      // Fetch room facilities
+      if (availableRooms.length > 0) {
+        const roomIds = availableRooms.map(r => r.roomId);
+        const placeholders = roomIds.map(() => '?').join(',');
+        
+        const facilitiesSql = `
+          SELECT 
+            ra.room_id as roomId,
+            f.facility_id as facilityId,
+            f.name,
+            f.icon
+          FROM room_amenity ra
+          JOIN facility f ON f.facility_id = ra.facility_id
+          WHERE ra.room_id IN (${placeholders})
+          ORDER BY ra.room_id, f.name ASC
+        `;
+        
+        const facilities = await this.query<any>(facilitiesSql, roomIds);
+        
+        // Group facilities by room_id
+        const facilitiesByRoom = facilities.reduce((acc: any, fac: any) => {
+          if (!acc[fac.roomId]) acc[fac.roomId] = [];
+          acc[fac.roomId].push({
+            facilityId: fac.facilityId,
+            name: fac.name,
+            icon: fac.icon
+          });
+          return acc;
+        }, {});
+        
+        // Attach facilities to rooms
+        availableRooms.forEach(room => {
+          room.facilities = facilitiesByRoom[room.roomId] || [];
+        });
+      }
+
+      // Sort by price
+      availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+
+      return availableRooms;
+    } catch (error: any) {
+      console.error('Get Available Rooms DB Error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate highlights based on facilities and hotel features
+   */
+  private generateHighlights(facilities: any[], hotel: any): any[] {
+    const highlights: any[] = [];
+    const facilityNames = facilities.map(f => f.name.toLowerCase());
+
+    // Check for 24h reception (based on typical hotel features)
+    if (facilityNames.includes('lễ tân 24 giờ') || facilityNames.includes('reception 24h')) {
+      highlights.push({
+        iconType: 'reception',
+        text: 'Lễ tân phục vụ [24 giờ]',
+        tooltip: 'Quầy lễ tân phục vụ 24/7'
+      });
+    }
+
+    // Check for WiFi
+    if (facilityNames.some(f => f.includes('wifi') || f.includes('wi-fi'))) {
+      highlights.push({
+        iconType: 'wifi',
+        text: 'Wi-Fi miễn phí trong tất cả các phòng!',
+        tooltip: 'Tốc độ cao, ổn định'
+      });
+    }
+
+    // Check for parking
+    if (facilityNames.some(f => f.includes('bãi đỗ xe') || f.includes('parking'))) {
+      highlights.push({
+        iconType: 'parking',
+        text: 'Bãi đỗ xe miễn phí',
+        tooltip: 'Chỗ đỗ xe rộng rãi'
+      });
+    }
+
+    // Check for pool
+    if (facilityNames.some(f => f.includes('bể bơi') || f.includes('pool'))) {
+      highlights.push({
+        iconType: 'pool',
+        text: 'Bể bơi',
+        tooltip: 'Bể bơi ngoài trời/trong nhà'
+      });
+    }
+
+    // Check for restaurant
+    if (facilityNames.some(f => f.includes('nhà hàng') || f.includes('restaurant'))) {
+      highlights.push({
+        iconType: 'restaurant',
+        text: 'Nhà hàng',
+        tooltip: 'Ẩm thực đa dạng'
+      });
+    }
+
+    // Check for gym
+    if (facilityNames.some(f => f.includes('phòng gym') || f.includes('fitness'))) {
+      highlights.push({
+        iconType: 'gym',
+        text: 'Phòng tập gym',
+        tooltip: 'Trang thiết bị hiện đại'
+      });
+    }
+
+    // Check for spa
+    if (facilityNames.some(f => f.includes('spa'))) {
+      highlights.push({
+        iconType: 'spa',
+        text: 'Spa',
+        tooltip: 'Dịch vụ massage và spa'
+      });
+    }
+
+    return highlights;
+  }
+
+  /**
+   * Generate badges based on hotel rating and reviews
+   */
+  private generateBadges(hotel: any): any[] {
+    const badges: any[] = [];
+
+    // Top rated badge
+    if (hotel.avgRating >= 4.5 && hotel.reviewCount >= 100) {
+      badges.push({
+        type: 'top_rated',
+        label: 'Đánh giá cao',
+        color: '#10b981'
+      });
+    }
+
+    // Popular badge
+    if (hotel.reviewCount >= 500) {
+      badges.push({
+        type: 'popular',
+        label: 'Phổ biến',
+        color: '#3b82f6'
+      });
+    }
+
+    // Best value badge
+    if (hotel.avgRating >= 4.0 && hotel.starRating >= 3) {
+      badges.push({
+        type: 'best_value',
+        label: 'Đáng giá',
+        color: '#f59e0b'
+      });
+    }
+
+    // New badge (created within last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    if (hotel.createdAt && new Date(hotel.createdAt) > sixMonthsAgo) {
+      badges.push({
+        type: 'new',
+        label: 'Mới',
+        color: '#8b5cf6'
+      });
+    }
+
+    return badges;
   }
 }

@@ -4,6 +4,7 @@ import MainLayout from '../../layouts/MainLayout';
 import { searchHotels } from '../../services/hotelService';
 import { getCategories, getFacilities, getBedTypes, getPolicies } from '../../services/filterService';
 import CompactSearchBar from '../../components/Search/CompactSearchBar';
+import { useSearch } from '../../contexts/SearchContext';
 import {
   SearchHeader,
   FilterSidebar,
@@ -65,34 +66,54 @@ interface HotelSearchResult {
 export default function HotelsListPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { searchParams: contextSearchParams, updateSearchParams } = useSearch();
   const [hotels, setHotels] = useState<HotelSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(true);
   const [filteredHotels, setFilteredHotels] = useState<HotelSearchResult[]>([]);
   
-  // Lưu search params
+  // Lưu search params - prioritize URL params over context
   const [searchData, setSearchData] = useState({
-    destination: searchParams.get('destination') || '',
-    checkIn: searchParams.get('checkIn') || '',
-    checkOut: searchParams.get('checkOut') || '',
-    guests: parseInt(searchParams.get('guests') || '2'),
-    rooms: parseInt(searchParams.get('rooms') || '1'),
-    children: parseInt(searchParams.get('children') || '0'),
+    destination: searchParams.get('destination') || contextSearchParams.destinationName || '',
+    checkIn: searchParams.get('checkIn') || contextSearchParams.checkIn || '',
+    checkOut: searchParams.get('checkOut') || contextSearchParams.checkOut || '',
+    guests: parseInt(searchParams.get('guests') || contextSearchParams.adults.toString() || '2'),
+    rooms: parseInt(searchParams.get('rooms') || contextSearchParams.rooms.toString() || '1'),
+    children: parseInt(searchParams.get('children') || contextSearchParams.children.toString() || '0'),
     stayType: (searchParams.get('stayType') as 'overnight' | 'dayuse') || 'overnight',
   });
 
-  const [filters, setFilters] = useState({
-    priceRange: [0, 10000000],
-    starRating: [] as number[],
-    sortBy: 'recommended',
-    categoryId: [] as string[],
-    facilities: [] as string[],
-    bedTypes: [] as string[],
-    policies: [] as string[],
-    maxDistance: undefined as number | undefined,
-    minRating: undefined as number | undefined
-  });
+  // Initialize filters from URL params
+  const initializeFiltersFromUrl = () => {
+    const categoryId = searchParams.get('category_id');
+    const starMin = searchParams.get('star_min');
+    const facilities = searchParams.get('facilities');
+    const bedTypes = searchParams.get('bed_types');
+    const policies = searchParams.get('policies');
+    const maxDistance = searchParams.get('max_distance');
+    const sort = searchParams.get('sort');
+
+    // Helper to parse comma-separated values and trim each item
+    const parseCommaSeparated = (value: string | null): string[] => {
+      if (!value) return [];
+      return value.split(',').map(item => item.trim()).filter(Boolean);
+    };
+
+    return {
+      priceRange: [0, 10000000],
+      starRating: starMin ? [parseInt(starMin)] : [] as number[],
+      sortBy: sort || 'recommended',
+      categoryId: categoryId ? [categoryId] : [] as string[],
+      facilities: parseCommaSeparated(facilities),
+      bedTypes: parseCommaSeparated(bedTypes),
+      policies: parseCommaSeparated(policies),
+      maxDistance: maxDistance ? parseFloat(maxDistance) : undefined as number | undefined,
+      minRating: undefined as number | undefined
+    };
+  };
+
+  const [filters, setFilters] = useState(initializeFiltersFromUrl());
 
   // Filter metadata for displaying names
   const [filterMetadata, setFilterMetadata] = useState({
@@ -106,10 +127,38 @@ export default function HotelsListPage() {
   const [fullFilterData, setFullFilterData] = useState<{
     facilities: Array<{ facilityId: string; name: string; category: string; icon?: string }>;
     categories: Array<{ categoryId: string; name: string; icon?: string }>;
+    bedTypes: Array<{ bedTypeId: string; name: string; icon?: string }>;
+    policies: Array<{ policyId: string; name: string; icon?: string }>;
   }>({
     facilities: [],
-    categories: []
+    categories: [],
+    bedTypes: [],
+    policies: []
   });
+
+  // Sync URL params to SearchContext when page loads
+  useEffect(() => {
+    const destination = searchParams.get('destination');
+    const checkIn = searchParams.get('checkIn');
+    const checkOut = searchParams.get('checkOut');
+    const guests = searchParams.get('guests');
+    const rooms = searchParams.get('rooms');
+    const children = searchParams.get('children');
+
+    // If URL has search params, sync to context
+    if (destination && checkIn) {
+      updateSearchParams({
+        destination,
+        destinationName: destination,
+        checkIn,
+        checkOut: checkOut || checkIn,
+        adults: parseInt(guests || '2'),
+        rooms: parseInt(rooms || '1'),
+        children: parseInt(children || '0'),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Fetch filter metadata
   useEffect(() => {
@@ -130,7 +179,9 @@ export default function HotelsListPage() {
 
       setFullFilterData({
         facilities: facs,
-        categories: cats
+        categories: cats,
+        bedTypes: beds.map(b => ({ bedTypeId: b.key, name: b.label, icon: b.icon })),
+        policies: pols.map(p => ({ policyId: p.key, name: p.label, icon: p.icon }))
       });
     };
     fetchMetadata();
@@ -171,16 +222,16 @@ export default function HotelsListPage() {
 
           const res = await searchHotels(params);
 
-          if (res.success && res.data && res.data.length > 0) {
-            setHotels(res.data);
-            setFilteredHotels(res.data);
+          // Handle new response format: { success, data: { hotels, pagination, searchParams } }
+          if (res.success && res.data && res.data.hotels && res.data.hotels.length > 0) {
+            setHotels(res.data.hotels);
+            setFilteredHotels(res.data.hotels);
           } else {
             setError(res.message || 'Không tìm thấy khách sạn nào');
             setHotels([]);
             setFilteredHotels([]);
           }
         } catch (err: any) {
-          console.error('Lỗi fetch hotels:', err);
           setError('Có lỗi xảy ra khi tìm kiếm');
           setHotels([]);
           setFilteredHotels([]);
@@ -216,8 +267,56 @@ export default function HotelsListPage() {
     applyFilters();
   }, [applyFilters]);
 
+  // Helper function to sync filters to URL
+  const syncFiltersToUrl = useCallback(() => {
+    const destination = searchParams.get('destination');
+    const checkIn = searchParams.get('checkIn');
+    const checkOut = searchParams.get('checkOut');
+    const guests = searchParams.get('guests');
+    const rooms = searchParams.get('rooms');
+    const children = searchParams.get('children');
+    const stayType = searchParams.get('stayType');
+
+    // Only update if we have basic search params
+    if (!destination || !checkIn) return;
+
+    const queryParams: any = {
+      destination,
+      checkIn,
+      checkOut: checkOut || '',
+      guests: guests || '2',
+      rooms: rooms || '1',
+      children: children || '0',
+      stayType: stayType || 'overnight'
+    };
+
+    // Add filters to URL
+    if (filters.categoryId.length > 0) queryParams.category_id = filters.categoryId[0];
+    if (filters.starRating.length > 0) queryParams.star_min = Math.min(...filters.starRating).toString();
+    if (filters.facilities.length > 0) queryParams.facilities = filters.facilities.join(',');
+    if (filters.bedTypes.length > 0) queryParams.bed_types = filters.bedTypes.join(',');
+    if (filters.policies.length > 0) queryParams.policies = filters.policies.join(',');
+    if (filters.maxDistance) queryParams.max_distance = filters.maxDistance.toString();
+    if (filters.sortBy && filters.sortBy !== 'recommended') queryParams.sort = filters.sortBy;
+
+    // Build new URL
+    const newSearchParams = new URLSearchParams(queryParams).toString();
+    navigate(`/hotels/search?${newSearchParams}`, { replace: true });
+  }, [filters, searchParams, navigate]);
+
   const handleSearch = (params: any) => {
     setSearchData(params);
+    
+    // Update SearchContext
+    updateSearchParams({
+      destination: params.destination || '',
+      destinationName: params.destination || '',
+      checkIn: params.checkIn || '',
+      checkOut: params.checkOut || '',
+      adults: params.guests || 2,
+      rooms: params.rooms || 1,
+      children: params.children || 0,
+    });
     
     const queryParams: any = {
       destination: params.destination || '',
@@ -240,6 +339,15 @@ export default function HotelsListPage() {
     
     navigate(`/hotels/search?${new URLSearchParams(queryParams).toString()}`);
   };
+
+  // Auto sync filters to URL when filters change (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      syncFiltersToUrl();
+    }, 100); // Debounce 100ms to avoid too many URL updates
+
+    return () => clearTimeout(timer);
+  }, [syncFiltersToUrl]);
 
   const toggleStarRating = (star: number) => {
     const newRatings = filters.starRating.includes(star)
@@ -307,7 +415,6 @@ export default function HotelsListPage() {
         break;
       case 'distance':
         // Add distance filtering - will be implemented
-        console.log('Distance suggestion clicked:', value);
         alert(`Gợi ý "Gần trung tâm" sẽ được triển khai trong phiên bản tiếp theo`);
         break;
     }

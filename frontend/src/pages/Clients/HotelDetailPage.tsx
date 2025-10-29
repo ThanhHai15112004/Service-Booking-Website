@@ -1,99 +1,89 @@
-import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
-import { mockHotels } from '../../data/mockData';
 import {
-  HotelHeader,
-  HotelImageGallery,
-  HotelInfo,
-  HotelAmenities,
-  HotelPolicies,
-  BookingCard
+  useHotelDetail,
+  HotelDetailLoadingState,
+  HotelDetailErrorState,
+  HotelHeaderSection,
+  HotelMainContent
 } from '../../components/HotelDetailPage';
 
 export default function HotelDetailPage() {
   const { id } = useParams();
-  const hotel = mockHotels.find(h => h.id === id);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(2);
+  
+  // Custom hook handles all business logic
+  const {
+    hotel,
+    hotelCounts,
+    images,
+    highlights,
+    checkIn,
+    checkOut,
+    roomFilters,
+    setRoomFilters,
+    isLoading,
+    error
+  } = useHotelDetail();
 
-  if (!hotel) {
+  // Loading state
+  if (isLoading) {
+    return <HotelDetailLoadingState hotelId={id} />;
+  }
+
+  // Error state
+  if (error || !hotel) {
     return (
-      <MainLayout>
-        <div className="bg-white flex items-center justify-center py-20">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-black mb-2">Không tìm thấy khách sạn</h2>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="text-black hover:underline"
-            >
-              Quay về trang chủ
-            </button>
-          </div>
-        </div>
-      </MainLayout>
+      <HotelDetailErrorState
+        error={error || 'Không tìm thấy khách sạn'}
+        hotelId={id}
+        checkIn={checkIn}
+        checkOut={checkOut}
+      />
     );
   }
 
-  const images = [
-    hotel.main_image,
-    'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg',
-    'https://images.pexels.com/photos/271619/pexels-photo-271619.jpeg',
-    'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg',
-    'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg'
+  // Build breadcrumb items with real counts
+  const breadcrumbItems = [
+    { label: 'Trang chủ', href: '/' },
+    { 
+      label: 'Khách sạn Việt Nam', 
+      href: '/hotels', 
+      count: hotelCounts.countryCount 
+    },
+    { 
+      label: `Khách sạn ${hotel?.city || 'Hồ Chí Minh'}`, 
+      href: `/hotels?city=${hotel?.city}`, 
+      count: hotelCounts.cityCount
+    },
+    { label: hotel?.name || 'Đặt phòng', href: '#' }
   ];
 
-  const handleBooking = () => {
-    if (!checkIn || !checkOut) {
-      alert('Vui lòng chọn ngày nhận và trả phòng');
-      return;
-    }
-    window.location.href = `/booking/${hotel.id}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`;
-  };
+  // Tab sections for sticky navigation
+  const tabSections = [
+    { id: 'overview', label: 'Tổng quan' },
+    { id: 'facilities', label: 'Cơ sở vật chất' },
+    { id: 'policies', label: 'Chính sách' },
+    { id: 'rooms', label: 'Phòng nghỉ' },
+  ];
 
   return (
     <MainLayout>
       <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <HotelHeader
-            name={hotel.name}
-            address={hotel.address}
-            city={hotel.city}
-            starRating={hotel.star_rating}
-            rating={hotel.rating}
-            reviewsCount={hotel.reviews_count}
-          />
+        {/* Header Section: Breadcrumb + Hotel Info + Image Gallery + Sticky Nav */}
+        <HotelHeaderSection
+          breadcrumbItems={breadcrumbItems}
+          hotel={hotel}
+          images={images}
+          tabSections={tabSections}
+        />
 
-          <HotelImageGallery
-            images={images}
-            hotelName={hotel.name}
-            selectedImage={selectedImage}
-            onSelectImage={setSelectedImage}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <HotelInfo description={hotel.description} />
-              <HotelAmenities amenities={hotel.amenities || []} />
-              <HotelPolicies />
-            </div>
-
-            <div className="lg:col-span-1">
-              <BookingCard
-                pricePerNight={hotel.price_per_night}
-                checkIn={checkIn}
-                checkOut={checkOut}
-                guests={guests}
-                onCheckInChange={setCheckIn}
-                onCheckOutChange={setCheckOut}
-                onGuestsChange={setGuests}
-                onBooking={handleBooking}
-              />
-            </div>
-          </div>
-        </div>
+        {/* Main Content: Overview + Facilities + Policies + Rooms */}
+        <HotelMainContent
+          hotel={hotel}
+          highlights={highlights}
+          roomFilters={roomFilters}
+          onRoomFiltersChange={setRoomFilters}
+        />
       </div>
     </MainLayout>
   );

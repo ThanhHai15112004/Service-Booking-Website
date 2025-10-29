@@ -58,8 +58,9 @@ export default function HotelLandingPage() {
 
           const res = await searchHotels(params);
 
-          if (res.success && res.items) {
-            setHotels(res.items);
+          // Handle new response format: { success, data: { hotels, pagination, searchParams } }
+          if (res.success && res.data && res.data.hotels) {
+            setHotels(res.data.hotels);
           } else {
             setError(res.message || 'Không tìm thấy khách sạn nào');
             setHotels([]);

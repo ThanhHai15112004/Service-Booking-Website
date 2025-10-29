@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { MapPin, Star, Check, Wifi, Utensils, Car, Waves, Dumbbell, Dog, Users } from 'lucide-react';
 
 interface HotelSearchResult {
@@ -49,14 +49,33 @@ interface HotelResultCardProps {
 }
 
 export default function HotelResultCard({ hotel }: HotelResultCardProps) {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [currentImage, setCurrentImage] = useState(
     hotel.images?.find(img => img.isPrimary)?.imageUrl || hotel.mainImage
   );
   const [isHoveringImage, setIsHoveringImage] = useState(false);
 
-  const handleViewDetails = () => {
-    navigate(`/hotel/${hotel.hotelId}`);
+  // Build URL with search params - pass ALL search context to hotel detail page
+  const buildHotelUrl = () => {
+    const destination = searchParams.get('destination');
+    const checkIn = searchParams.get('checkIn');
+    const checkOut = searchParams.get('checkOut');
+    const rooms = searchParams.get('rooms');
+    const guests = searchParams.get('guests');
+    const children = searchParams.get('children');
+    const stayType = searchParams.get('stayType');
+
+    const queryParams = new URLSearchParams();
+    if (destination) queryParams.set('destination', destination);
+    if (checkIn) queryParams.set('checkIn', checkIn);
+    if (checkOut) queryParams.set('checkOut', checkOut);
+    if (rooms) queryParams.set('rooms', rooms);
+    if (guests) queryParams.set('guests', guests);
+    if (children) queryParams.set('children', children);
+    if (stayType) queryParams.set('stayType', stayType);
+
+    const query = queryParams.toString();
+    return `/hotel/${hotel.hotelId}${query ? `?${query}` : ''}`;
   };
 
   // Lấy tất cả ảnh
@@ -88,9 +107,9 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
   };
 
   return (
-    <div 
-      className="bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-lg transition-all cursor-pointer"
-      onClick={handleViewDetails}
+    <Link 
+      to={buildHotelUrl()}
+      className="block bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-lg transition-all"
     >
       <div className="flex gap-0 h-[220px]">
         {/* LEFT: Image Gallery */}
@@ -124,9 +143,8 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
                     onMouseEnter={() => setCurrentImage(img.imageUrl)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (idx === 3 && totalImages > 4) {
-                        handleViewDetails();
-                      }
+                      // Thumbnail clicks just change preview image
+                      // Don't need to navigate for thumbnails
                     }}
                   >
                     <img
@@ -287,7 +305,7 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

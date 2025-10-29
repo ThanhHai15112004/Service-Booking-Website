@@ -1,31 +1,78 @@
 import { LocationRepository } from "../../Repository/Hotel/location.repository";
-import { normalizeString } from "../../utils/normalize.util";
+import { Location } from "../../models/Hotel/location.model";
 
 export class LocationService {
   private repo = new LocationRepository();
 
-  async search(q: string, limit = 8) {
+  async searchLocations(q: string, limit: number = 10) {
     try {
-      if (!q?.trim()) {
-        // Trả về các địa điểm phổ biến khi không có từ khóa
-        const items = await this.repo.getHotLocations(limit);
-        if (!items.length) {
-          return { success: false, items: [], message: "Không có địa điểm phổ biến." };
-        }
-        return { success: true, items };
+      const lowerQ = q.toLowerCase().trim();
+
+      if (!lowerQ || lowerQ.length < 2) {
+        return {
+          success: false,
+          message: "Từ khóa tìm kiếm phải có ít nhất 2 ký tự",
+          items: [],
+        };
       }
 
-      const normalizedQ = normalizeString(q);
-      const items = await this.repo.search(normalizedQ, limit);
+      const items: Location[] = await this.repo.search(lowerQ, limit);
 
-      if (!items.length) {
-        return { success: false, items: [], message: "Không tìm thấy địa điểm phù hợp." };
-      }
+      return {
+        success: true,
+        message: `Tìm thấy ${items.length} địa điểm`,
+        count: items.length,
+        items,
+      };
+    } catch (error) {
+      console.error("[LocationService] searchLocations error:", error);
+      return {
+        success: false,
+        message: "Lỗi server khi tìm kiếm địa điểm",
+        items: [],
+      };
+    }
+  }
 
-      return { success: true, items };
-    } catch (err) {
-      console.error("❌ [LocationService] search error:", err);
-      return { success: false, items: [], message: "Lỗi server khi tìm kiếm địa điểm." };
+  async getHotLocations(limit: number = 10) {
+    try {
+      const items: Location[] = await this.repo.getHotLocations(limit);
+
+      return {
+        success: true,
+        message: `Tìm thấy ${items.length} địa điểm nổi bật`,
+        count: items.length,
+        items,
+      };
+    } catch (error) {
+      console.error("[LocationService] getHotLocations error:", error);
+      return {
+        success: false,
+        message: "Lỗi server khi lấy địa điểm nổi bật",
+        items: [],
+      };
+    }
+  }
+
+  /**
+   * Get hotel counts for breadcrumb navigation
+   */
+  async getHotelCounts(country: string, city?: string) {
+    try {
+      const counts = await this.repo.getHotelCounts(country, city);
+
+      return {
+        success: true,
+        data: counts,
+        message: "Lấy số lượng khách sạn thành công"
+      };
+    } catch (error) {
+      console.error("[LocationService] getHotelCounts error:", error);
+      return {
+        success: false,
+        message: "Lỗi server khi đếm khách sạn",
+        data: { countryCount: 0, cityCount: 0 }
+      };
     }
   }
 }

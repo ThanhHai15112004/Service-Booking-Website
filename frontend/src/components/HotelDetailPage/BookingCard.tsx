@@ -1,13 +1,17 @@
-import { Calendar, Users } from 'lucide-react';
+import { Calendar, Users, Home, Baby } from 'lucide-react';
 
 interface BookingCardProps {
   pricePerNight: number;
   checkIn: string;
   checkOut: string;
   guests: number;
+  rooms?: number;
+  children?: number;
   onCheckInChange: (value: string) => void;
   onCheckOutChange: (value: string) => void;
   onGuestsChange: (value: number) => void;
+  onRoomsChange?: (value: number) => void;
+  onChildrenChange?: (value: number) => void;
   onBooking: () => void;
 }
 
@@ -16,9 +20,13 @@ export default function BookingCard({
   checkIn,
   checkOut,
   guests,
+  rooms = 1,
+  children = 0,
   onCheckInChange,
   onCheckOutChange,
   onGuestsChange,
+  onRoomsChange,
+  onChildrenChange,
   onBooking
 }: BookingCardProps) {
   const formatPrice = (price: number) => {
@@ -70,7 +78,23 @@ export default function BookingCard({
 
         <div>
           <label className="block text-sm font-medium text-black mb-2">
-            Số khách
+            Số phòng
+          </label>
+          <div className="relative">
+            <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="number"
+              min="1"
+              value={rooms}
+              onChange={(e) => onRoomsChange?.(parseInt(e.target.value) || 1)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-black mb-2">
+            Số người lớn
           </label>
           <div className="relative">
             <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -78,7 +102,23 @@ export default function BookingCard({
               type="number"
               min="1"
               value={guests}
-              onChange={(e) => onGuestsChange(parseInt(e.target.value))}
+              onChange={(e) => onGuestsChange(parseInt(e.target.value) || 1)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-black mb-2">
+            Số trẻ em
+          </label>
+          <div className="relative">
+            <Baby className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="number"
+              min="0"
+              value={children}
+              onChange={(e) => onChildrenChange?.(parseInt(e.target.value) || 0)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
             />
           </div>

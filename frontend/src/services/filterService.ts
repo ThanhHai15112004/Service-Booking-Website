@@ -16,11 +16,13 @@ export interface Facility {
 export interface BedType {
   key: string;
   label: string;
+  icon?: string;
 }
 
 export interface Policy {
   key: string;
   label: string;
+  icon?: string;
   available?: boolean;
 }
 

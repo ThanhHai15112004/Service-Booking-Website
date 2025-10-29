@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, X, ChevronDown, Loader, Calendar, Users } from 'lucide-react';
 import { searchLocations, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 import BookingDatePicker from './BookingDatePicker';
+import { useSearch } from '../../contexts/SearchContext';
 
 interface CompactSearchBarProps {
   onSearch: (params: any) => void;
@@ -10,13 +12,32 @@ interface CompactSearchBarProps {
 }
 
 export default function CompactSearchBar({ onSearch, initialSearchParams }: CompactSearchBarProps) {
-  const [destination, setDestination] = useState(initialSearchParams?.destination || '');
-  const [checkIn, setCheckIn] = useState(initialSearchParams?.checkIn || '');
-  const [checkOut, setCheckOut] = useState(initialSearchParams?.checkOut || '');
-  const [guests, setGuests] = useState(initialSearchParams?.guests || 2);
-  const [rooms, setRooms] = useState(initialSearchParams?.rooms || 1);
-  const [children, setChildren] = useState(initialSearchParams?.children || 0);
-  const [stayType, setStayType] = useState<'overnight' | 'dayuse'>(initialSearchParams?.stayType || 'overnight');
+  const navigate = useNavigate();
+  const { searchParams, updateSearchParams } = useSearch();
+  
+  // Initialize từ SearchContext hoặc initialSearchParams
+  const [destination, setDestination] = useState(
+    initialSearchParams?.destination || searchParams.destinationName || ''
+  );
+  const [checkIn, setCheckIn] = useState(
+    initialSearchParams?.checkIn || searchParams.checkIn || ''
+  );
+  const [checkOut, setCheckOut] = useState(
+    initialSearchParams?.checkOut || searchParams.checkOut || ''
+  );
+  const [guests, setGuests] = useState(
+    initialSearchParams?.guests || searchParams.adults || 2
+  );
+  const [rooms, setRooms] = useState(
+    initialSearchParams?.rooms || searchParams.rooms || 1
+  );
+  const [children, setChildren] = useState(
+    initialSearchParams?.children || searchParams.children || 0
+  );
+  const [stayType, setStayType] = useState<'overnight' | 'dayuse'>(
+    initialSearchParams?.stayType || 'overnight'
+  );
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
 
   const [locations, setLocations] = useState<Location[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -94,6 +115,7 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
     // Chỉ gửi city + district (không country) để backend search match được
     const displayName = [location.city, location.district].filter(Boolean).join(', ');
     setDestination(displayName);
+    setSelectedLocation(location);
     setShowDropdown(false);
     setLocations([]);
     setIsUserTyping(false);
@@ -126,10 +148,21 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
     try {
       setIsLoadingSearch(true);
       
+      // Lưu vào SearchContext
+      updateSearchParams({
+        destination: selectedLocation?.locationId || destination,
+        destinationName: destination,
+        checkIn,
+        checkOut: stayType === 'dayuse' ? checkIn : checkOut,
+        adults: guests,
+        rooms,
+        children,
+      });
+
       const params = {
         destination,
         checkIn,
-        checkOut,
+        checkOut: stayType === 'dayuse' ? checkIn : checkOut,
         guests,
         rooms,
         children,
@@ -139,7 +172,23 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
       const res = await searchHotels(params);
 
       if (res.success) {
-        onSearch(params);
+        // Navigate to search results page with query params
+        const queryParams = new URLSearchParams({
+          destination: params.destination || '',
+          checkIn: params.checkIn || '',
+          checkOut: params.checkOut || '',
+          guests: params.guests?.toString() || '2',
+          rooms: params.rooms?.toString() || '1',
+          children: params.children?.toString() || '0',
+          stayType: params.stayType || 'overnight'
+        });
+        
+        navigate(`/hotels/search?${queryParams.toString()}`);
+        
+        // Also call onSearch callback if provided
+        if (onSearch) {
+          onSearch(params);
+        }
       } else {
         alert(res.message || "Không tìm thấy khách sạn phù hợp.");
       }
