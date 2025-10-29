@@ -21,42 +21,38 @@ export default function HotelLocation({
   const numDist = distanceCenter ? (typeof distanceCenter === 'string' ? parseFloat(distanceCenter) : distanceCenter) : undefined;
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Vị trí</h3>
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <h3 className="text-lg font-bold text-black mb-3">Vị trí</h3>
       
       {/* Address */}
-      <div className="mb-4">
-        <div className="flex items-start gap-2 text-gray-700 mb-2">
-          <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+      <div className="mb-3">
+        <div className="flex items-start gap-2 text-gray-700 mb-1.5">
+          <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#2067da' }} />
           <div>
-            <p className="font-medium">{address}</p>
-            <p className="text-sm text-gray-600">{city}</p>
+            <p className="text-xs font-medium text-gray-900">{address}</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">{city}</p>
           </div>
         </div>
         
         {numDist && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 ml-7">
-            <Navigation className="w-4 h-4" />
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-600 ml-5.5">
+            <Navigation className="w-3 h-3" style={{ color: '#2067da' }} />
             <span>Cách trung tâm {numDist} km</span>
           </div>
         )}
       </div>
 
       {/* Map placeholder */}
-      <div className="bg-gray-100 rounded-lg h-48 flex items-center justify-center mb-4">
+      <div className="bg-gray-100 rounded h-36 flex items-center justify-center mb-2.5 overflow-hidden">
         <div className="text-center">
-          <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-          <p className="text-gray-500 text-sm">Bản đồ sẽ hiển thị ở đây</p>
-          {numLat && numLng && (
-            <p className="text-xs text-gray-400 mt-1">
-              {numLat.toFixed(6)}, {numLng.toFixed(6)}
-            </p>
-          )}
+          <MapPin className="w-8 h-8 text-gray-400 mx-auto mb-1" />
+          <p className="text-gray-500 text-[10px]">Bản đồ</p>
         </div>
       </div>
 
       {/* View on map button */}
-      <button className="w-full px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
+      <button className="w-full px-3 py-1.5 border rounded hover:bg-blue-50 transition-colors text-xs font-medium"
+              style={{ borderColor: '#2067da', color: '#2067da' }}>
         Xem trên bản đồ
       </button>
     </div>

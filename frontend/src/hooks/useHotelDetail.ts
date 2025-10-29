@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useSearch } from '../../contexts/SearchContext';
-import { getHotelDetail, getHotelCounts } from '../../services/hotelService';
-import { RoomFiltersState } from './RoomFilters';
+import { useSearch } from '../contexts/SearchContext';
+import { getHotelDetail, getHotelCounts } from '../services/hotelService';
+import {
+  HotelDetail,
+  Room,
+  HotelHighlight,
+  HotelCounts,
+  RoomFiltersState
+} from '../types';
 
 export interface UseHotelDetailReturn {
   // Data
-  hotel: any;
-  hotelCounts: { countryCount: number; cityCount: number };
+  hotel: HotelDetail | null;
+  hotelCounts: HotelCounts;
   images: string[];
-  highlights: any[];
+  highlights: HotelHighlight[];
+  availableRooms: Room[];
   
   // Search params
   checkIn: string;
@@ -37,10 +44,11 @@ export function useHotelDetail(): UseHotelDetailReturn {
   const { searchParams: contextSearchParams, updateSearchParams } = useSearch();
 
   // States
-  const [hotel, setHotel] = useState<any>(null);
+  const [hotel, setHotel] = useState<HotelDetail | null>(null);
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hotelCounts, setHotelCounts] = useState({ countryCount: 0, cityCount: 0 });
+  const [hotelCounts, setHotelCounts] = useState<HotelCounts>({ countryCount: 0, cityCount: 0 });
   const [roomFilters, setRoomFilters] = useState<RoomFiltersState>({
     noSmoking: false,
     payLater: false,
@@ -120,6 +128,10 @@ export function useHotelDetail(): UseHotelDetailReturn {
           const hotelData = response.data.hotel;
           setHotel(hotelData);
           
+          // Set available rooms
+          const rooms = response.data.availableRooms || [];
+          setAvailableRooms(rooms);
+          
           // Fetch hotel counts for breadcrumb
           if (hotelData?.city) {
             const countsResponse = await getHotelCounts('Vietnam', hotelData.city);
@@ -127,8 +139,6 @@ export function useHotelDetail(): UseHotelDetailReturn {
               setHotelCounts(countsResponse.data);
             }
           }
-          
-          // Note: Available rooms are in response.data.availableRooms
         } else {
           setError(response.message || 'Không tìm thấy khách sạn');
         }
@@ -151,13 +161,14 @@ export function useHotelDetail(): UseHotelDetailReturn {
       : ['https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg'];
 
   // Get highlights from API or use empty array
-  const highlights = hotel?.highlights || [];
+  const highlights: HotelHighlight[] = hotel?.highlights || [];
 
   return {
     hotel,
     hotelCounts,
     images,
     highlights,
+    availableRooms,
     checkIn,
     checkOut,
     guests,

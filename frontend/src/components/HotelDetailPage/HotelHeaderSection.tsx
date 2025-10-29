@@ -1,4 +1,4 @@
-import { Breadcrumb, HotelHeader, HotelImageGallery, StickyTabNav } from './index';
+import { Breadcrumb, HotelImageGallery, StickyTabNav } from './index';
 
 interface BreadcrumbItem {
   label: string;
@@ -16,34 +16,33 @@ interface HotelHeaderSectionProps {
   hotel: any;
   images: string[];
   tabSections: TabSection[];
+  availableRooms?: any[];  // Thêm rooms để hiển thị tabs
 }
 
 export default function HotelHeaderSection({
   breadcrumbItems,
   hotel,
   images,
-  tabSections
+  tabSections,
+  availableRooms = []
 }: HotelHeaderSectionProps) {
   return (
     <>
       {/* Breadcrumb */}
       <Breadcrumb items={breadcrumbItems} />
 
-      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Hotel Header */}
-        <HotelHeader
-          name={hotel?.name || 'Đang tải...'}
-          address={hotel?.address || ''}
-          city={hotel?.city || ''}
-          starRating={hotel?.starRating || hotel?.star_rating || 0}
-          rating={hotel?.avgRating || hotel?.rating || 0}
-          reviewsCount={hotel?.reviewCount || hotel?.reviews_count || 0}
-        />
-
-        {/* Image Gallery */}
+      {/* Back Button & Image Gallery - Full Width at Top */}
+      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+        <button
+          onClick={() => window.history.back()}
+          className="text-black hover:underline mb-4"
+        >
+          ← Quay lại
+        </button>
         <HotelImageGallery
           images={images}
           hotelName={hotel?.name || 'Hotel'}
+          allRooms={availableRooms}
         />
       </div>
 

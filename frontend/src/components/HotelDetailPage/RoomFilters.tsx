@@ -1,14 +1,5 @@
 import { X, Bed, CreditCard, Calendar, Coffee, Eye, Ban } from 'lucide-react';
-
-export interface RoomFiltersState {
-  noSmoking: boolean;
-  payLater: boolean;
-  freeCancellation: boolean;
-  breakfast: boolean;
-  kingBed: boolean;
-  cityView: boolean;
-  noCreditCard: boolean;
-}
+import { RoomFiltersState, FilterCounts } from '../../types';
 
 interface FilterOption {
   key: keyof RoomFiltersState;
@@ -18,7 +9,7 @@ interface FilterOption {
 
 interface RoomFiltersProps {
   filters: RoomFiltersState;
-  filterCounts?: Partial<Record<keyof RoomFiltersState, number>>;
+  filterCounts?: Partial<FilterCounts>;
   onFilterChange: (filters: RoomFiltersState) => void;
   totalRooms?: number;
 }
@@ -91,13 +82,13 @@ export default function RoomFilters({
   const activeFilterCount = Object.values(filters).filter(v => v).length;
 
   return (
-    <div className="mb-6">
+    <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-900">
           Lọc phòng
           {totalRooms > 0 && (
-            <span className="ml-2 text-sm font-normal text-gray-600">
+            <span className="ml-2 text-xs font-normal text-gray-600">
               ({totalRooms} phòng)
             </span>
           )}
@@ -105,9 +96,10 @@ export default function RoomFilters({
         {hasActiveFilters && (
           <button
             onClick={clearAllFilters}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            className="flex items-center gap-1 text-xs hover:underline"
+            style={{ color: '#2067da' }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-3 h-3" />
             Xóa bộ lọc ({activeFilterCount})
           </button>
         )}
@@ -126,25 +118,26 @@ export default function RoomFilters({
               onClick={() => !isDisabled && toggleFilter(option.key)}
               disabled={isDisabled}
               className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-full
-                border transition-all duration-200
+                inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                border transition-all duration-200 text-xs
                 ${isActive
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                  ? 'text-white border-blue-600 shadow-sm'
                   : isDisabled
                     ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                     : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 hover:bg-blue-50'
                 }
               `}
+              style={isActive ? { backgroundColor: '#2067da', borderColor: '#2067da' } : undefined}
             >
               <span className={isActive ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600'}>
                 {option.icon}
               </span>
-              <span className="text-sm font-medium">
+              <span className="font-medium">
                 {option.label}
               </span>
               {count !== undefined && count > 0 && (
                 <span className={`
-                  text-xs px-2 py-0.5 rounded-full
+                  text-xs px-1.5 py-0.5 rounded-full
                   ${isActive 
                     ? 'bg-blue-500 text-white' 
                     : 'bg-gray-200 text-gray-700'
@@ -157,19 +150,6 @@ export default function RoomFilters({
           );
         })}
       </div>
-
-      {/* Active Filters Summary */}
-      {hasActiveFilters && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
-            <span className="font-semibold">Đang lọc:</span>{' '}
-            {filterOptions
-              .filter(opt => filters[opt.key])
-              .map(opt => opt.label)
-              .join(', ')}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

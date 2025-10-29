@@ -1,19 +1,23 @@
 import MainLayout from '../../layouts/MainLayout';
+import { PageLoading } from '../common';
 
 interface HotelDetailLoadingStateProps {
   hotelId?: string;
 }
 
+/**
+ * Hotel Detail Page Loading State
+ * Uses common PageLoading component
+ */
 export default function HotelDetailLoadingState({ hotelId }: HotelDetailLoadingStateProps) {
   return (
     <MainLayout>
-      <div className="bg-white flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải thông tin khách sạn...</p>
-          {hotelId && <p className="text-xs text-gray-400 mt-2">Hotel ID: {hotelId}</p>}
-        </div>
-      </div>
+      <PageLoading message="Đang tải thông tin khách sạn..." />
+      {hotelId && (
+        <p className="text-xs text-gray-400 text-center -mt-20">
+          Hotel ID: {hotelId}
+        </p>
+      )}
     </MainLayout>
   );
 }

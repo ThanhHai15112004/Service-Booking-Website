@@ -17,8 +17,11 @@ export default function HotelDetailPage() {
     hotelCounts,
     images,
     highlights,
+    availableRooms,
     checkIn,
     checkOut,
+    guests,
+    rooms,
     roomFilters,
     setRoomFilters,
     isLoading,
@@ -75,14 +78,25 @@ export default function HotelDetailPage() {
           hotel={hotel}
           images={images}
           tabSections={tabSections}
+          availableRooms={availableRooms}
         />
 
         {/* Main Content: Overview + Facilities + Policies + Rooms */}
         <HotelMainContent
           hotel={hotel}
           highlights={highlights}
+          availableRooms={availableRooms}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          guests={guests}
+          rooms={rooms}
+          hotelImages={images}
           roomFilters={roomFilters}
           onRoomFiltersChange={setRoomFilters}
+          onSelectRoom={(room) => {
+            // TODO: Navigate to booking page
+            console.log('Selected room:', room);
+          }}
         />
       </div>
     </MainLayout>

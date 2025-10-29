@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 28, 2025 lúc 04:50 AM
+-- Thời gian đã tạo: Th10 29, 2025 lúc 05:45 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -172,13 +172,41 @@ CREATE TABLE `facility` (
 --
 
 INSERT INTO `facility` (`facility_id`, `name`, `category`, `icon`, `created_at`) VALUES
-('F001', 'Wifi miễn phí', 'HOTEL', 'https://static.thenounproject.com/png/2146910-200.png', '2025-10-20 15:09:17'),
-('F002', 'Hồ bơi', 'HOTEL', 'https://static.thenounproject.com/png/8009576-200.png', '2025-10-20 15:09:17'),
-('F003', 'Bãi đỗ xe', 'HOTEL', 'https://static.thenounproject.com/png/4312534-200.png', '2025-10-20 15:09:17'),
-('F004', 'Nhà hàng', 'HOTEL', 'https://static.thenounproject.com/png/8088592-200.png', '2025-10-20 15:09:17'),
-('F005', 'Máy lạnh', 'ROOM', 'https://static.thenounproject.com/png/5007106-200.png', '2025-10-20 15:09:17'),
-('F006', 'TV màn hình phẳng', 'ROOM', 'https://static.thenounproject.com/png/8021371-200.png', '2025-10-20 15:09:17'),
-('F007', 'Ban công riêng', 'ROOM', 'https://static.thenounproject.com/png/7706555-200.png', '2025-10-20 15:09:17');
+('F001', 'Wifi miễn phí', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/12058/12058938.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F002', 'Hồ bơi', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/9796/9796934.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F003', 'Bãi đỗ xe', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/12495/12495643.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F004', 'Nhà hàng', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/18567/18567149.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F005', 'Máy lạnh', 'ROOM', 'https://cdn-icons-png.freepik.com/256/17910/17910591.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F006', 'TV màn hình phẳng', 'ROOM', 'https://cdn-icons-png.freepik.com/256/6470/6470296.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F007', 'Ban công riêng', 'ROOM', 'https://cdn-icons-png.freepik.com/256/2979/2979364.png?semt=ais_white_label', '2025-10-20 15:09:17'),
+('F008', 'Lễ tân 24 giờ', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/16941/16941913.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F009', 'Dịch vụ phòng', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/8527/8527150.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F010', 'Dịch vụ giặt là', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/8912/8912913.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F011', 'Dịch vụ đưa đón sân bay', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/7094/7094269.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F012', 'Phòng tập gym', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/12237/12237602.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F013', 'Spa & Massage', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/8937/8937527.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F014', 'Sân tennis', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/11698/11698747.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F015', 'Phòng karaoke', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/15531/15531630.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F016', 'Bar', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/12919/12919870.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F017', 'Quán cafe', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/11224/11224143.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F018', 'Bữa sáng buffet', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/4784/4784523.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F019', 'Camera an ninh', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/13347/13347367.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F020', 'Két an toàn', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/14871/14871773.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F021', 'Bảo vệ 24/7', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/17291/17291812.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F022', 'Thang máy', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/9796/9796213.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F023', 'Vườn', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/8616/8616197.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F024', 'Sân thượng', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/11138/11138493.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F025', 'Phòng họp', 'HOTEL', 'https://cdn-icons-png.freepik.com/256/15992/15992323.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F026', 'Minibar', 'ROOM', 'https://cdn-icons-png.freepik.com/256/15804/15804706.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F027', 'Ấm đun nước', 'ROOM', 'https://cdn-icons-png.freepik.com/256/7079/7079633.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F028', 'Tủ lạnh', 'ROOM', 'https://cdn-icons-png.freepik.com/256/6338/6338477.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F029', 'Máy sấy tóc', 'ROOM', 'https://cdn-icons-png.freepik.com/256/8410/8410752.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F030', 'Bàn làm việc', 'ROOM', 'https://cdn-icons-png.freepik.com/256/14697/14697870.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F031', 'Két an toàn trong phòng', 'ROOM', 'https://cdn-icons-png.freepik.com/256/2237/2237802.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F032', 'Dép đi trong phòng', 'ROOM', 'https://cdn-icons-png.freepik.com/256/13873/13873971.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F033', 'Áo choàng tắm', 'ROOM', 'https://cdn-icons-png.freepik.com/256/14262/14262562.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F034', 'Tầm nhìn ra biển', 'ROOM', 'https://cdn-icons-png.freepik.com/256/9989/9989305.png?semt=ais_white_label', '2025-10-29 11:35:31'),
+('F035', 'Tầm nhìn ra thành phố', 'ROOM', 'https://cdn-icons-png.freepik.com/256/732/732877.png?semt=ais_white_label', '2025-10-29 11:35:31');
 
 -- --------------------------------------------------------
 
@@ -215,10 +243,10 @@ CREATE TABLE `hotel` (
 --
 
 INSERT INTO `hotel` (`hotel_id`, `name`, `description`, `category_id`, `location_id`, `address`, `latitude`, `longitude`, `star_rating`, `avg_rating`, `review_count`, `checkin_time`, `checkout_time`, `phone_number`, `email`, `website`, `total_rooms`, `main_image`, `status`, `created_at`, `updated_at`) VALUES
-('H001', 'Hanoi Old Quarter Hotel', 'Khách sạn 3 sao giữa lòng phố cổ Hà Nội.', 'CAT001', 'LOC_HN_05', '12 Hàng Bạc, Hoàn Kiếm, Hà Nội', 21.033000, 105.850000, 3.0, 8.5, 245, '14:00:00', '12:00:00', '024-88888888', 'contact@hoqhotel.vn', 'https://hoqhotel.vn', 30, 'https://lh3.googleusercontent.com/gps-cs-s/AC9h4nquZO-cO1woQvrkFfrWaRZ0CMK8t6pL-IBcPwZ9dmojDrqngeCEC8GC50oxeizk4gsLeDMtxYFZ2rytPcrA5VF45WDIX__jp73xW3VgzhLIdYJ0S1KoLr1yJrgLxUD3roOk2COT=w252-h189-k-no', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:10:49'),
+('H001', 'Hanoi Old Quarter Hotel', 'Khách sạn 3 sao giữa lòng phố cổ Hà Nội.', 'CAT001', 'LOC_HN_01', '12 Hàng Bạc, Hoàn Kiếm, Hà Nội', 21.033000, 105.850000, 3.0, 8.5, 245, '14:00:00', '12:00:00', '024-88888888', 'contact@hoqhotel.vn', 'https://hoqhotel.vn', 30, 'https://lh3.googleusercontent.com/gps-cs-s/AC9h4nquZO-cO1woQvrkFfrWaRZ0CMK8t6pL-IBcPwZ9dmojDrqngeCEC8GC50oxeizk4gsLeDMtxYFZ2rytPcrA5VF45WDIX__jp73xW3VgzhLIdYJ0S1KoLr1yJrgLxUD3roOk2COT=w252-h189-k-no', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-28 14:52:11'),
 ('H002', 'My Khe Beach Resort', 'Resort ven biển với hồ bơi và nhà hàng.', 'CAT002', 'LOC_DN_04', '99 Võ Nguyên Giáp, Đà Nẵng', 16.070000, 108.250000, 5.0, 9.2, 530, '14:00:00', '12:00:00', '0236-7777777', 'info@mykheresort.vn', 'https://mykheresort.vn', 80, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/456591942.jpg?k=edd1274281b31d340a1626d37a1a7799a54f1f9a1b6e249a2a2cb61781797e57&o=', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
 ('H003', 'Saigon Riverside Hotel', 'Khách sạn 5 sao cao cấp tại trung tâm TP.HCM.', 'CAT001', 'LOC_HCM_06', '45 Nguyễn Huệ, Quận 1, HCM', 10.776000, 106.700000, 5.0, 9.1, 340, '14:00:00', '12:00:00', '028-88889999', 'info@saigonriverside.vn', 'https://saigonriverside.vn', 60, 'https://lh3.googleusercontent.com/p/AF1QipORkI-MSORzrexdvvlSEUv93xE-cd83W2zDTpc=s1360-w1360-h1020-rw', 'ACTIVE', '2025-10-20 15:09:17', '2025-10-27 16:04:25'),
-('H004', 'Sofitel Legend Metropole Hanoi', 'Khách sạn 5 sao sang trọng tại trung tâm Hà Nội', 'CAT001', 'LOC_HN_05', '15 Ngô Quyền, Hoàn Kiếm, Hà Nội', 21.023000, 105.855000, 5.0, 9.3, 450, '14:00:00', '12:00:00', '024-38266919', 'reservations@sofitel.com', 'https://sofitel-legend-metropole-hanoi.com', 50, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490234.jpg?k=9ca2d7802e06a240856cc628d2fee2496888874845b72c0654c0a89966f03d5d&o=', 'ACTIVE', '2025-10-27 15:52:19', '2025-10-27 18:51:24');
+('H004', 'Sofitel Legend Metropole Hanoi', 'Khách sạn 5 sao sang trọng tại trung tâm Hà Nội', 'CAT001', 'LOC_HN_02', '15 Ngô Quyền, Hoàn Kiếm, Hà Nội', 21.023000, 105.855000, 5.0, 9.3, 450, '14:00:00', '12:00:00', '024-38266919', 'reservations@sofitel.com', 'https://sofitel-legend-metropole-hanoi.com', 50, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/764490234.jpg?k=9ca2d7802e06a240856cc628d2fee2496888874845b72c0654c0a89966f03d5d&o=', 'ACTIVE', '2025-10-27 15:52:19', '2025-10-28 14:56:11');
 
 -- --------------------------------------------------------
 
@@ -252,28 +280,68 @@ INSERT INTO `hotel_category` (`category_id`, `name`, `description`, `icon`, `cre
 CREATE TABLE `hotel_facility` (
   `hotel_id` varchar(20) NOT NULL,
   `facility_id` varchar(20) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
+  `created_at` datetime DEFAULT current_timestamp(),
+  `is_highlight` tinyint(1) DEFAULT 0,
+  `highlight_order` int(11) DEFAULT 0,
+  `highlight_text` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `hotel_facility`
 --
 
-INSERT INTO `hotel_facility` (`hotel_id`, `facility_id`, `created_at`) VALUES
-('H001', 'F001', '2025-10-20 15:09:17'),
-('H001', 'F003', '2025-10-20 15:09:17'),
-('H001', 'F004', '2025-10-20 15:09:17'),
-('H002', 'F001', '2025-10-20 15:09:17'),
-('H002', 'F002', '2025-10-20 15:09:17'),
-('H002', 'F003', '2025-10-20 15:09:17'),
-('H002', 'F004', '2025-10-20 15:09:17'),
-('H003', 'F001', '2025-10-20 15:09:17'),
-('H003', 'F002', '2025-10-20 15:09:17'),
-('H003', 'F004', '2025-10-20 15:09:17'),
-('H004', 'F001', '2025-10-27 15:52:19'),
-('H004', 'F002', '2025-10-27 15:52:19'),
-('H004', 'F003', '2025-10-27 15:52:19'),
-('H004', 'F004', '2025-10-27 15:52:19');
+INSERT INTO `hotel_facility` (`hotel_id`, `facility_id`, `created_at`, `is_highlight`, `highlight_order`, `highlight_text`) VALUES
+('H001', 'F001', '2025-10-20 15:09:17', 1, 1, 'Wi-Fi miễn phí!'),
+('H001', 'F002', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F003', '2025-10-20 15:09:17', 1, 2, 'Bãi đỗ xe miễn phí'),
+('H001', 'F004', '2025-10-20 15:09:17', 1, 3, 'Nhà hàng'),
+('H001', 'F008', '2025-10-29 11:35:31', 1, 4, 'Lễ tân phục vụ 24 giờ'),
+('H001', 'F009', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F010', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F011', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F012', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F013', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F016', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F017', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F018', '2025-10-29 11:35:31', 1, 5, 'Bữa sáng buffet miễn phí'),
+('H001', 'F019', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F020', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F022', '2025-10-29 11:35:31', 0, 0, NULL),
+('H001', 'F025', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F001', '2025-10-20 15:09:17', 0, 0, NULL),
+('H002', 'F002', '2025-10-20 15:09:17', 0, 0, NULL),
+('H002', 'F003', '2025-10-20 15:09:17', 0, 0, NULL),
+('H002', 'F004', '2025-10-20 15:09:17', 0, 0, NULL),
+('H002', 'F008', '2025-10-29 11:35:31', 1, 1, 'Lễ tân 24 giờ'),
+('H002', 'F009', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F010', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F011', '2025-10-29 11:35:31', 1, 2, 'Đưa đón sân bay miễn phí'),
+('H002', 'F012', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F017', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F018', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F019', '2025-10-29 11:35:31', 0, 0, NULL),
+('H002', 'F022', '2025-10-29 11:35:31', 0, 0, NULL),
+('H003', 'F001', '2025-10-20 15:09:17', 0, 0, NULL),
+('H003', 'F002', '2025-10-20 15:09:17', 0, 0, NULL),
+('H003', 'F004', '2025-10-20 15:09:17', 0, 0, NULL),
+('H003', 'F008', '2025-10-29 11:35:31', 1, 1, 'Lễ tân 24 giờ'),
+('H003', 'F009', '2025-10-29 11:35:31', 0, 0, NULL),
+('H003', 'F010', '2025-10-29 11:35:31', 0, 0, NULL),
+('H003', 'F017', '2025-10-29 11:35:31', 0, 0, NULL),
+('H003', 'F022', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F001', '2025-10-27 15:52:19', 0, 0, NULL),
+('H004', 'F002', '2025-10-27 15:52:19', 0, 0, NULL),
+('H004', 'F003', '2025-10-27 15:52:19', 0, 0, NULL),
+('H004', 'F004', '2025-10-27 15:52:19', 0, 0, NULL),
+('H004', 'F008', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F009', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F010', '2025-10-29 11:35:31', 1, 1, 'Giặt là miễn phí'),
+('H004', 'F012', '2025-10-29 11:35:31', 1, 2, 'Phòng tập gym hiện đại'),
+('H004', 'F017', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F018', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F019', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F022', '2025-10-29 11:35:31', 0, 0, NULL),
+('H004', 'F023', '2025-10-29 11:35:31', 1, 3, 'Vườn xanh mát');
 
 -- --------------------------------------------------------
 
@@ -354,7 +422,7 @@ INSERT INTO `hotel_location` (`location_id`, `country`, `city`, `district`, `war
 ('LOC_HCM_05', 'Vietnam', 'Hồ Chí Minh', 'Quận 7', 'Phường Tân Phong', 'Phú Mỹ Hưng', 10.734253, 106.721085, 7.50, 'Khu đô thị cao cấp', '2025-10-17 11:51:05', 1),
 ('LOC_HCM_06', 'Vietnam', 'Hồ Chí Minh', NULL, NULL, NULL, 10.776000, 106.700000, 0.50, 'Trung tâm kinh tế lớn nhất Việt Nam', '2025-10-20 15:09:17', 1),
 ('LOC_HN_01', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', 'Phường Hàng Trống', 'Hồ Hoàn Kiếm', 21.028511, 105.854088, 0.30, 'Trung tâm du lịch nổi tiếng của Hà Nội', '2025-10-17 11:51:05', 1),
-('LOC_HN_02', 'Vietnam', 'Hà Nội', 'Ba Đình', 'Phường Điện Biên', 'Lăng Chủ tịch Hồ Chí Minh', 21.037268, 105.834438, 1.50, 'Khu vực hành chính và di tích lịch sử', '2025-10-17 11:51:05', 1),
+('LOC_HN_02', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', 'Phường Tràng Tiền', '15 Ngô Quyền', 21.037268, 105.834438, 1.50, 'Khu vực hành chính và di tích lịch sử', '2025-10-17 11:51:05', 1),
 ('LOC_HN_03', 'Vietnam', 'Hà Nội', 'Cầu Giấy', 'Phường Dịch Vọng', 'Công viên Cầu Giấy', 21.033781, 105.789489, 6.00, 'Khu vực nhiều khách sạn và trung tâm thương mại', '2025-10-17 11:51:05', 1),
 ('LOC_HN_04', 'Vietnam', 'Hà Nội', 'Tây Hồ', 'Phường Quảng An', 'Hồ Tây', 21.068217, 105.818871, 5.00, 'Khu du lịch và nghỉ dưỡng ven hồ', '2025-10-17 11:51:05', 1),
 ('LOC_HN_05', 'Vietnam', 'Hà Nội', NULL, NULL, NULL, 21.009802, 105.822830, 4.00, 'Khu trung tâm mua sắm và giao thông lớn', '2025-10-17 11:51:05', 1),
@@ -565,7 +633,7 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S014', 'R004', '2025-10-25', 2000000.00, 5.00, 2, 1, 1, '2025-10-22 10:09:16'),
 ('S015', 'R005', '2025-10-25', 1500000.00, 0.00, 4, 1, 1, '2025-10-22 10:09:16'),
 ('S018', 'R001', '2025-10-27', 800000.00, 0.00, 5, 1, 1, '2025-10-24 11:33:13'),
-('S019', 'R001', '2025-10-28', 800000.00, 0.00, 5, 1, 1, '2025-10-24 11:33:13'),
+('S019', 'R001', '2025-10-28', 800000.00, 10.00, 5, 1, 1, '2025-10-24 11:33:13'),
 ('S020', 'R001', '2025-10-29', 800000.00, 10.00, 5, 1, 1, '2025-10-24 11:33:13'),
 ('S021', 'R001', '2025-10-30', 800000.00, 0.00, 5, 1, 1, '2025-10-24 11:33:13'),
 ('S022', 'R001', '2025-10-31', 800000.00, 5.00, 5, 1, 1, '2025-10-24 11:33:13'),
@@ -591,7 +659,7 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S042', 'R001', '2025-11-20', 820000.00, 0.00, 5, 1, 1, '2025-10-24 11:33:13'),
 ('S044', 'R002', '2025-10-26', 950000.00, 5.00, 3, 1, 1, '2025-10-24 11:34:05'),
 ('S045', 'R002', '2025-10-27', 950000.00, 0.00, 3, 1, 1, '2025-10-24 11:34:05'),
-('S046', 'R002', '2025-10-28', 950000.00, 0.00, 3, 1, 1, '2025-10-24 11:34:05'),
+('S046', 'R002', '2025-10-28', 950000.00, 5.00, 3, 1, 1, '2025-10-24 11:34:05'),
 ('S047', 'R002', '2025-10-29', 950000.00, 5.00, 3, 1, 1, '2025-10-24 11:34:05'),
 ('S048', 'R002', '2025-10-30', 950000.00, 0.00, 3, 1, 1, '2025-10-24 11:34:05'),
 ('S049', 'R002', '2025-10-31', 950000.00, 5.00, 3, 1, 1, '2025-10-24 11:34:05'),
@@ -617,7 +685,7 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S069', 'R002', '2025-11-20', 970000.00, 0.00, 3, 1, 1, '2025-10-24 11:34:05'),
 ('S071', 'R003', '2025-10-26', 1800000.00, 10.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S072', 'R003', '2025-10-27', 1800000.00, 0.00, 6, 1, 0, '2025-10-24 11:34:15'),
-('S073', 'R003', '2025-10-28', 1800000.00, 0.00, 6, 1, 0, '2025-10-24 11:34:15'),
+('S073', 'R003', '2025-10-28', 1800000.00, 10.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S074', 'R003', '2025-10-29', 1800000.00, 10.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S075', 'R003', '2025-10-30', 1800000.00, 0.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S076', 'R003', '2025-10-31', 1800000.00, 5.00, 6, 1, 0, '2025-10-24 11:34:15'),
@@ -642,7 +710,7 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S095', 'R003', '2025-11-19', 1820000.00, 10.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S096', 'R003', '2025-11-20', 1820000.00, 0.00, 6, 1, 0, '2025-10-24 11:34:15'),
 ('S100', 'R006', '2025-10-27', 2500000.00, 0.00, 5, 1, 1, '2025-10-27 15:52:19'),
-('S101', 'R006', '2025-10-28', 2500000.00, 0.00, 5, 1, 1, '2025-10-27 15:52:19'),
+('S101', 'R006', '2025-10-28', 2500000.00, 10.00, 5, 1, 1, '2025-10-27 15:52:19'),
 ('S102', 'R006', '2025-10-29', 2500000.00, 10.00, 5, 1, 1, '2025-10-27 15:52:19'),
 ('S103', 'R006', '2025-10-30', 2500000.00, 0.00, 5, 1, 1, '2025-10-27 15:52:19'),
 ('S104', 'R006', '2025-10-31', 2500000.00, 5.00, 5, 1, 1, '2025-10-27 15:52:19'),
@@ -668,7 +736,7 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S124', 'R006', '2025-11-20', 2550000.00, 0.00, 5, 1, 1, '2025-10-27 15:52:19'),
 ('S200', 'R005', '2025-10-26', 1500000.00, 0.00, 4, 1, 1, '2025-10-27 16:04:25'),
 ('S201', 'R005', '2025-10-27', 1500000.00, 0.00, 4, 1, 1, '2025-10-27 16:04:25'),
-('S202', 'R005', '2025-10-28', 1500000.00, 0.00, 4, 1, 1, '2025-10-27 16:04:25'),
+('S202', 'R005', '2025-10-28', 1500000.00, 10.00, 4, 1, 1, '2025-10-27 16:04:25'),
 ('S203', 'R005', '2025-10-29', 1500000.00, 10.00, 4, 1, 1, '2025-10-27 16:04:25'),
 ('S204', 'R005', '2025-10-30', 1500000.00, 0.00, 4, 1, 1, '2025-10-27 16:04:25'),
 ('S205', 'R005', '2025-10-31', 1500000.00, 5.00, 4, 1, 1, '2025-10-27 16:04:25'),
@@ -794,7 +862,8 @@ ALTER TABLE `hotel_category`
 ALTER TABLE `hotel_facility`
   ADD PRIMARY KEY (`hotel_id`,`facility_id`),
   ADD KEY `idx_hf_hotel` (`hotel_id`),
-  ADD KEY `idx_hf_fac` (`facility_id`);
+  ADD KEY `idx_hf_fac` (`facility_id`),
+  ADD KEY `idx_hotel_facility_highlight` (`hotel_id`,`is_highlight`,`highlight_order`);
 
 --
 -- Chỉ mục cho bảng `hotel_image`

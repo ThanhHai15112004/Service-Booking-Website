@@ -1,14 +1,6 @@
-import { 
-  Wifi, 
-  UtensilsCrossed, 
-  Car, 
-  Clock, 
-  Waves,
-  Wind,
-  Info,
-  Dumbbell,
-  Sparkles
-} from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getIconByType, DefaultIcon } from './iconMapping';
 
 interface Highlight {
   icon?: string;
@@ -21,69 +13,79 @@ interface HotelHighlightsProps {
   highlights: Highlight[];
 }
 
-const iconMap: Record<string, any> = {
-  'wifi': Wifi,
-  'restaurant': UtensilsCrossed,
-  'parking': Car,
-  'reception': Clock,
-  'pool': Waves,
-  'aircon': Wind,
-  'gym': Dumbbell,
-  'spa': Sparkles,
-};
-
 export default function HotelHighlights({ highlights }: HotelHighlightsProps) {
+  const [showAll, setShowAll] = useState(false);
+  const MAX_VISIBLE_ITEMS = 6;
+
   if (!highlights || highlights.length === 0) {
     return null;
   }
 
   const getIcon = (highlight: Highlight) => {
-    if (highlight.iconType && iconMap[highlight.iconType]) {
-      const IconComponent = iconMap[highlight.iconType];
-      return <IconComponent className="w-6 h-6 text-gray-700" />;
+    // Ưu tiên icon URL từ database trước
+    if (highlight.icon && highlight.icon.startsWith('http')) {
+      return <img src={highlight.icon} alt="" className="w-10 h-10 object-contain" />;
     }
     
-    if (highlight.icon) {
-      // If icon is emoji or image URL
-      if (highlight.icon.startsWith('http')) {
-        return <img src={highlight.icon} alt="" className="w-6 h-6" />;
-      }
-      return <span className="text-2xl">{highlight.icon}</span>;
+    // Nếu có icon text/emoji
+    if (highlight.icon && !highlight.icon.startsWith('http')) {
+      return <span className="text-xl">{highlight.icon}</span>;
     }
     
-    // Default icon
-    return <Info className="w-6 h-6 text-gray-700" />;
+    // Fallback: dùng iconType với lucide icons
+    if (highlight.iconType) {
+      const IconComponent = getIconByType(highlight.iconType);
+      return <IconComponent className="w-6 h-6" style={{ color: '#2067da' }} strokeWidth={1.5} />;
+    }
+    
+    // Default icon cuối cùng
+    const Icon = DefaultIcon;
+    return <Icon className="w-6 h-6" style={{ color: '#2067da' }} strokeWidth={1.5} />;
   };
 
+  const displayedHighlights = showAll ? highlights : highlights.slice(0, MAX_VISIBLE_ITEMS);
+  const hasMore = highlights.length > MAX_VISIBLE_ITEMS;
+
   return (
-    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-      <h3 className="text-base font-bold text-gray-900 mb-3">Điểm nổi bật của chỗ nghỉ</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {highlights.map((highlight, index) => (
+    <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+      <h3 className="text-lg font-bold text-black mb-3">Điểm nổi bật nhất</h3>
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        {displayedHighlights.map((highlight, index) => (
           <div 
             key={index} 
-            className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex flex-col items-center text-center gap-1.5"
           >
             <div className="flex-shrink-0">
               {getIcon(highlight)}
             </div>
-            <div className="flex-1">
-              <p className="text-gray-900">
-                {highlight.text}
-                {highlight.tooltip && (
-                  <button
-                    className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-300 text-gray-700 hover:bg-gray-400 text-xs"
-                    title={highlight.tooltip}
-                    aria-label="More information"
-                  >
-                    ⓘ
-                  </button>
-                )}
-              </p>
-            </div>
+            <p className="text-[12px] text-gray-700 leading-tight">
+              {highlight.text}
+            </p>
           </div>
         ))}
       </div>
+      
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors hover:bg-gray-50 rounded-lg"
+            style={{ color: '#2067da' }}
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Thu gọn
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Xem thêm
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

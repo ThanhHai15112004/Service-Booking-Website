@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
+import { ErrorState } from '../common';
 
 interface HotelDetailErrorStateProps {
   error: string;
@@ -8,31 +8,39 @@ interface HotelDetailErrorStateProps {
   checkOut?: string;
 }
 
+/**
+ * Hotel Detail Page Error State
+ * Uses common ErrorState component
+ */
 export default function HotelDetailErrorState({ 
   error, 
   hotelId, 
   checkIn, 
   checkOut 
 }: HotelDetailErrorStateProps) {
-  const navigate = useNavigate();
-
   return (
     <MainLayout>
       <div className="bg-white flex items-center justify-center min-h-screen">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-black mb-2">{error}</h2>
-          {hotelId && <p className="text-sm text-gray-600 mb-4">Hotel ID: {hotelId}</p>}
-          {checkIn && checkOut && (
-            <p className="text-xs text-gray-400 mb-4">
-              Check In: {checkIn}, Check Out: {checkOut}
-            </p>
+        <div className="w-full max-w-md">
+          <ErrorState 
+            error={error}
+            title="Không thể tải thông tin khách sạn"
+            showHomeButton
+          />
+          
+          {/* Additional debug info */}
+          {(hotelId || (checkIn && checkOut)) && (
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center">
+              {hotelId && (
+                <p className="text-xs text-gray-600">Hotel ID: {hotelId}</p>
+              )}
+              {checkIn && checkOut && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {checkIn} → {checkOut}
+                </p>
+              )}
+            </div>
           )}
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Quay về trang chủ
-          </button>
         </div>
       </div>
     </MainLayout>

@@ -5,10 +5,10 @@ export { default as HotelImageGallery } from './HotelImageGallery';
 export { default as HotelHighlights } from './HotelHighlights';
 export { default as HotelInfo } from './HotelInfo';
 export { default as HotelAmenities } from './HotelAmenities';
-export { default as HotelPolicies } from './HotelPolicies';
 export { default as BookingCard } from './BookingCard';
 export { default as StickyTabNav } from './StickyTabNav';
 export { default as RoomFilters } from './RoomFilters';
+export { default as RoomList } from './RoomList';
 export { default as HotelReviews } from './HotelReviews';
 export { default as HotelLocation } from './HotelLocation';
 
@@ -18,10 +18,27 @@ export { default as HotelDetailErrorState } from './HotelDetailErrorState';
 export { default as HotelHeaderSection } from './HotelHeaderSection';
 export { default as HotelMainContent } from './HotelMainContent';
 
-// Export custom hook
-export { useHotelDetail } from './useHotelDetail';
-export type { UseHotelDetailReturn } from './useHotelDetail';
+// Re-export hook from hooks folder
+export { useHotelDetail } from '../../hooks/useHotelDetail';
+export type { UseHotelDetailReturn } from '../../hooks/useHotelDetail';
 
-// Export types
-export type { RoomFiltersState } from './RoomFilters';
+// Re-export types from types folder (for convenience)
+export type {
+  HotelDetail,
+  HotelImage,
+  HotelFacility,
+  HotelHighlight,
+  HotelBadge,
+  HotelPolicies as HotelPoliciesType,
+  HotelCounts,
+  Room,
+  RoomFacility,
+  RoomDailyAvailability,
+  RoomFiltersState,
+  FilterCounts,
+  BreadcrumbItem,
+  TabSection,
+  ReviewCategory,
+  Review
+} from '../../types';
 

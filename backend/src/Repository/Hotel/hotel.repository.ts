@@ -520,6 +520,22 @@ export class HotelSearchRepository {
       `;
       const facilities = await this.query<any>(facilitiesSql, [hotelId]);
 
+      // Get highlights - Query from hotel_highlight JOIN highlight (similar to facilities)
+      const highlightsSql = `
+        SELECT 
+          h.highlight_id as highlightId,
+          COALESCE(hh.custom_text, h.name) as text,
+          h.icon_url as icon,
+          h.description as tooltip,
+          h.category,
+          hh.sort_order as sortOrder
+        FROM hotel_highlight hh
+        JOIN highlight h ON h.highlight_id = hh.highlight_id
+        WHERE hh.hotel_id = ?
+        ORDER BY hh.sort_order ASC
+      `;
+      const highlights = await this.query<any>(highlightsSql, [hotelId]);
+  
       // Build structured policies
       const policies = {
         checkIn: {
@@ -535,9 +551,6 @@ export class HotelSearchRepository {
         pets: false,
         additionalPolicies: []
       };
-
-      // Generate highlights based on facilities and hotel features
-      const highlights = this.generateHighlights(facilities, hotel);
 
       // Generate badges based on rating and reviews
       const badges = this.generateBadges(hotel);
@@ -556,7 +569,14 @@ export class HotelSearchRepository {
           name: fac.name,
           icon: fac.icon
         })),
-        highlights,
+        highlights: highlights.map((hl: any) => ({
+          highlightId: hl.highlightId,
+          icon: hl.icon,
+          text: hl.text,
+          tooltip: hl.tooltip,
+          category: hl.category,
+          sortOrder: hl.sortOrder
+        })),
         badges,
         policies
       };
@@ -680,7 +700,9 @@ export class HotelSearchRepository {
       // Fetch room facilities
       if (availableRooms.length > 0) {
         const roomIds = availableRooms.map(r => r.roomId);
+        const roomTypeIds = availableRooms.map(r => r.roomTypeId);
         const placeholders = roomIds.map(() => '?').join(',');
+        const placeholdersType = roomTypeIds.map(() => '?').join(',');
         
         const facilitiesSql = `
           SELECT 
@@ -707,9 +729,39 @@ export class HotelSearchRepository {
           return acc;
         }, {});
         
-        // Attach facilities to rooms
+        // Fetch room images
+        const imagesSql = `
+          SELECT 
+            ri.room_type_id as roomTypeId,
+            ri.image_id as imageId,
+            ri.image_url as imageUrl,
+            ri.image_alt as imageAlt,
+            ri.is_primary as isPrimary,
+            ri.sort_order as sortOrder
+          FROM room_image ri
+          WHERE ri.room_type_id IN (${placeholdersType})
+          ORDER BY ri.room_type_id, ri.sort_order ASC
+        `;
+        
+        const images = await this.query<any>(imagesSql, roomTypeIds);
+        
+        // Group images by room_type_id
+        const imagesByRoomType = images.reduce((acc: any, img: any) => {
+          if (!acc[img.roomTypeId]) acc[img.roomTypeId] = [];
+          acc[img.roomTypeId].push({
+            imageId: img.imageId,
+            imageUrl: img.imageUrl,
+            imageAlt: img.imageAlt,
+            isPrimary: Boolean(img.isPrimary),
+            sortOrder: Number(img.sortOrder)
+          });
+          return acc;
+        }, {});
+        
+        // Attach facilities and images to rooms
         availableRooms.forEach(room => {
           room.facilities = facilitiesByRoom[room.roomId] || [];
+          room.images = imagesByRoomType[room.roomTypeId] || [];
         });
       }
 
