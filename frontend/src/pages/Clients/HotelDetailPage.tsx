@@ -5,7 +5,8 @@ import {
   HotelDetailLoadingState,
   HotelDetailErrorState,
   HotelHeaderSection,
-  HotelMainContent
+  HotelMainContent,
+  HotelSearchUpdateBar
 } from '../../components/HotelDetailPage';
 
 export default function HotelDetailPage() {
@@ -22,6 +23,7 @@ export default function HotelDetailPage() {
     checkOut,
     guests,
     rooms,
+    children,
     roomFilters,
     setRoomFilters,
     isLoading,
@@ -72,6 +74,17 @@ export default function HotelDetailPage() {
   return (
     <MainLayout>
       <div className="bg-white">
+        {/* Search Update Bar - Sticky at top */}
+        <HotelSearchUpdateBar
+          hotelId={id || ''}
+          initialDestination={hotel?.city || ''}
+          initialCheckIn={checkIn}
+          initialCheckOut={checkOut}
+          initialGuests={guests}
+          initialRooms={rooms}
+          initialChildren={children}
+        />
+
         {/* Header Section: Breadcrumb + Hotel Info + Image Gallery + Sticky Nav */}
         <HotelHeaderSection
           breadcrumbItems={breadcrumbItems}

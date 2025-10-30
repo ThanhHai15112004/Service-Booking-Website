@@ -60,6 +60,29 @@ export class BookingService {
         };
       }
 
+      // Step 3.5: Validate capacity (CRITICAL)
+      const totalCapacity = room.capacity * request.rooms;
+      const totalGuests = request.adults + (request.children || 0);
+      
+      console.log(`📊 Capacity Validation:`);
+      console.log(`  - Room capacity: ${room.capacity} người/phòng`);
+      console.log(`  - Rooms requested: ${request.rooms}`);
+      console.log(`  - Total capacity: ${totalCapacity} người`);
+      console.log(`  - Total guests: ${totalGuests} người`);
+
+      if (totalCapacity < totalGuests) {
+        console.log(`❌ CAPACITY CHECK FAILED!`);
+        const minRoomsNeeded = Math.ceil(totalGuests / room.capacity);
+        return {
+          success: false,
+          message: `Không đủ chỗ! Phòng ${room.room_type_name || 'này'} chỉ chứa tối đa ` +
+                   `${room.capacity} người/phòng. Bạn đặt ${request.rooms} phòng ` +
+                   `(tổng capacity: ${totalCapacity} người) nhưng có ${totalGuests} người. ` +
+                   `Vui lòng đặt ít nhất ${minRoomsNeeded} phòng hoặc giảm số người.`
+        };
+      }
+      console.log(`✅ Capacity check PASSED`);
+
       // Step 4: Re-check availability (CRITICAL - prevent double booking)
       console.log(`🔍 Re-checking availability...`);
       const hasEnough = await this.availabilityRepo.hasEnoughAvailability(
@@ -143,7 +166,7 @@ export class BookingService {
 
       // Step 8: Create booking detail
       console.log(`📋 Creating booking detail...`);
-      const totalGuests = request.adults + (request.children || 0);
+      const guestsCount = request.adults + (request.children || 0);
       const avgPricePerNight = priceCalculation.subtotal / priceCalculation.nightsCount / request.rooms;
 
       const bookingDetail: BookingDetail = {
@@ -152,7 +175,7 @@ export class BookingService {
         room_id: request.roomId,
         checkin_date: request.checkIn,
         checkout_date: request.checkOut,
-        guests_count: totalGuests,
+        guests_count: guestsCount,
         price_per_night: avgPricePerNight,
         nights_count: priceCalculation.nightsCount,
         total_price: priceCalculation.subtotal

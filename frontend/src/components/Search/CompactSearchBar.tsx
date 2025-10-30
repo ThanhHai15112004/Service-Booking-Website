@@ -13,7 +13,7 @@ interface CompactSearchBarProps {
 
 export default function CompactSearchBar({ onSearch, initialSearchParams }: CompactSearchBarProps) {
   const navigate = useNavigate();
-  const { searchParams, updateSearchParams } = useSearch();
+  const { searchParams } = useSearch(); // ✅ Removed updateSearchParams - không dùng nữa
   
   // Initialize từ SearchContext hoặc initialSearchParams
   const [destination, setDestination] = useState(
@@ -148,17 +148,8 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
     try {
       setIsLoadingSearch(true);
       
-      // Lưu vào SearchContext
-      updateSearchParams({
-        destination: selectedLocation?.locationId || destination,
-        destinationName: destination,
-        checkIn,
-        checkOut: stayType === 'dayuse' ? checkIn : checkOut,
-        adults: guests,
-        rooms,
-        children,
-      });
-
+      // ✅ FIX: CompactSearchBar không lưu vào SearchContext (chỉ MainSearchBar mới lưu)
+      // Chỉ search và navigate với query params
       const params = {
         destination,
         checkIn,
@@ -201,7 +192,7 @@ export default function CompactSearchBar({ onSearch, initialSearchParams }: Comp
   };
 
   return (
-    <div className="bg-gray-100 bg-opacity-80 border-b border-gray-200 shadow-md sticky top-0 z-40">
+    <div className="bg-gray-100 bg-opacity-80 border-b border-gray-200 shadow-md sticky top-14 z-40">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2 relative">
         {/* Overlay that blocks the whole form when searching */}
         {isLoadingSearch && (

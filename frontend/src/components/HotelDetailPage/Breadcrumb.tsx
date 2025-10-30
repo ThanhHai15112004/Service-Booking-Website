@@ -13,7 +13,7 @@ interface BreadcrumbProps {
 
 export default function Breadcrumb({ items }: BreadcrumbProps) {
   return (
-    <nav className="bg-white py-3 px-4 sm:px-6 lg:px-8 max-w-[1000px] mx-auto" aria-label="Breadcrumb">
+    <nav className="bg-white py-3 px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto" aria-label="Breadcrumb">
       <ol className="flex items-center space-x-2 text-sm">
         {items.map((item, index) => (
           <li key={index} className="flex items-center">

@@ -14,7 +14,7 @@ export default function BookingPage() {
   const { id } = useParams(); // hotelId or roomId
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { searchParams: contextSearchParams, updateSearchParams } = useSearch();
+  const { searchParams: contextSearchParams } = useSearch(); // ✅ Removed updateSearchParams
 
   const [hotel, setHotel] = useState<any>(null);
   const [room, setRoom] = useState<any>(null);
@@ -44,27 +44,27 @@ export default function BookingPage() {
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingConfirmation, setBookingConfirmation] = useState<any>(null);
 
-  // Sync URL params to SearchContext on page load
-  useEffect(() => {
-    const checkInParam = searchParams.get('checkIn');
-    const checkOutParam = searchParams.get('checkOut');
-    const guestsParam = searchParams.get('guests');
-    const roomsParam = searchParams.get('rooms');
-    const childrenParam = searchParams.get('children');
+  // ✅ FIX: KHÔNG SYNC params vào SearchContext nữa
+  // Params chỉ đọc từ URL, không lưu vào context
+  // useEffect(() => {
+  //   const checkInParam = searchParams.get('checkIn');
+  //   const checkOutParam = searchParams.get('checkOut');
+  //   const guestsParam = searchParams.get('guests');
+  //   const roomsParam = searchParams.get('rooms');
+  //   const childrenParam = searchParams.get('children');
 
-    if (checkInParam && checkOutParam) {
-      updateSearchParams({
-        destination: contextSearchParams.destination,
-        destinationName: contextSearchParams.destinationName,
-        checkIn: checkInParam,
-        checkOut: checkOutParam,
-        adults: parseInt(guestsParam || '2'),
-        rooms: parseInt(roomsParam || '1'),
-        children: parseInt(childrenParam || '0'),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  //   if (checkInParam && checkOutParam) {
+  //     updateSearchParams({
+  //       destination: contextSearchParams.destination,
+  //       destinationName: contextSearchParams.destinationName,
+  //       checkIn: checkInParam,
+  //       checkOut: checkOutParam,
+  //       adults: parseInt(guestsParam || '2'),
+  //       rooms: parseInt(roomsParam || '1'),
+  //       children: parseInt(childrenParam || '0'),
+  //     });
+  //   }
+  // }, []);
 
   // Fetch hotel/room details and re-check availability
   useEffect(() => {

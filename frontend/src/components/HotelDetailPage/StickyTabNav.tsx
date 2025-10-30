@@ -73,7 +73,7 @@ export default function StickyTabNav({ sections }: StickyTabNavProps) {
   return (
     <nav
       ref={navRef}
-      className={`sticky max-w-[1000px] mx-auto top-0 z-40 bg-white border-b border-gray-200 transition-shadow ${
+      className={`sticky max-w-[1200px] mx-auto top-[125px] z-30 bg-white border-b border-gray-200 transition-shadow ${
         isSticky ? 'shadow-md' : ''
       }`}
     >

@@ -45,7 +45,7 @@ export default function HotelMainContent({
 
   const nights = calculateNights(checkIn, checkOut);
   return (
-    <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       
 
       {/* 2 Column Layout - 70:30 ratio */}

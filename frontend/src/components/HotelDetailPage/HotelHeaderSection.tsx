@@ -32,7 +32,7 @@ export default function HotelHeaderSection({
       <Breadcrumb items={breadcrumbItems} />
 
       {/* Back Button & Image Gallery - Full Width at Top */}
-      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
         <button
           onClick={() => window.history.back()}
           className="text-black hover:underline mb-4"

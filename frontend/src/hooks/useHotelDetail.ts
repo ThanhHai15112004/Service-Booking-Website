@@ -41,7 +41,7 @@ export interface UseHotelDetailReturn {
 export function useHotelDetail(): UseHotelDetailReturn {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const { searchParams: contextSearchParams, updateSearchParams } = useSearch();
+  const { searchParams: contextSearchParams } = useSearch(); // ✅ Removed updateSearchParams
 
   // States
   const [hotel, setHotel] = useState<HotelDetail | null>(null);
@@ -59,42 +59,37 @@ export function useHotelDetail(): UseHotelDetailReturn {
     noCreditCard: false
   });
 
-  // Initialize from URL params or SearchContext with safe defaults
-  const checkInParam = searchParams.get('checkIn') || contextSearchParams.checkIn || '';
-  const checkOutParam = searchParams.get('checkOut') || contextSearchParams.checkOut || '';
-  const guestsParam = searchParams.get('guests') || contextSearchParams.adults?.toString() || '2';
-  const roomsParam = searchParams.get('rooms') || contextSearchParams.rooms?.toString() || '1';
-  const childrenParam = searchParams.get('children') || contextSearchParams.children?.toString() || '0';
+  // ✅ FIX: Đọc trực tiếp từ URL params (không dùng useState để nó tự động update khi URL thay đổi)
+  const checkIn = searchParams.get('checkIn') || contextSearchParams.checkIn || '';
+  const checkOut = searchParams.get('checkOut') || contextSearchParams.checkOut || '';
+  const guests = parseInt(searchParams.get('guests') || contextSearchParams.adults?.toString() || '2');
+  const rooms = parseInt(searchParams.get('rooms') || contextSearchParams.rooms?.toString() || '1');
+  const children = parseInt(searchParams.get('children') || contextSearchParams.children?.toString() || '0');
 
-  const [checkIn] = useState(checkInParam);
-  const [checkOut] = useState(checkOutParam);
-  const [guests] = useState(parseInt(guestsParam) || 2);
-  const [rooms] = useState(parseInt(roomsParam) || 1);
-  const [children] = useState(parseInt(childrenParam) || 0);
+  // ✅ FIX: KHÔNG SYNC params vào SearchContext nữa
+  // Params chỉ đọc từ URL, không lưu vào context
+  // useEffect(() => {
+  //   const destination = searchParams.get('destination');
+  //   const checkInParam = searchParams.get('checkIn');
+  //   const checkOutParam = searchParams.get('checkOut');
+  //   const roomsParam = searchParams.get('rooms');
+  //   const guestsParam = searchParams.get('guests');
+  //   const childrenParam = searchParams.get('children');
 
-  // Sync URL params to SearchContext on page load
-  useEffect(() => {
-    const destination = searchParams.get('destination');
-    const checkInParam = searchParams.get('checkIn');
-    const checkOutParam = searchParams.get('checkOut');
-    const roomsParam = searchParams.get('rooms');
-    const guestsParam = searchParams.get('guests');
-    const childrenParam = searchParams.get('children');
-
-    // If URL has search params, sync to context
-    if (checkInParam && checkOutParam) {
-      updateSearchParams({
-        destination: destination || contextSearchParams.destination,
-        destinationName: destination || contextSearchParams.destinationName,
-        checkIn: checkInParam,
-        checkOut: checkOutParam,
-        adults: parseInt(guestsParam || '2'),
-        rooms: parseInt(roomsParam || '1'),
-        children: parseInt(childrenParam || '0'),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  //   // If URL has search params, sync to context
+  //   if (checkInParam && checkOutParam) {
+  //     updateSearchParams({
+  //       destination: destination || contextSearchParams.destination,
+  //       destinationName: destination || contextSearchParams.destinationName,
+  //       checkIn: checkInParam,
+  //       checkOut: checkOutParam,
+  //       adults: parseInt(guestsParam || '2'),
+  //       rooms: parseInt(roomsParam || '1'),
+  //       children: parseInt(childrenParam || '0'),
+  //     });
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []); // Only run once on mount
 
   // Fetch hotel details from API
   useEffect(() => {

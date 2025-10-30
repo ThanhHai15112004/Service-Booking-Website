@@ -157,6 +157,14 @@ export interface Room {
   hasFullAvailability: boolean;
   meetsCapacity: boolean;
   
+  // ✅ NEW: Capacity fields
+  requestedRooms?: number;      // Số phòng user muốn đặt
+  totalCapacity?: number;       // capacity × rooms
+  totalGuests?: number;         // adults + children
+  maxBookableSets?: number;     // Số "bộ phòng" có thể đặt
+  capacityWarning?: string | null; // Warning message nếu không đủ chỗ
+  totalRooms?: number;          // Tổng số rooms vật lý
+  
   // Policies
   refundable: boolean;
   payLater: boolean;

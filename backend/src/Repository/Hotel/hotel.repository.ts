@@ -595,7 +595,8 @@ export class HotelSearchRepository {
     checkIn: string, 
     checkOut: string,
     adults: number = 2,
-    children: number = 0
+    children: number = 0,
+    rooms: number = 1  // ✅ NEW: Số phòng user muốn đặt
   ): Promise<any[]> {
     try {
       const nights = this.calculateNights(checkIn, checkOut);
@@ -713,6 +714,14 @@ export class HotelSearchRepository {
         const minAvailable = Math.min(...dailyAvailability.map(day => day.totalAvailable));
         const totalRooms = roomsByType.get(roomTypeId)!.size;
         
+        // ✅ FIX: Tính capacity và availability với số phòng user muốn đặt
+        const totalCapacity = roomType.capacity * rooms;
+        const totalGuests = adults + children;
+        const meetsCapacity = totalCapacity >= totalGuests;
+        
+        // Tính số "bộ phòng" có thể đặt (VD: user muốn 2 phòng/lần, available=5 → 2 bộ)
+        const maxBookableSets = rooms > 0 ? Math.floor(minAvailable / rooms) : minAvailable;
+        
         availableRoomTypes.push({
           roomTypeId: roomType.roomTypeId,
           roomName: roomType.roomName,
@@ -720,15 +729,21 @@ export class HotelSearchRepository {
           bedType: roomType.bedType,
           area: roomType.area,
           roomImage: roomType.roomImage,
-          capacity: roomType.capacity,
-          totalRooms: totalRooms, // Tổng số rooms thuộc loại này
-          minAvailable: minAvailable, // Số phòng khả dụng (min trong các ngày)
+          capacity: roomType.capacity,                // Capacity per room
+          totalRooms: totalRooms,                     // Tổng số rooms vật lý thuộc loại này
+          minAvailable: minAvailable,                 // Min available trong các ngày
+          maxBookableSets: maxBookableSets,           // ✅ NEW: Số bộ có thể đặt
+          requestedRooms: rooms,                      // ✅ NEW: Số phòng user muốn đặt
+          totalCapacity: totalCapacity,               // ✅ NEW: Total capacity (capacity × rooms)
+          totalGuests: totalGuests,                   // ✅ NEW: Tổng số khách
           dailyAvailability: dailyAvailability,
           totalPrice: Number(totalPrice.toFixed(2)),
           avgPricePerNight: Number((totalPrice / nights).toFixed(2)),
           totalBasePrice: Number(totalBasePrice.toFixed(2)),
           hasFullAvailability: true,
-          meetsCapacity: roomType.capacity >= (adults + children),
+          meetsCapacity: meetsCapacity,               // ✅ FIXED: capacity * rooms >= guests
+          capacityWarning: !meetsCapacity ? 
+            `Phòng này chỉ chứa ${roomType.capacity} người/phòng. Với ${rooms} phòng, tối đa ${totalCapacity} người.` : null,
           facilities: [],
           images: [],
           refundable: roomType.refundable,

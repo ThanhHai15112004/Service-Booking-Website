@@ -15,7 +15,7 @@ interface MainSearchBarProps {
 
 export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
   const navigate = useNavigate();
-  const { searchParams, updateSearchParams } = useSearch();
+  const { searchParams } = useSearch(); // ✅ Removed updateSearchParams - không dùng nữa
   
   const [searchType, setSearchType] = useState('hotel');
   const [tab, setTab] = useState<'overnight' | 'dayuse'>('overnight');
@@ -194,17 +194,8 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
     try {
       setIsLoadingSearch(true);
       
-      // Lưu vào SearchContext
-      updateSearchParams({
-        destination: selectedLocation?.locationId || destination,
-        destinationName: destination,
-        checkIn: ci,
-        checkOut: co,
-        adults: guests,
-        rooms,
-        children,
-      });
-
+      // ✅ FIX: MainSearchBar cũng KHÔNG LƯU vào SearchContext
+      // Chỉ search và navigate với query params
       const params = {
         destination,
         checkIn: ci,

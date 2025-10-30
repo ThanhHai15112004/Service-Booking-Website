@@ -66,7 +66,7 @@ interface HotelSearchResult {
 export default function HotelsListPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { searchParams: contextSearchParams, updateSearchParams } = useSearch();
+  const { searchParams: contextSearchParams } = useSearch(); // ✅ Removed updateSearchParams
   const [hotels, setHotels] = useState<HotelSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,29 +136,28 @@ export default function HotelsListPage() {
     policies: []
   });
 
-  // Sync URL params to SearchContext when page loads
-  useEffect(() => {
-    const destination = searchParams.get('destination');
-    const checkIn = searchParams.get('checkIn');
-    const checkOut = searchParams.get('checkOut');
-    const guests = searchParams.get('guests');
-    const rooms = searchParams.get('rooms');
-    const children = searchParams.get('children');
+  // ✅ FIX: KHÔNG SYNC params vào SearchContext nữa
+  // Params chỉ đọc từ URL, không lưu vào context
+  // useEffect(() => {
+  //   const destination = searchParams.get('destination');
+  //   const checkIn = searchParams.get('checkIn');
+  //   const checkOut = searchParams.get('checkOut');
+  //   const guests = searchParams.get('guests');
+  //   const rooms = searchParams.get('rooms');
+  //   const children = searchParams.get('children');
 
-    // If URL has search params, sync to context
-    if (destination && checkIn) {
-      updateSearchParams({
-        destination,
-        destinationName: destination,
-        checkIn,
-        checkOut: checkOut || checkIn,
-        adults: parseInt(guests || '2'),
-        rooms: parseInt(rooms || '1'),
-        children: parseInt(children || '0'),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  //   if (destination && checkIn) {
+  //     updateSearchParams({
+  //       destination,
+  //       destinationName: destination,
+  //       checkIn,
+  //       checkOut: checkOut || checkIn,
+  //       adults: parseInt(guests || '2'),
+  //       rooms: parseInt(rooms || '1'),
+  //       children: parseInt(children || '0'),
+  //     });
+  //   }
+  // }, []);
 
   // Fetch filter metadata
   useEffect(() => {
@@ -307,16 +306,8 @@ export default function HotelsListPage() {
   const handleSearch = (params: any) => {
     setSearchData(params);
     
-    // Update SearchContext
-    updateSearchParams({
-      destination: params.destination || '',
-      destinationName: params.destination || '',
-      checkIn: params.checkIn || '',
-      checkOut: params.checkOut || '',
-      adults: params.guests || 2,
-      rooms: params.rooms || 1,
-      children: params.children || 0,
-    });
+    // ✅ FIX: KHÔNG UPDATE SearchContext nữa
+    // Chỉ navigate với query params
     
     const queryParams: any = {
       destination: params.destination || '',

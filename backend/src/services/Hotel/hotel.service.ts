@@ -150,7 +150,8 @@ export class HotelService {
         checkIn,
         checkOut,
         adults,
-        children
+        children,
+        rooms  // ✅ FIX: Pass rooms param
       );
 
       return {

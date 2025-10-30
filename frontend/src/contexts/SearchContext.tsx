@@ -90,29 +90,16 @@ const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [searchParams, setSearchParams] = useState<SearchParams>(() => {
-    // Load từ localStorage khi mount
-    const stored = localStorage.getItem('searchParams');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Validate dates trước khi sử dụng
-        if (validateDates(parsed.checkIn, parsed.checkOut)) {
-          return {
-            ...parsed,
-            los: calculateLOS(parsed.checkIn, parsed.checkOut)
-          };
-        }
-      } catch (error) {
-        console.error('Error parsing stored search params:', error);
-      }
-    }
+    // ✅ FIX: KHÔNG LOAD từ localStorage nữa
+    // Luôn khởi tạo với default params
     return getDefaultSearchParams();
   });
 
-  // Lưu vào localStorage mỗi khi searchParams thay đổi
-  useEffect(() => {
-    localStorage.setItem('searchParams', JSON.stringify(searchParams));
-  }, [searchParams]);
+  // ✅ FIX: KHÔNG TỰ ĐỘNG LƯU vào localStorage nữa
+  // Params chỉ tồn tại trong memory, không persist qua reload
+  // useEffect(() => {
+  //   localStorage.setItem('searchParams', JSON.stringify(searchParams));
+  // }, [searchParams]);
 
   // Update search params (partial update)
   const updateSearchParams = (params: Partial<SearchParams>) => {
