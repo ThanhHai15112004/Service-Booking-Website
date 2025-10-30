@@ -52,6 +52,7 @@ export class BookingService {
         };
       }
 
+      // Note: room.hotel_id lấy từ room_type.hotel_id (sau khi xóa room.hotel_id)
       if (room.hotel_id !== request.hotelId) {
         return { 
           success: false, 

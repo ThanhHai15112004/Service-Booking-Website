@@ -61,7 +61,7 @@ export class BookingRepository {
       SELECT 
         r.room_id,
         r.room_type_id,
-        r.hotel_id,
+        rt.hotel_id,
         r.capacity,
         r.status,
         rt.name as room_type_name,

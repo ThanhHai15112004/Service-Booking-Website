@@ -352,8 +352,9 @@ export class HotelSearchRepository {
         if (validPolicies.includes(policy)) {
           conditions.push(`EXISTS (
             SELECT 1 FROM room rm
+            JOIN room_type rmt ON rmt.room_type_id = rm.room_type_id
             JOIN room_policy rp ON rp.room_id = rm.room_id
-            WHERE rm.hotel_id = h.hotel_id AND rp.${policy} = 1
+            WHERE rmt.hotel_id = h.hotel_id AND rp.${policy} = 1
           )`);
         }
       });
@@ -635,15 +636,19 @@ export class HotelSearchRepository {
 
       const rows = await this.query<any>(sql, [hotelId, checkIn, checkOut]);
 
-      // Group by room_id
-      const roomsMap = new Map<string, any>();
+      // Group by room_type_id (not room_id!)
+      // Vì hiển thị theo LOẠI PHÒNG, không phải từng phòng riêng lẻ
+      const roomTypesMap = new Map<string, any>();
+      const roomsByType = new Map<string, Set<string>>(); // Track rooms per type
 
       for (const row of rows) {
+        const roomTypeId = row.roomTypeId;
         const roomId = row.roomId;
+        const dateKey = row.date;
         
-        if (!roomsMap.has(roomId)) {
-          roomsMap.set(roomId, {
-            roomId: row.roomId,
+        // Initialize room type nếu chưa có
+        if (!roomTypesMap.has(roomTypeId)) {
+          roomTypesMap.set(roomTypeId, {
             roomTypeId: row.roomTypeId,
             roomName: row.roomName,
             roomDescription: row.roomDescription,
@@ -651,7 +656,7 @@ export class HotelSearchRepository {
             area: row.area ? Number(row.area) : null,
             roomImage: row.roomImage,
             capacity: row.capacity ? Number(row.capacity) : 0,
-            dailyAvailability: [],
+            dailyAvailabilityByDate: new Map(), // Map<date, {totalAvailable, prices[]}>
             facilities: [],
             refundable: Boolean(row.refundable),
             payLater: Boolean(row.payLater),
@@ -661,75 +666,87 @@ export class HotelSearchRepository {
             childrenAllowed: Boolean(row.childrenAllowed),
             petsAllowed: Boolean(row.petsAllowed)
           });
+          roomsByType.set(roomTypeId, new Set());
         }
 
-        const room = roomsMap.get(roomId)!;
+        const roomType = roomTypesMap.get(roomTypeId)!;
+        roomsByType.get(roomTypeId)!.add(roomId);
         
-        // Add daily price
-        const finalPrice = row.basePrice * (1 - row.discountPercent / 100);
-        room.dailyAvailability.push({
-          date: row.date,
-          basePrice: Number(row.basePrice),
-          discountPercent: Number(row.discountPercent),
-          finalPrice: Number(finalPrice),
-          availableRooms: Number(row.availableRooms)
+        // Aggregate availability by date
+        if (!roomType.dailyAvailabilityByDate.has(dateKey)) {
+          roomType.dailyAvailabilityByDate.set(dateKey, {
+            date: dateKey,
+            totalAvailable: 0,
+            basePrice: Number(row.basePrice),
+            discountPercent: Number(row.discountPercent),
+            finalPrice: row.basePrice * (1 - row.discountPercent / 100)
+          });
+        }
+        
+        // Cộng dồn available_rooms của tất cả rooms cùng loại
+        const dayData = roomType.dailyAvailabilityByDate.get(dateKey)!;
+        dayData.totalAvailable += Number(row.availableRooms);
+      }
+
+      // Convert Map to Array và tính toán
+      const availableRoomTypes: any[] = [];
+      
+      for (const [roomTypeId, roomType] of roomTypesMap) {
+        // Convert dailyAvailabilityByDate Map to Array
+        type DayAvailability = {
+          date: string;
+          totalAvailable: number;
+          basePrice: number;
+          discountPercent: number;
+          finalPrice: number;
+        };
+        const dailyAvailability: DayAvailability[] = Array.from(roomType.dailyAvailabilityByDate.values());
+        
+        // Filter: Chỉ giữ room_type có đủ availability cho tất cả các ngày
+        if (dailyAvailability.length < nights) {
+          continue; // Skip room type này
+        }
+        
+        // Calculate totals
+        const totalPrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.finalPrice, 0);
+        const totalBasePrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.basePrice, 0);
+        const minAvailable = Math.min(...dailyAvailability.map(day => day.totalAvailable));
+        const totalRooms = roomsByType.get(roomTypeId)!.size;
+        
+        availableRoomTypes.push({
+          roomTypeId: roomType.roomTypeId,
+          roomName: roomType.roomName,
+          roomDescription: roomType.roomDescription,
+          bedType: roomType.bedType,
+          area: roomType.area,
+          roomImage: roomType.roomImage,
+          capacity: roomType.capacity,
+          totalRooms: totalRooms, // Tổng số rooms thuộc loại này
+          minAvailable: minAvailable, // Số phòng khả dụng (min trong các ngày)
+          dailyAvailability: dailyAvailability,
+          totalPrice: Number(totalPrice.toFixed(2)),
+          avgPricePerNight: Number((totalPrice / nights).toFixed(2)),
+          totalBasePrice: Number(totalBasePrice.toFixed(2)),
+          hasFullAvailability: true,
+          meetsCapacity: roomType.capacity >= (adults + children),
+          facilities: [],
+          images: [],
+          refundable: roomType.refundable,
+          payLater: roomType.payLater,
+          freeCancellation: roomType.freeCancellation,
+          noCreditCard: roomType.noCreditCard,
+          extraBedFee: roomType.extraBedFee,
+          childrenAllowed: roomType.childrenAllowed,
+          petsAllowed: roomType.petsAllowed
         });
       }
 
-      // Filter rooms that have full availability (all dates covered)
-      const availableRooms = Array.from(roomsMap.values()).filter(room => {
-        return room.dailyAvailability.length >= nights;
-      });
-
-      // Calculate totals for each room
-      for (const room of availableRooms) {
-        const totalPrice = room.dailyAvailability.reduce((sum: number, day: any) => sum + day.finalPrice, 0);
-        const totalBasePrice = room.dailyAvailability.reduce((sum: number, day: any) => sum + day.basePrice, 0);
-        const minAvailable = Math.min(...room.dailyAvailability.map((day: any) => day.availableRooms));
-
-        room.totalPrice = Number(totalPrice.toFixed(2));
-        room.avgPricePerNight = Number((totalPrice / nights).toFixed(2));
-        room.totalBasePrice = Number(totalBasePrice.toFixed(2));
-        room.minAvailable = minAvailable;
-        room.hasFullAvailability = room.dailyAvailability.length >= nights;
-
-        // Check capacity
-        room.meetsCapacity = room.capacity >= (adults + children);
-      }
-
-      // Fetch room facilities
-      if (availableRooms.length > 0) {
-        const roomIds = availableRooms.map(r => r.roomId);
-        const roomTypeIds = availableRooms.map(r => r.roomTypeId);
-        const placeholders = roomIds.map(() => '?').join(',');
+      // Fetch facilities và images cho room types
+      if (availableRoomTypes.length > 0) {
+        const roomTypeIds = availableRoomTypes.map(rt => rt.roomTypeId);
         const placeholdersType = roomTypeIds.map(() => '?').join(',');
         
-        const facilitiesSql = `
-          SELECT 
-            ra.room_id as roomId,
-            f.facility_id as facilityId,
-            f.name,
-            f.icon
-          FROM room_amenity ra
-          JOIN facility f ON f.facility_id = ra.facility_id
-          WHERE ra.room_id IN (${placeholders})
-          ORDER BY ra.room_id, f.name ASC
-        `;
-        
-        const facilities = await this.query<any>(facilitiesSql, roomIds);
-        
-        // Group facilities by room_id
-        const facilitiesByRoom = facilities.reduce((acc: any, fac: any) => {
-          if (!acc[fac.roomId]) acc[fac.roomId] = [];
-          acc[fac.roomId].push({
-            facilityId: fac.facilityId,
-            name: fac.name,
-            icon: fac.icon
-          });
-          return acc;
-        }, {});
-        
-        // Fetch room images
+        // Fetch room images (theo room_type_id)
         const imagesSql = `
           SELECT 
             ri.room_type_id as roomTypeId,
@@ -758,17 +775,46 @@ export class HotelSearchRepository {
           return acc;
         }, {});
         
-        // Attach facilities and images to rooms
-        availableRooms.forEach(room => {
-          room.facilities = facilitiesByRoom[room.roomId] || [];
-          room.images = imagesByRoomType[room.roomTypeId] || [];
+        // Fetch room facilities (lấy từ bất kỳ room nào thuộc room_type)
+        // Vì tất cả rooms cùng loại có cùng facilities
+        const facilitiesSql = `
+          SELECT DISTINCT
+            rt.room_type_id as roomTypeId,
+            f.facility_id as facilityId,
+            f.name,
+            f.icon
+          FROM room_type rt
+          JOIN room r ON r.room_type_id = rt.room_type_id
+          JOIN room_amenity ra ON ra.room_id = r.room_id
+          JOIN facility f ON f.facility_id = ra.facility_id
+          WHERE rt.room_type_id IN (${placeholdersType})
+          ORDER BY rt.room_type_id, f.name ASC
+        `;
+        
+        const facilities = await this.query<any>(facilitiesSql, roomTypeIds);
+        
+        // Group facilities by room_type_id
+        const facilitiesByRoomType = facilities.reduce((acc: any, fac: any) => {
+          if (!acc[fac.roomTypeId]) acc[fac.roomTypeId] = [];
+          acc[fac.roomTypeId].push({
+            facilityId: fac.facilityId,
+            name: fac.name,
+            icon: fac.icon
+          });
+          return acc;
+        }, {});
+        
+        // Attach facilities and images to room types
+        availableRoomTypes.forEach(roomType => {
+          roomType.images = imagesByRoomType[roomType.roomTypeId] || [];
+          roomType.facilities = facilitiesByRoomType[roomType.roomTypeId] || [];
         });
       }
 
       // Sort by price
-      availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+      availableRoomTypes.sort((a, b) => a.totalPrice - b.totalPrice);
 
-      return availableRooms;
+      return availableRoomTypes;
     } catch (error: any) {
       console.error('Get Available Rooms DB Error:', error.message);
       throw error;

@@ -153,12 +153,12 @@ function RoomCard({
             </div>
 
             {/* CONTENT - Phần còn lại */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4">
+            <div className="flex p-4 items-stretch border-t border-gray-200">
               
-              {/* PHẦN 1: Ảnh + Tiện nghi (35%) */}
-              <div className="lg:col-span-4">
+              {/* COL 1: Ảnh + Tiện nghi (25%) */}
+              <div className="flex-shrink-0 pr-3 border-r border-gray-200" style={{ width: '25%' }}>
                 {/* Room Images - Ảnh chính + 2 ảnh nhỏ + Xem tất cả - Width 200px */}
-                <div className="w-[200px] space-y-1.5">
+                <div className="space-y-1.5">
                   {/* Ảnh chính */}
                   <div className="relative group">
                     <img
@@ -263,8 +263,8 @@ function RoomCard({
                 )}
               </div>
 
-              {/* PHẦN 2: Chính sách + Khuyến mãi (35%) */}
-              <div className="lg:col-span-5 space-y-2">
+              {/* COL 2: Chính sách + Khuyến mãi (30%) */}
+              <div className="flex-1 space-y-2 px-3 border-r border-gray-200" style={{ width: '30%' }}>
                 {/* Chính sách */}
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-bold text-gray-900">Chính sách hủy</p>
@@ -326,79 +326,71 @@ function RoomCard({
                 )}
               </div>
 
-              {/* PHẦN 3: Sức chứa + Số phòng + Giá + Đặt phòng (30%) */}
-              <div className="lg:col-span-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  {/* Sức chứa */}
-                  <div className={`flex items-center gap-1.5 p-2 rounded-lg ${exceedsCapacity ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
-                    <Users className={`w-4 h-4 ${exceedsCapacity ? 'text-red-600' : 'text-gray-700'}`} />
-                    <div className="flex-1">
-                      <p className="text-[10px] font-semibold text-gray-900">{guests} × 👤</p>
-                      {exceedsCapacity ? (
-                        <p className="text-[10px] text-red-600 font-semibold flex items-center gap-0.5 mt-0.5">
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          Vượt sức chứa
-                        </p>
-                      ) : (
-                        <p className="text-[10px] text-green-600">Đủ chỗ (tối đa {room.capacity})</p>
-                      )}
-                    </div>
-                  </div>
+              {/* COL 3: Số người (10%) */}
+              <div className="flex-shrink-0 text-center px-2 border-r border-gray-200 flex flex-col" style={{ width: '10%' }}>
+                <Users className={`w-5 h-5 mx-auto mb-1 ${exceedsCapacity ? 'text-red-600' : 'text-gray-700'}`} />
+                <p className="text-xs font-bold text-gray-900">{guests} người</p>
+                {exceedsCapacity ? (
+                  <p className="text-[10px] text-red-600 font-semibold flex items-center justify-center gap-0.5 mt-1">
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Vượt
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-green-600 mt-1">Max {room.capacity}</p>
+                )}
+              </div>
 
-                  {/* Số phòng */}
-                  <div className={`flex items-center gap-1.5 p-2 rounded-lg ${!hasEnoughRooms ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
-                    <BedDouble className={`w-4 h-4 ${!hasEnoughRooms ? 'text-red-600' : 'text-gray-700'}`} />
-                    <div className="flex-1">
-                      <p className="text-[10px] font-semibold text-gray-900">{roomsRequested} phòng</p>
-                      {hasEnoughRooms ? (
-                        <p className="text-[10px] text-green-600">Còn {room.minAvailable} phòng</p>
-                      ) : (
-                        <p className="text-[10px] text-red-600 font-semibold flex items-center gap-0.5 mt-0.5">
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          Không đủ phòng
-                        </p>
-                      )}
-                    </div>
+              {/* COL 4: Giá (18%) */}
+              <div className="flex-shrink-0 text-center px-3 border-r border-gray-200 flex flex-col" style={{ width: '18%' }}>
+                {room.totalBasePrice > room.totalPrice && (
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <span className="text-[10px] text-gray-500 line-through">
+                      {formatPrice(room.totalBasePrice)} ₫
+                    </span>
+                    <span className="bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                      -{Math.round(((room.totalBasePrice - room.totalPrice) / room.totalBasePrice) * 100)}%
+                    </span>
                   </div>
+                )}
+                <p className="text-base font-bold text-red-600">
+                  {formatPrice(room.totalPrice)} ₫
+                </p>
+                <p className="text-[9px] text-gray-600 mt-0.5">
+                  Chưa gồm thuế
+                </p>
+              </div>
 
-                  {/* Price */}
-                  <div className="text-right">
-                    {room.totalBasePrice > room.totalPrice && (
-                      <div className="flex items-center justify-end gap-1.5 mb-0.5">
-                        <span className="text-[10px] text-gray-500 line-through">
-                          {formatPrice(room.totalBasePrice)} ₫
-                        </span>
-                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          -{Math.round(((room.totalBasePrice - room.totalPrice) / room.totalBasePrice) * 100)}%
-                        </span>
-                      </div>
-                    )}
-                    <p className="text-lg font-bold text-red-600">
-                      {formatPrice(room.totalPrice)} ₫
-                    </p>
-                    <p className="text-[10px] text-gray-600 mt-0.5">
-                      Giá mới đêm: chưa gồm thuế và phí
-                    </p>
-                  </div>
-                </div>
+              {/* COL 5: Số phòng (10%) */}
+              <div className="flex-shrink-0 text-center px-2 border-r border-gray-200 flex flex-col" style={{ width: '10%' }}>
+                <BedDouble className={`w-5 h-5 mx-auto mb-1 ${!hasEnoughRooms ? 'text-red-600' : 'text-gray-700'}`} />
+                <p className="text-xs font-bold text-gray-900">{roomsRequested} phòng</p>
+                {hasEnoughRooms ? (
+                  <p className="text-[10px] text-green-600 mt-1">Còn {room.minAvailable}</p>
+                ) : (
+                  <p className="text-[10px] text-red-600 font-semibold flex items-center justify-center gap-0.5 mt-1">
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Hết
+                  </p>
+                )}
+              </div>
 
-                {/* Book Button */}
+              {/* COL 6: Đặt phòng (7%) */}
+              <div className="flex-shrink-0 flex flex-col items-center px-2" style={{ width: '7%' }}>
                 <button
                   onClick={() => canBook && onSelectRoom?.(room)}
                   disabled={!canBook}
-                  className={`w-full py-2 rounded-lg font-bold text-xs transition-colors ${
+                  className={`w-full py-3 rounded-lg font-bold text-xs transition-colors ${
                     canBook
                       ? 'text-white hover:opacity-90'
                       : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                   }`}
                   style={canBook ? { backgroundColor: '#2067da' } : undefined}
                 >
-                  {canBook ? 'Đặt ngay' : (exceedsCapacity ? 'Vượt sức chứa' : 'Không đủ phòng')}
+                  {canBook ? 'Đặt ngay' : (exceedsCapacity ? 'Vượt' : 'Hết')}
                 </button>
-
-                {hasEnoughRooms && (
-                  <p className="text-[10px] text-center text-gray-500 mt-1">
-                    Đặt trong 2 phút
+                {canBook && hasEnoughRooms && (
+                  <p className="text-[9px] text-center text-gray-500 mt-1">
+                    2 phút
                   </p>
                 )}
               </div>

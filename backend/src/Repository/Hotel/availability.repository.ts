@@ -67,7 +67,7 @@ export class AvailabilityRepository {
       SELECT DISTINCT r.room_id, rt.name as room_name
       FROM room r
       JOIN room_type rt ON rt.room_type_id = r.room_type_id
-      WHERE r.hotel_id = ? AND r.status = 'ACTIVE'
+      WHERE rt.hotel_id = ? AND r.status = 'ACTIVE'
       ORDER BY rt.name ASC
     `;
 
