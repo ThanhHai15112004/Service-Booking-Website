@@ -1,4 +1,4 @@
-// Thông tin phòng trống của một ngày cụ thể
+// Thông tin phòng trống theo ngày
 export interface DailyRoomAvailability {
   roomId: string;
   roomName: string;
@@ -11,31 +11,29 @@ export interface DailyRoomAvailability {
   payLater: boolean;
 }
 
-//Thông tin tổng hợp phòng trống của một room type
+// Tổng hợp phòng trống của một loại phòng
 export interface RoomAvailabilitySummary {
   roomId: string;
   roomName: string;
-  minAvailable: number;          
-  totalNights: number;          
-  hasFullAvailability: boolean;   
+  minAvailable: number;
+  totalNights: number;
+  hasFullAvailability: boolean;
   dailyAvailability: DailyRoomAvailability[];
 }
 
-// Thông tin phòng trống của toàn bộ hotel
+// Thông tin phòng trống của toàn khách sạn
 export interface HotelAvailability {
   hotelId: string;
   hotelName: string;
   rooms: RoomAvailabilitySummary[];
 }
 
-// Request params để kiểm tra availability
 export interface AvailabilityCheckParams {
   startDate: string;
   endDate: string;
-  roomsCount?: number; // Optional: số phòng cần check (mặc định 1)
+  roomsCount?: number;
 }
 
-//Request params để giảm/tăng availability
 export interface AvailabilityUpdateParams {
   roomId: string;
   startDate: string;
@@ -43,18 +41,17 @@ export interface AvailabilityUpdateParams {
   roomsCount: number;
 }
 
-// Response format chuẩn
 export interface AvailabilityResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
 }
 
-// Response cho room availability check với roomsCount
+// Kết quả kiểm tra phòng trống với số lượng yêu cầu
 export interface RoomAvailabilityCheckResult {
   dailyAvailability: DailyRoomAvailability[];
-  hasEnoughRooms: boolean; // Có đủ số phòng yêu cầu không
-  minAvailable: number;    // Số phòng tối thiểu available trong khoảng thời gian
-  roomsNeeded: number;     // Số phòng cần thiết
+  hasEnoughRooms: boolean;
+  minAvailable: number;
+  roomsNeeded: number;
 }
 

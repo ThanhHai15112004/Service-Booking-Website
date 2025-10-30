@@ -1,29 +1,19 @@
-import pool from "../../config/db";
-import { PolicyFlags, PolicyMetadata } from "../../models/Hotel/policy.model";
+import { PolicyType } from "../../models/Hotel/policy.model";
+import sequelize from "../../config/sequelize";
+import { QueryTypes } from "sequelize";
 
 export class PolicyRepository {
-  // Lấy metadata của tất cả các loại policies từ DB
-  async getPolicyMetadata(): Promise<PolicyMetadata[]> {
-    const [rows] = await pool.query(
-      `
-      SELECT 
-        policy_key,
-        name_vi,
-        name_en,
-        description,
-        display_order
-      FROM policy_type
-      ORDER BY display_order ASC
-      `
-    );
-
-    return rows as PolicyMetadata[];
+  // Lấy tất cả loại chính sách
+  async getAll() {
+    return await PolicyType.findAll({
+      order: [['display_order', 'ASC']],
+      raw: true
+    });
   }
 
-  // Kiểm tra xem policy nào đang có sẵn trong room_policy
-  async getAvailablePolicies(): Promise<PolicyFlags> {
-    const [rows] = await pool.query(
-      `
+  // Lấy các chính sách đang có
+  async getAvailable() {
+    const sql = `
       SELECT 
         MAX(free_cancellation) AS free_cancellation,
         MAX(pay_later) AS pay_later,
@@ -31,9 +21,12 @@ export class PolicyRepository {
         MAX(children_allowed) AS children_allowed,
         MAX(pets_allowed) AS pets_allowed
       FROM room_policy
-      `
-    );
+    `;
 
-    return (rows as PolicyFlags[])[0];
+    const [result] = await sequelize.query<any>(sql, {
+      type: QueryTypes.SELECT
+    });
+
+    return result;
   }
 }

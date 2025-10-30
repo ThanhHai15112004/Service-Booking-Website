@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  checkRoomTypeAvailability,
   checkRoomAvailability,
   checkHotelAvailability,
   reduceAvailability,
@@ -8,7 +9,10 @@ import {
 
 const router = Router();
 
-// Kiểm tra phòng trống chi tiết theo ngày
+// ✅ RECOMMENDED: Kiểm tra phòng trống theo LOẠI PHÒNG (room_type_id)
+router.get("/room-type/:roomTypeId", checkRoomTypeAvailability);
+
+// ⚠️ LEGACY: Kiểm tra phòng trống theo phòng cụ thể (room_id)
 router.get("/room/:roomId", checkRoomAvailability);
 
 // Kiểm tra tất cả phòng của hotel  

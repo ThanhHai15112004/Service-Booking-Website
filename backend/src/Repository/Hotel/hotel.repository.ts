@@ -1,7 +1,21 @@
 // repositories/Hotel/hotel.repository.ts
 
 import pool from "../../config/db";
-import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models/Hotel/hotel.model";
+import sequelize from "../../config/sequelize";
+import { Op } from "sequelize";
+import { Hotel } from "../../models/Hotel/hotel.model";
+import { HotelImage } from "../../models/Hotel/hotelImage.model";
+import { HotelFacility } from "../../models/Hotel/hotelFacility.model";
+import { Facility } from "../../models/Hotel/facility.model";
+import { Category } from "../../models/Hotel/category.model";
+import { Location } from "../../models/Hotel/location.model";
+import { RoomType } from "../../models/Hotel/roomType.model";
+import { Room } from "../../models/Hotel/room.model";
+import { RoomPriceSchedule } from "../../models/Hotel/roomPriceSchedule.model";
+import { RoomPolicy } from "../../models/Hotel/roomPolicy.model";
+import { RoomImage } from "../../models/Hotel/roomImage.model";
+import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
+import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models/Hotel/hotelSearch.dto";
 
 export class HotelSearchRepository {
   private async query<T = any>(sql: string, values: any[]): Promise<T[]> {
@@ -35,25 +49,29 @@ export class HotelSearchRepository {
     if (results.length === 0) return;
     
     const hotelIds = results.map(r => r.hotelId);
-    const placeholders = hotelIds.map(() => '?').join(',');
     
-    const imagesSql = `
-      SELECT 
-        image_id as imageId,
-        hotel_id as hotelId,
-        image_url as imageUrl,
-        is_primary as isPrimary,
-        caption,
-        sort_order as sortOrder
-      FROM hotel_image
-      WHERE hotel_id IN (${placeholders})
-      ORDER BY hotel_id, sort_order ASC, is_primary DESC
-    `;
-    
-    const images = await this.query<any>(imagesSql, hotelIds);
+    const images = await HotelImage.findAll({
+      where: {
+        hotel_id: { [Op.in]: hotelIds }
+      },
+      attributes: [
+        ['image_id', 'imageId'],
+        ['hotel_id', 'hotelId'],
+        ['image_url', 'imageUrl'],
+        ['is_primary', 'isPrimary'],
+        'caption',
+        ['sort_order', 'sortOrder']
+      ],
+      order: [
+        ['hotel_id', 'ASC'],
+        ['sort_order', 'ASC'],
+        ['is_primary', 'DESC']
+      ],
+      raw: true
+    });
     
     // Group images by hotel_id
-    const imagesByHotel = images.reduce((acc: any, img: any) => {
+    const imagesByHotel = (images as any[]).reduce((acc: any, img: any) => {
       if (!acc[img.hotelId]) acc[img.hotelId] = [];
       acc[img.hotelId].push({
         imageId: img.imageId,
@@ -75,29 +93,36 @@ export class HotelSearchRepository {
     if (results.length === 0) return;
     
     const hotelIds = results.map(r => r.hotelId);
-    const placeholders = hotelIds.map(() => '?').join(',');
     
-    const facilitiesSql = `
-      SELECT 
-        hf.hotel_id as hotelId,
-        f.facility_id as facilityId,
-        f.name,
-        f.icon
-      FROM hotel_facility hf
-      JOIN facility f ON f.facility_id = hf.facility_id
-      WHERE hf.hotel_id IN (${placeholders})
-      ORDER BY hf.hotel_id, f.name ASC
-    `;
-    
-    const facilities = await this.query<any>(facilitiesSql, hotelIds);
+    const facilities = await HotelFacility.findAll({
+      include: [
+        {
+          model: Facility,
+          as: 'facility',
+          attributes: ['facility_id', 'name', 'icon'],
+          required: true
+        }
+      ],
+      where: {
+        hotel_id: { [Op.in]: hotelIds }
+      },
+      attributes: ['hotel_id'],
+      order: [
+        ['hotel_id', 'ASC'],
+        [sequelize.col('facility.name'), 'ASC']
+      ],
+      raw: true,
+      nest: true
+    });
     
     // Group facilities by hotel_id
-    const facilitiesByHotel = facilities.reduce((acc: any, fac: any) => {
-      if (!acc[fac.hotelId]) acc[fac.hotelId] = [];
-      acc[fac.hotelId].push({
-        facilityId: fac.facilityId,
-        name: fac.name,
-        icon: fac.icon
+    const facilitiesByHotel = (facilities as any[]).reduce((acc: any, item: any) => {
+      const hotelId = item.hotel_id;
+      if (!acc[hotelId]) acc[hotelId] = [];
+      acc[hotelId].push({
+        facilityId: item.facility.facility_id,
+        name: item.facility.name,
+        icon: item.facility.icon
       });
       return acc;
     }, {});
@@ -158,11 +183,7 @@ export class HotelSearchRepository {
         t1.min_available_rooms,
         t1.date_count,
         t1.refundable,
-        t1.pay_later,
-        t1.free_cancellation,
-        t1.no_credit_card,
-        t1.pets_allowed,
-        t1.children_allowed
+        t1.pay_later
       FROM (
         SELECT
           h.hotel_id,
@@ -186,18 +207,13 @@ export class HotelSearchRepository {
           MIN(rps.available_rooms) as min_available_rooms,
           COUNT(DISTINCT CAST(rps.date AS DATE)) as date_count,
           MAX(rps.refundable) AS refundable,
-          MAX(rps.pay_later) AS pay_later,
-          MAX(rp.free_cancellation) AS free_cancellation,
-          MAX(rp.no_credit_card) AS no_credit_card,
-          MAX(rp.pets_allowed) AS pets_allowed,
-          MAX(rp.children_allowed) AS children_allowed
+          MAX(rps.pay_later) AS pay_later
         FROM hotel h
         JOIN hotel_location hl ON hl.location_id = h.location_id
         LEFT JOIN hotel_category hc ON hc.category_id = h.category_id
         JOIN room_type rt ON rt.hotel_id = h.hotel_id
         JOIN room r ON r.room_type_id = rt.room_type_id
         JOIN room_price_schedule rps ON rps.room_id = r.room_id
-        LEFT JOIN room_policy rp ON rp.room_id = r.room_id
         WHERE r.status = 'ACTIVE' 
           AND CAST(rps.date AS DATE) >= ?
           AND CAST(rps.date AS DATE) < ?
@@ -338,7 +354,7 @@ export class HotelSearchRepository {
       values.push(...params.bed_types);
     }
 
-    // ✅ Policies filter với whitelist
+    // ✅ Policies filter với whitelist (key-value structure)
     if (params.policies && params.policies.length > 0) {
       const validPolicies = [
         'free_cancellation',
@@ -354,8 +370,11 @@ export class HotelSearchRepository {
             SELECT 1 FROM room rm
             JOIN room_type rmt ON rmt.room_type_id = rm.room_type_id
             JOIN room_policy rp ON rp.room_id = rm.room_id
-            WHERE rmt.hotel_id = h.hotel_id AND rp.${policy} = 1
+            WHERE rmt.hotel_id = h.hotel_id 
+              AND rp.policy_key = ?
+              AND (rp.value = '1' OR rp.value = 'true')
           )`);
+          values.push(policy);
         }
       });
     }
@@ -363,21 +382,31 @@ export class HotelSearchRepository {
     return { conditions, values };
   }
 
+  // Build ORDER BY clause (for raw SQL queries)
   private buildOrderBy(sort?: string): string {
-    switch (sort) {
-      case "price_asc":
-        return "ORDER BY sum_price ASC";
-      case "price_desc":
-        return "ORDER BY sum_price DESC";
-      case "star_desc":
-        return "ORDER BY star_rating DESC";
-      case "rating_desc":
-        return "ORDER BY avg_rating DESC";
-      case "distance_asc":
-        return "ORDER BY distance_center ASC";
-      default:
-        return "ORDER BY sum_price ASC";
-    }
+    const sortMappings: Record<string, string> = {
+      price_asc: 'sum_price ASC',
+      price_desc: 'sum_price DESC',
+      star_desc: 'star_rating DESC',
+      rating_desc: 'avg_rating DESC',
+      distance_asc: 'distance_center ASC'
+    };
+
+    const orderClause = sortMappings[sort || 'price_asc'] || sortMappings.price_asc;
+    return `ORDER BY ${orderClause}`;
+  }
+
+  // Build ORDER BY for Sequelize (for future migration)
+  private buildSequelizeOrder(sort?: string): [string, string][] {
+    const sortMappings: Record<string, [string, string]> = {
+      price_asc: ['sum_price', 'ASC'],
+      price_desc: ['sum_price', 'DESC'],
+      star_desc: ['star_rating', 'DESC'],
+      rating_desc: ['avg_rating', 'DESC'],
+      distance_asc: ['distance_center', 'ASC']
+    };
+
+    return [sortMappings[sort || 'price_asc'] || sortMappings.price_asc];
   }
 
   private calculateNights(checkin: string, checkout: string): number {
@@ -432,10 +461,11 @@ export class HotelSearchRepository {
           discountPercent: row.avg_discount_percent ? Number(row.avg_discount_percent) : 0,
           refundable: Boolean(row.refundable),
           payLater: Boolean(row.pay_later),
-          freeCancellation: Boolean(row.free_cancellation),
-          noCreditCard: Boolean(row.no_credit_card),
-          petsAllowed: Boolean(row.pets_allowed),
-          childrenAllowed: Boolean(row.children_allowed),
+          // Policy fields from room_policy (key-value) - set default false since not in SELECT
+          freeCancellation: false,
+          noCreditCard: false,
+          petsAllowed: false,
+          childrenAllowed: false,
         },
       };
     });
@@ -450,78 +480,70 @@ export class HotelSearchRepository {
    */
   async getHotelById(hotelId: string): Promise<any | null> {
     try {
+      // Get hotel with category and location
+      const hotelData = await Hotel.findOne({
+        where: { hotel_id: hotelId },
+        include: [
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['category_id', 'name'],
+            required: false
+          },
+          {
+            model: Location,
+            as: 'location',
+            attributes: [
+              'location_id', 'city', 'district', 'ward', 'area_name',
+              'country', 'latitude', 'longitude', 'distance_center', 'description'
+            ],
+            required: false
+          }
+        ],
+        raw: false
+      });
 
-      // Get basic hotel info (includes policy fields from hotel table)
-      const hotelSql = `
-        SELECT 
-          h.hotel_id as hotelId,
-          h.name,
-          h.description,
-          h.star_rating as starRating,
-          h.avg_rating as avgRating,
-          h.review_count as reviewCount,
-          h.main_image as mainImage,
-          h.category_id as categoryId,
-          hc.name as categoryName,
-          h.address,
-          h.phone_number as phoneNumber,
-          h.email,
-          h.website,
-          h.checkin_time as checkinTime,
-          h.checkout_time as checkoutTime,
-          h.total_rooms as totalRooms,
-          hl.location_id as locationId,
-          hl.city,
-          hl.district,
-          hl.ward,
-          hl.area_name as areaName,
-          hl.country,
-          hl.latitude,
-          hl.longitude,
-          hl.distance_center as distanceCenter,
-          hl.description as locationDescription
-        FROM hotel h
-        LEFT JOIN hotel_category hc ON hc.category_id = h.category_id
-        LEFT JOIN hotel_location hl ON hl.location_id = h.location_id
-        WHERE h.hotel_id = ?
-      `;
-
-      const hotels = await this.query<any>(hotelSql, [hotelId]);
-      
-      if (hotels.length === 0) {
+      if (!hotelData) {
         return null;
       }
 
-      const hotel = hotels[0];
+      const hotel = hotelData.toJSON() as any;
 
       // Get images
-      const imagesSql = `
-        SELECT 
-          image_id as imageId,
-          image_url as imageUrl,
-          is_primary as isPrimary,
-          caption,
-          sort_order as sortOrder
-        FROM hotel_image
-        WHERE hotel_id = ?
-        ORDER BY sort_order ASC, is_primary DESC
-      `;
-      const images = await this.query<any>(imagesSql, [hotelId]);
+      const images = await HotelImage.findAll({
+        where: { hotel_id: hotelId },
+        attributes: [
+          ['image_id', 'imageId'],
+          ['image_url', 'imageUrl'],
+          ['is_primary', 'isPrimary'],
+          'caption',
+          ['sort_order', 'sortOrder']
+        ],
+        order: [
+          ['sort_order', 'ASC'],
+          ['is_primary', 'DESC']
+        ],
+        raw: true
+      });
 
       // Get facilities
-      const facilitiesSql = `
-        SELECT 
-          f.facility_id as facilityId,
-          f.name,
-          f.icon
-        FROM hotel_facility hf
-        JOIN facility f ON f.facility_id = hf.facility_id
-        WHERE hf.hotel_id = ?
-        ORDER BY f.name ASC
-      `;
-      const facilities = await this.query<any>(facilitiesSql, [hotelId]);
+      const facilities = await HotelFacility.findAll({
+        include: [
+          {
+            model: Facility,
+            as: 'facility',
+            attributes: ['facility_id', 'name', 'icon'],
+            required: true
+          }
+        ],
+        where: { hotel_id: hotelId },
+        attributes: [],
+        order: [[sequelize.col('facility.name'), 'ASC']],
+        raw: true,
+        nest: true
+      });
 
-      // Get highlights - Query from hotel_highlight JOIN highlight (similar to facilities)
+      // Get highlights (vẫn dùng raw SQL vì chưa có model cho hotel_highlight)
       const highlightsSql = `
         SELECT 
           h.highlight_id as highlightId,
@@ -540,11 +562,11 @@ export class HotelSearchRepository {
       // Build structured policies
       const policies = {
         checkIn: {
-          from: hotel.checkinTime || '14:00',
+          from: hotel.checkin_time || '14:00',
           to: '23:59'
         },
         checkOut: {
-          before: hotel.checkoutTime || '12:00'
+          before: hotel.checkout_time || '12:00'
         },
         children: 'Cho phép trẻ em ở cùng',
         cancellation: 'Miễn phí hủy trước 48 giờ',
@@ -553,22 +575,53 @@ export class HotelSearchRepository {
         additionalPolicies: []
       };
 
-      // Generate badges based on rating and reviews
-      const badges = this.generateBadges(hotel);
+      // Generate badges
+      const badges = this.generateBadges({
+        avgRating: hotel.avg_rating,
+        reviewCount: hotel.review_count,
+        starRating: hotel.star_rating,
+        createdAt: hotel.created_at
+      });
 
+      // Format response
       return {
-        ...hotel,
-        images: images.map((img: any) => ({
+        hotelId: hotel.hotel_id,
+        name: hotel.name,
+        description: hotel.description,
+        starRating: hotel.star_rating,
+        avgRating: hotel.avg_rating,
+        reviewCount: hotel.review_count,
+        mainImage: hotel.main_image,
+        categoryId: hotel.category?.category_id || hotel.category_id,
+        categoryName: hotel.category?.name || null,
+        address: hotel.address,
+        phoneNumber: hotel.phone_number,
+        email: hotel.email,
+        website: hotel.website,
+        checkinTime: hotel.checkin_time,
+        checkoutTime: hotel.checkout_time,
+        totalRooms: hotel.total_rooms,
+        locationId: hotel.location?.location_id || hotel.location_id,
+        city: hotel.location?.city || null,
+        district: hotel.location?.district || null,
+        ward: hotel.location?.ward || null,
+        areaName: hotel.location?.area_name || null,
+        country: hotel.location?.country || null,
+        latitude: hotel.location?.latitude || null,
+        longitude: hotel.location?.longitude || null,
+        distanceCenter: hotel.location?.distance_center || null,
+        locationDescription: hotel.location?.description || null,
+        images: (images as any[]).map((img: any) => ({
           imageId: img.imageId,
           imageUrl: img.imageUrl,
           isPrimary: Boolean(img.isPrimary),
           caption: img.caption,
           sortOrder: img.sortOrder
         })),
-        facilities: facilities.map((fac: any) => ({
-          facilityId: fac.facilityId,
-          name: fac.name,
-          icon: fac.icon
+        facilities: (facilities as any[]).map((item: any) => ({
+          facilityId: item.facility.facility_id,
+          name: item.facility.name,
+          icon: item.facility.icon
         })),
         highlights: highlights.map((hl: any) => ({
           highlightId: hl.highlightId,
@@ -596,46 +649,89 @@ export class HotelSearchRepository {
     checkOut: string,
     adults: number = 2,
     children: number = 0,
-    rooms: number = 1  // ✅ NEW: Số phòng user muốn đặt
+    rooms: number = 1
   ): Promise<any[]> {
     try {
       const nights = this.calculateNights(checkIn, checkOut);
 
-      // Get all rooms with their price schedule for the date range
-      const sql = `
-        SELECT 
-          rt.room_type_id as roomTypeId,
-          rt.name as roomName,
-          rt.description as roomDescription,
-          rt.bed_type as bedType,
-          rt.area,
-          rt.image_url as roomImage,
-          r.room_id as roomId,
-          r.capacity,
-          rps.date,
-          rps.base_price as basePrice,
-          rps.discount_percent as discountPercent,
-          rps.available_rooms as availableRooms,
-          rps.refundable,
-          rps.pay_later as payLater,
-          rp.free_cancellation as freeCancellation,
-          rp.no_credit_card as noCreditCard,
-          rp.extra_bed_fee as extraBedFee,
-          rp.children_allowed as childrenAllowed,
-          rp.pets_allowed as petsAllowed
-        FROM room_type rt
-        JOIN room r ON r.room_type_id = rt.room_type_id
-        JOIN room_price_schedule rps ON rps.room_id = r.room_id
-        LEFT JOIN room_policy rp ON rp.room_id = r.room_id
-        WHERE rt.hotel_id = ?
-          AND r.status = 'ACTIVE'
-          AND CAST(rps.date AS DATE) >= ?
-          AND CAST(rps.date AS DATE) < ?
-          AND rps.available_rooms > 0
-        ORDER BY rt.room_type_id, r.room_id, rps.date
-      `;
+      // Get all room price schedules with room type info
+      const schedules = await RoomPriceSchedule.findAll({
+        include: [
+          {
+            model: Room,
+            as: 'room',
+            attributes: ['room_id', 'capacity', 'status'],
+            required: true,
+            where: { status: 'ACTIVE' },
+            include: [
+              {
+                model: RoomType,
+                as: 'roomType',
+                attributes: ['room_type_id', 'name', 'description', 'bed_type', 'size_sqm'],
+                required: true,
+                where: { hotel_id: hotelId }
+              },
+              {
+                model: RoomPolicy,
+                as: 'policies',
+                attributes: ['policy_key', 'value'],
+                required: false
+              }
+            ]
+          }
+        ],
+        where: {
+          date: {
+            [Op.gte]: checkIn,
+            [Op.lt]: checkOut
+          },
+          available_rooms: {
+            [Op.gt]: 0
+          }
+        },
+        order: [
+          [sequelize.col('room.roomType.room_type_id'), 'ASC'],
+          [sequelize.col('room.room_id'), 'ASC'],
+          ['date', 'ASC']
+        ],
+        raw: false
+      });
 
-      const rows = await this.query<any>(sql, [hotelId, checkIn, checkOut]);
+      // Convert to plain objects
+      const rows = schedules.map((schedule: any) => {
+        const data = schedule.toJSON();
+        const room = data.room || {};
+        const roomType = room.roomType || {};
+        const policies = room.policies || [];
+        
+        // Build policy map
+        const policyMap: any = {};
+        policies.forEach((p: any) => {
+          policyMap[p.policy_key] = p.value;
+        });
+        
+        return {
+          roomTypeId: roomType.room_type_id,
+          roomName: roomType.name,
+          roomDescription: roomType.description,
+          bedType: roomType.bed_type,
+          area: roomType.size_sqm, // Use size_sqm as area
+          roomImage: null, // Will get from room_image table later
+          roomId: room.room_id,
+          capacity: room.capacity,
+          date: data.date,
+          basePrice: data.base_price,
+          discountPercent: data.discount_percent,
+          availableRooms: data.available_rooms,
+          refundable: data.refundable,
+          payLater: data.pay_later,
+          freeCancellation: policyMap['free_cancellation'] === '1' || policyMap['free_cancellation'] === 'true',
+          noCreditCard: policyMap['no_credit_card'] === '1' || policyMap['no_credit_card'] === 'true',
+          extraBedFee: parseFloat(policyMap['extra_bed_fee'] || '0'),
+          childrenAllowed: policyMap['children_allowed'] === '1' || policyMap['children_allowed'] === 'true',
+          petsAllowed: policyMap['pets_allowed'] === '1' || policyMap['pets_allowed'] === 'true'
+        };
+      });
 
       // Group by room_type_id (not room_id!)
       // Vì hiển thị theo LOẠI PHÒNG, không phải từng phòng riêng lẻ
@@ -759,26 +855,29 @@ export class HotelSearchRepository {
       // Fetch facilities và images cho room types
       if (availableRoomTypes.length > 0) {
         const roomTypeIds = availableRoomTypes.map(rt => rt.roomTypeId);
-        const placeholdersType = roomTypeIds.map(() => '?').join(',');
         
-        // Fetch room images (theo room_type_id)
-        const imagesSql = `
-          SELECT 
-            ri.room_type_id as roomTypeId,
-            ri.image_id as imageId,
-            ri.image_url as imageUrl,
-            ri.image_alt as imageAlt,
-            ri.is_primary as isPrimary,
-            ri.sort_order as sortOrder
-          FROM room_image ri
-          WHERE ri.room_type_id IN (${placeholdersType})
-          ORDER BY ri.room_type_id, ri.sort_order ASC
-        `;
-        
-        const images = await this.query<any>(imagesSql, roomTypeIds);
+        // Fetch room images
+        const images = await RoomImage.findAll({
+          where: {
+            room_type_id: { [Op.in]: roomTypeIds }
+          },
+          attributes: [
+            ['room_type_id', 'roomTypeId'],
+            ['image_id', 'imageId'],
+            ['image_url', 'imageUrl'],
+            ['image_alt', 'imageAlt'],
+            ['is_primary', 'isPrimary'],
+            ['sort_order', 'sortOrder']
+          ],
+          order: [
+            ['room_type_id', 'ASC'],
+            ['sort_order', 'ASC']
+          ],
+          raw: true
+        });
         
         // Group images by room_type_id
-        const imagesByRoomType = images.reduce((acc: any, img: any) => {
+        const imagesByRoomType = (images as any[]).reduce((acc: any, img: any) => {
           if (!acc[img.roomTypeId]) acc[img.roomTypeId] = [];
           acc[img.roomTypeId].push({
             imageId: img.imageId,
@@ -790,31 +889,55 @@ export class HotelSearchRepository {
           return acc;
         }, {});
         
-        // Fetch room facilities (lấy từ bất kỳ room nào thuộc room_type)
-        // Vì tất cả rooms cùng loại có cùng facilities
-        const facilitiesSql = `
-          SELECT DISTINCT
-            rt.room_type_id as roomTypeId,
-            f.facility_id as facilityId,
-            f.name,
-            f.icon
-          FROM room_type rt
-          JOIN room r ON r.room_type_id = rt.room_type_id
-          JOIN room_amenity ra ON ra.room_id = r.room_id
-          JOIN facility f ON f.facility_id = ra.facility_id
-          WHERE rt.room_type_id IN (${placeholdersType})
-          ORDER BY rt.room_type_id, f.name ASC
-        `;
-        
-        const facilities = await this.query<any>(facilitiesSql, roomTypeIds);
+        // Fetch room facilities (DISTINCT room_type_id + facility)
+        const facilities = await RoomAmenity.findAll({
+          include: [
+            {
+              model: Room,
+              as: 'room',
+              attributes: [],
+              required: true,
+              include: [
+                {
+                  model: RoomType,
+                  as: 'roomType',
+                  attributes: ['room_type_id'],
+                  required: true,
+                  where: {
+                    room_type_id: { [Op.in]: roomTypeIds }
+                  }
+                }
+              ]
+            },
+            {
+              model: Facility,
+              as: 'facility',
+              attributes: ['facility_id', 'name', 'icon'],
+              required: true
+            }
+          ],
+          attributes: [
+            [sequelize.fn('DISTINCT', sequelize.col('room.roomType.room_type_id')), 'roomTypeId']
+          ],
+          group: ['room.roomType.room_type_id', 'facility.facility_id'],
+          order: [
+            [sequelize.col('room.roomType.room_type_id'), 'ASC'],
+            [sequelize.col('facility.name'), 'ASC']
+          ],
+          raw: true,
+          nest: true
+        });
         
         // Group facilities by room_type_id
-        const facilitiesByRoomType = facilities.reduce((acc: any, fac: any) => {
-          if (!acc[fac.roomTypeId]) acc[fac.roomTypeId] = [];
-          acc[fac.roomTypeId].push({
-            facilityId: fac.facilityId,
-            name: fac.name,
-            icon: fac.icon
+        const facilitiesByRoomType = (facilities as any[]).reduce((acc: any, item: any) => {
+          const roomTypeId = item.roomTypeId || item.room?.roomType?.room_type_id;
+          if (!roomTypeId) return acc;
+          
+          if (!acc[roomTypeId]) acc[roomTypeId] = [];
+          acc[roomTypeId].push({
+            facilityId: item.facility.facility_id,
+            name: item.facility.name,
+            icon: item.facility.icon
           });
           return acc;
         }, {});

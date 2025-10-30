@@ -1,5 +1,4 @@
 import { LocationRepository } from "../../Repository/Hotel/location.repository";
-import { Location } from "../../models/Hotel/location.model";
 
 export class LocationService {
   private repo = new LocationRepository();
@@ -16,7 +15,7 @@ export class LocationService {
         };
       }
 
-      const items: Location[] = await this.repo.search(lowerQ, limit);
+      const items = await this.repo.search(lowerQ, limit);
 
       return {
         success: true,
@@ -25,7 +24,7 @@ export class LocationService {
         items,
       };
     } catch (error) {
-      console.error("[LocationService] searchLocations error:", error);
+      console.error("❌ [LocationService] searchLocations error:", error);
       return {
         success: false,
         message: "Lỗi server khi tìm kiếm địa điểm",
@@ -36,7 +35,7 @@ export class LocationService {
 
   async getHotLocations(limit: number = 10) {
     try {
-      const items: Location[] = await this.repo.getHotLocations(limit);
+      const items = await this.repo.getHotLocations(limit);
 
       return {
         success: true,
@@ -45,7 +44,7 @@ export class LocationService {
         items,
       };
     } catch (error) {
-      console.error("[LocationService] getHotLocations error:", error);
+      console.error("❌ [LocationService] getHotLocations error:", error);
       return {
         success: false,
         message: "Lỗi server khi lấy địa điểm nổi bật",
@@ -54,20 +53,17 @@ export class LocationService {
     }
   }
 
-  /**
-   * Get hotel counts for breadcrumb navigation
-   */
   async getHotelCounts(country: string, city?: string) {
     try {
-      const counts = await this.repo.getHotelCounts(country, city);
+      const data = await this.repo.getHotelCounts(country, city);
 
       return {
         success: true,
-        data: counts,
+        data,
         message: "Lấy số lượng khách sạn thành công"
       };
     } catch (error) {
-      console.error("[LocationService] getHotelCounts error:", error);
+      console.error("❌ [LocationService] getHotelCounts error:", error);
       return {
         success: false,
         message: "Lỗi server khi đếm khách sạn",

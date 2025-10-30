@@ -14,7 +14,98 @@ import { calculateNights } from "../../helpers/date.helper";
 export class AvailabilityService {
   private repository = new AvailabilityRepository();
 
-  // Kiểm tra phòng trống cho một room cụ thể
+  // ✅ FLOW ĐÚNG: Kiểm tra phòng trống theo LOẠI PHÒNG (room_type_id)
+  async checkRoomTypeAvailability(
+    roomTypeId: string,
+    params: AvailabilityCheckParams
+  ): Promise<AvailabilityResponse<any>> {
+    try {
+      // Validate params
+      const paramsValidation = AvailabilityValidator.validateCheckParams(params);
+      if (!paramsValidation.valid) {
+        return { success: false, message: paramsValidation.message };
+      }
+
+      // Get data from repository
+      const availability = await this.repository.getRoomTypeAvailability(
+        roomTypeId,
+        paramsValidation.data!.startDate,
+        paramsValidation.data!.endDate
+      );
+
+      // Kiểm tra nếu không có dữ liệu
+      if (availability.length === 0) {
+        return {
+          success: false,
+          message: "Không tìm thấy dữ liệu giá cho loại phòng này"
+        };
+      }
+
+      const dailyData = availability as any[];
+
+      // Tính tổng giá và min available
+      const totalPrice = dailyData.reduce((sum: number, day: any) => {
+        return sum + parseFloat(day.finalPrice);
+      }, 0);
+
+      const minAvailable = Math.min(...dailyData.map((d: any) => parseInt(d.availableRooms)));
+      const totalRooms = dailyData[0]?.totalRooms || 0;
+
+      // Nếu có roomsCount, kiểm tra có đủ phòng không
+      if (params.roomsCount !== undefined) {
+        const roomsNeeded = params.roomsCount;
+
+        if (roomsNeeded <= 0) {
+          return {
+            success: false,
+            message: "Số lượng phòng phải lớn hơn 0"
+          };
+        }
+
+        const hasEnoughRooms = minAvailable >= roomsNeeded;
+
+        return {
+          success: true,
+          data: {
+            roomTypeId,
+            roomName: dailyData[0]?.roomName,
+            totalRooms,
+            availableRooms: minAvailable,
+            hasEnoughRooms,
+            roomsNeeded,
+            totalPrice,
+            avgPricePerNight: Math.round(totalPrice / dailyData.length),
+            dailyAvailability: dailyData
+          },
+          message: hasEnoughRooms
+            ? `Loại phòng này còn ${minAvailable} phòng (tổng ${totalRooms} phòng)`
+            : `Không đủ phòng. Loại phòng này chỉ còn ${minAvailable}/${totalRooms} phòng`
+        };
+      }
+
+      // Nếu không có roomsCount, trả về dữ liệu đầy đủ
+      return {
+        success: true,
+        data: {
+          roomTypeId,
+          roomName: dailyData[0]?.roomName,
+          totalRooms,
+          availableRooms: minAvailable,
+          totalPrice,
+          avgPricePerNight: Math.round(totalPrice / dailyData.length),
+          dailyAvailability: dailyData
+        }
+      };
+    } catch (error: any) {
+      console.error("❌ Service error - checkRoomTypeAvailability:", error);
+      return {
+        success: false,
+        message: error.message || "Lỗi khi kiểm tra phòng trống"
+      };
+    }
+  }
+
+  // ⚠️ DEPRECATED: Kiểm tra phòng trống của một phòng cụ thể (legacy)
   async checkRoomAvailability(
     roomId: string,
     params: AvailabilityCheckParams
@@ -37,7 +128,7 @@ export class AvailabilityService {
         roomId,
         paramsValidation.data!.startDate,
         paramsValidation.data!.endDate
-      );
+      ) as any as DailyRoomAvailability[];
 
       // Kiểm tra nếu không có dữ liệu
       if (availability.length === 0) {
@@ -60,7 +151,7 @@ export class AvailabilityService {
         }
 
         // Tìm số phòng tối thiểu available trong khoảng thời gian
-        const minAvailable = Math.min(...availability.map(d => d.availableRooms));
+        const minAvailable = Math.min(...availability.map((d: any) => d.availableRooms));
         const hasEnoughRooms = minAvailable >= roomsNeeded;
 
         const result: RoomAvailabilityCheckResult = {
@@ -93,7 +184,7 @@ export class AvailabilityService {
     }
   }
 
-  // Kiểm tra phòng trống cho tất cả các phòng của hotel
+  // Kiểm tra phòng trống của toàn khách sạn
   async checkHotelAvailability(
     hotelId: string,
     params: AvailabilityCheckParams
@@ -134,20 +225,20 @@ export class AvailabilityService {
 
       // Get availability for each room
       const roomsAvailability: RoomAvailabilitySummary[] = await Promise.all(
-        rooms.map(async (room) => {
+        rooms.map(async (room: any) => {
           const dailyAvailability = await this.repository.getRoomDailyAvailability(
             room.room_id,
             paramsValidation.data!.startDate,
             paramsValidation.data!.endDate
-          );
+          ) as any as DailyRoomAvailability[];
 
           const minAvailable = dailyAvailability.length > 0
-            ? Math.min(...dailyAvailability.map(d => d.availableRooms))
+            ? Math.min(...dailyAvailability.map((d: any) => d.availableRooms))
             : 0;
 
           const hasFullAvailability = 
             dailyAvailability.length === expectedNights &&
-            dailyAvailability.every(d => d.availableRooms > 0);
+            dailyAvailability.every((d: any) => d.availableRooms > 0);
 
           return {
             roomId: room.room_id,
@@ -179,7 +270,7 @@ export class AvailabilityService {
     }
   }
 
-  // Giảm số phòng trống (khi booking)
+  // Giảm số phòng trống
   async reduceAvailability(
     params: AvailabilityUpdateParams
   ): Promise<AvailabilityResponse<{ affectedRows: number }>> {
@@ -236,7 +327,7 @@ export class AvailabilityService {
     }
   }
 
-  //Tăng số phòng trống (khi hủy booking)
+  // Tăng số phòng trống
   async increaseAvailability(
     params: AvailabilityUpdateParams
   ): Promise<AvailabilityResponse<{ affectedRows: number }>> {

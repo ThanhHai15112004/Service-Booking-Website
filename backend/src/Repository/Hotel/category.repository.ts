@@ -1,13 +1,11 @@
-import pool from "../../config/db";
-import { HotelCategory } from "../../models/Hotel/category.model";
+import { Category } from "../../models/Hotel/category.model";
 
 export class CategoryRepository {
-    async getALL(): Promise<HotelCategory[]> {
-        const [rows]: any[] = await pool.query(
-            `SELECT category_id, name, description, icon, created_at
-            FROM hotel_category
-            ORDER BY created_at DESC`
-        );
-        return rows;
-    }
+  // Lấy tất cả danh mục khách sạn
+  async getAll() {
+    return await Category.findAll({
+      order: [['created_at', 'DESC']],
+      raw: true
+    });
+  }
 }

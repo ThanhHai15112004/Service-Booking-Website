@@ -3,7 +3,47 @@ import { AvailabilityService } from "../../services/Hotel/availability.service";
 
 const availabilityService = new AvailabilityService();
 
-// Kiểm tra phòng trống cho một room cụ thể
+// ✅ FLOW ĐÚNG: Kiểm tra phòng trống theo LOẠI PHÒNG (room_type_id)
+export const checkRoomTypeAvailability = async (req: Request, res: Response) => {
+  try {
+    const { roomTypeId } = req.params;
+    const { startDate, endDate, roomsCount } = req.query;
+
+    console.log(`\n🔍 === CHECK ROOM TYPE AVAILABILITY ===`);
+    console.log(`📦 Room Type ID: ${roomTypeId}`);
+    console.log(`📅 Dates: ${startDate} → ${endDate}`);
+    console.log(`🔢 Rooms needed: ${roomsCount || 'N/A'}`);
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu startDate hoặc endDate"
+      });
+    }
+
+    const result = await availabilityService.checkRoomTypeAvailability(roomTypeId, {
+      startDate: startDate as string,
+      endDate: endDate as string,
+      roomsCount: roomsCount ? Number(roomsCount) : undefined
+    });
+
+    if (!result.success) {
+      console.log(`❌ Check failed: ${result.message}`);
+      return res.status(400).json(result);
+    }
+
+    console.log(`✅ Room Type available: ${result.data?.availableRooms}/${result.data?.totalRooms} phòng`);
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error("❌ Controller error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi kiểm tra phòng trống"
+    });
+  }
+};
+
+// ⚠️ DEPRECATED: Kiểm tra phòng trống cho một room cụ thể (legacy)
 export const checkRoomAvailability = async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;

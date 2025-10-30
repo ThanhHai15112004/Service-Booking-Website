@@ -1,21 +1,21 @@
-export interface Policy {
-  key: string;
-  label: string;
-  available: boolean;
-}
+import { Table, Column, Model, DataType, PrimaryKey } from 'sequelize-typescript';
 
-export interface PolicyMetadata {
-  policy_key: string;
-  name_vi: string;
-  name_en: string | null;
-  description: string | null;
-  display_order: number;
-}
+// Model: Loại chính sách (policy_type table)
+@Table({ tableName: 'policy_type', timestamps: false })
+export class PolicyType extends Model {
+  @PrimaryKey
+  @Column(DataType.STRING(50))
+  policy_key!: string;
 
-export interface PolicyFlags {
-  free_cancellation: number;
-  pay_later: number;
-  no_credit_card: number;
-  children_allowed: number;
-  pets_allowed: number;
+  @Column(DataType.STRING(100))
+  name_vi!: string;
+
+  @Column(DataType.STRING(100))
+  name_en!: string | null;
+
+  @Column(DataType.TEXT)
+  description!: string | null;
+
+  @Column(DataType.INTEGER)
+  display_order!: number;
 }

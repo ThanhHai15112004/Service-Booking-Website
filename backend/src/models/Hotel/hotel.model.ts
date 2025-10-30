@@ -1,156 +1,87 @@
-// models/Hotel/hotel.model.ts
+import { Table, Column, Model, DataType, PrimaryKey, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript';
 
-export interface Hotel {
-  hotelId: string;
-  name: string;
-  description?: string | null;
-  starRating?: number | null;
-  avgRating?: number | null;
-  reviewCount?: number | null;
-  mainImage?: string | null;
-  status?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+// Model: Khách sạn (hotel table)
+@Table({ tableName: 'hotel', timestamps: false })
+export class Hotel extends Model {
+  @PrimaryKey
+  @Column(DataType.STRING(20))
+  hotel_id!: string;
 
-export interface HotelLocation {
-  city: string;
-  district?: string | null;
-  areaName?: string | null;
-  distanceCenter: number | null;
-}
+  @Column(DataType.STRING(255))
+  name!: string;
 
-export interface HotelBestOffer {
-  stayType: "overnight" | "dayuse";
-  nights: number;
-  rooms: number;
-  adults: number;
-  children: number;
-  roomTypeId: string;
-  roomName?: string;
-  capacity?: number;
-  availableRooms: number;
-  totalPrice: number;
-  avgPricePerNight?: number;
-  originalPricePerNight?: number;
-  totalOriginalPrice?: number;
-  discountPercent?: number;
-  refundable?: boolean;
-  payLater?: boolean;
-  freeCancellation?: boolean;
-  noCreditCard?: boolean;
-  petsAllowed?: boolean;
-  childrenAllowed?: boolean;
-}
+  @Column(DataType.TEXT)
+  description!: string | null;
 
-export interface HotelSearchParams {
-  stayType: "overnight" | "dayuse";
-  q?: string;
-  checkin?: string;
-  checkout?: string;
-  date?: string;
-  rooms?: number;
-  adults?: number;
-  children?: number;
-  star_min?: number;
-  facilities?: string[];
-  max_distance?: number;
-  category_id?: string;
-  bed_types?: string[];
-  policies?: string[];
-  limit?: number;
-  offset?: number;
-  sort?: "price_asc" | "price_desc" | "star_desc" | "rating_desc" | "distance_asc";
-}
+  @ForeignKey(() => require('./category.model').Category)
+  @Column(DataType.STRING(20))
+  category_id!: string | null;
 
-export interface HotelImage {
-  imageId: string;
-  imageUrl: string;
-  isPrimary: boolean;
-  caption?: string | null;
-  sortOrder: number;
-}
+  @ForeignKey(() => require('./location.model').Location)
+  @Column(DataType.STRING(20))
+  location_id!: string | null;
 
-export interface HotelFacility {
-  facilityId: string;
-  name: string;
-  icon?: string | null;
-}
+  @Column(DataType.STRING(255))
+  address!: string | null;
 
-export interface HotelSearchResult {
-  hotelId: string;
-  name: string;
-  starRating?: number | null;
-  avgRating?: number | null;
-  reviewCount?: number | null;
-  mainImage?: string | null;
-  categoryName?: string | null;
-  images?: HotelImage[];
-  facilities?: HotelFacility[];
-  location: HotelLocation;
-  bestOffer: HotelBestOffer;
-}
+  @Column(DataType.DECIMAL(10, 6))
+  latitude!: number | null;
 
-// Interface cho filter builder
-export interface SearchFilter {
-  conditions: string[];
-  values: any[];
-}
+  @Column(DataType.DECIMAL(10, 6))
+  longitude!: number | null;
 
-// Highlight for hotel detail page
-export interface HotelHighlight {
-  iconType: 'wifi' | 'parking' | 'reception' | 'pool' | 'restaurant' | 'gym' | 'spa' | 'other';
-  text: string;
-  tooltip?: string;
-}
+  @Column(DataType.DECIMAL(2, 1))
+  star_rating!: number | null;
 
-// Badge for hotel (e.g., "Popular", "New", "Recommended")
-export interface HotelBadge {
-  type: 'popular' | 'new' | 'recommended' | 'top_rated' | 'best_value';
-  label: string;
-  color?: string;
-}
+  @Column(DataType.DECIMAL(2, 1))
+  avg_rating!: number;
 
-// Structured policies
-export interface HotelPolicies {
-  checkIn: {
-    from: string; // "14:00"
-    to?: string;
-  };
-  checkOut: {
-    before: string; // "12:00"
-  };
-  children?: string;
-  cancellation?: string;
-  smoking?: boolean;
-  pets?: boolean;
-  additionalPolicies?: Array<{
-    policyName: string;
-    description: string;
-  }>;
-}
+  @Column(DataType.INTEGER)
+  review_count!: number;
 
-// Extended hotel detail response
-export interface HotelDetailData extends Hotel {
-  categoryName?: string;
-  address?: string;
-  phoneNumber?: string;
-  email?: string;
-  website?: string;
-  checkinTime?: string;
-  checkoutTime?: string;
-  totalRooms?: number;
-  city?: string;
-  district?: string;
-  ward?: string;
-  areaName?: string;
-  country?: string;
-  latitude?: number;
-  longitude?: number;
-  distanceCenter?: number;
-  images?: HotelImage[];
-  facilities?: HotelFacility[];
-  highlights?: HotelHighlight[];
-  badges?: HotelBadge[];
-  policies?: HotelPolicies;
+  @Column(DataType.TIME)
+  checkin_time!: string;
+
+  @Column(DataType.TIME)
+  checkout_time!: string;
+
+  @Column(DataType.STRING(30))
+  phone_number!: string | null;
+
+  @Column(DataType.STRING(255))
+  email!: string | null;
+
+  @Column(DataType.STRING(255))
+  website!: string | null;
+
+  @Column(DataType.INTEGER)
+  total_rooms!: number;
+
+  @Column(DataType.STRING(500))
+  main_image!: string | null;
+
+  @Column(DataType.STRING(20))
+  status!: 'ACTIVE' | 'INACTIVE' | 'PENDING';
+
+  @Column(DataType.DATE)
+  created_at!: Date;
+
+  @Column(DataType.DATE)
+  updated_at!: Date;
+
+  // Associations
+  @BelongsTo(() => require('./category.model').Category)
+  category!: any;
+
+  @BelongsTo(() => require('./location.model').Location)
+  location!: any;
+
+  @HasMany(() => require('./hotelImage.model').HotelImage)
+  images!: any[];
+
+  @HasMany(() => require('./roomType.model').RoomType)
+  roomTypes!: any[];
+
+  @BelongsToMany(() => require('./facility.model').Facility, () => require('./hotelFacility.model').HotelFacility)
+  facilities!: any[];
 }
