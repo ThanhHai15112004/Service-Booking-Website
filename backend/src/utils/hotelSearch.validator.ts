@@ -1,6 +1,6 @@
 // utils/hotelSearch.validator.ts
 
-import { HotelSearchParams } from "../models/Hotel/hotel.model";
+import { HotelSearchParams } from "../models/Hotel/hotelSearch.dto";
 
 interface ValidationResult {
   valid: boolean;
@@ -42,12 +42,27 @@ export class HotelSearchValidator {
   }
 
   private static validateOvernight(params: any): ValidationResult {
-    const { checkin, checkout } = params;
+    const { checkin, checkout, rooms, adults } = params;
 
+    // Required fields validation
     if (!checkin || !checkout) {
       return {
         valid: false,
         message: "checkin và checkout là bắt buộc cho overnight",
+      };
+    }
+
+    if (!rooms || parseInt(rooms) < 1) {
+      return {
+        valid: false,
+        message: "rooms là bắt buộc và phải >= 1",
+      };
+    }
+
+    if (!adults || parseInt(adults) < 1) {
+      return {
+        valid: false,
+        message: "adults là bắt buộc và phải >= 1",
       };
     }
 
@@ -81,12 +96,26 @@ export class HotelSearchValidator {
   }
 
   private static validateDayuse(params: any): ValidationResult {
-    const { date } = params;
+    const { date, rooms, adults } = params;
 
     if (!date) {
       return {
         valid: false,
         message: "date là bắt buộc cho dayuse",
+      };
+    }
+
+    if (!rooms || parseInt(rooms) < 1) {
+      return {
+        valid: false,
+        message: "rooms là bắt buộc và phải >= 1",
+      };
+    }
+
+    if (!adults || parseInt(adults) < 1) {
+      return {
+        valid: false,
+        message: "adults là bắt buộc và phải >= 1",
       };
     }
 

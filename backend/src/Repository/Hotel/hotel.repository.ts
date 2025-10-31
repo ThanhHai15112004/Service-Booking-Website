@@ -1,8 +1,7 @@
 // repositories/Hotel/hotel.repository.ts
 
-import pool from "../../config/db";
 import sequelize from "../../config/sequelize";
-import { Op } from "sequelize";
+import { Op, Sequelize, fn, col, literal, where, cast, QueryTypes } from "sequelize";
 import { Hotel } from "../../models/Hotel/hotel.model";
 import { HotelImage } from "../../models/Hotel/hotelImage.model";
 import { HotelFacility } from "../../models/Hotel/hotelFacility.model";
@@ -15,24 +14,22 @@ import { RoomPriceSchedule } from "../../models/Hotel/roomPriceSchedule.model";
 import { RoomPolicy } from "../../models/Hotel/roomPolicy.model";
 import { RoomImage } from "../../models/Hotel/roomImage.model";
 import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
+import { Highlight } from "../../models/Hotel/highlight.model";
+import { HotelHighlight } from "../../models/Hotel/hotelHighlight.model";
 import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models/Hotel/hotelSearch.dto";
 
 export class HotelSearchRepository {
-  private async query<T = any>(sql: string, values: any[]): Promise<T[]> {
-    const conn = await pool.getConnection();
-    try {
-      const [rows] = await conn.query(sql, values);
-      return rows as T[];
-    } finally {
-      conn.release();
-    }
-  }
 
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
-    const { sql, values } = this.buildSearchQuery(params);
-    
     try {
-      const rows = await this.query(sql, values);
+      const rows = await this.buildSearchQuerySequelize(params);
+      
+      // Ensure rows is an array
+      if (!Array.isArray(rows)) {
+        console.error('[HotelRepository] search - Expected array but got:', typeof rows);
+        return [];
+      }
+      
       const results = this.mapResults(rows, params);
       
       await this.attachImagesToResults(results);
@@ -40,7 +37,7 @@ export class HotelSearchRepository {
       
       return results;
     } catch (error: any) {
-      console.error('Hotel Search DB Error:', error.message);
+      console.error('[HotelRepository] search error:', error.message);
       throw error;
     }
   }
@@ -133,34 +130,64 @@ export class HotelSearchRepository {
     });
   }
 
-  private buildSearchQuery(params: HotelSearchParams): { sql: string; values: any[] } {
+  /**
+   * Build and execute search query using Sequelize parameterized query
+   * 
+   * NOTE: Query này phức tạp do cần:
+   * 1. Tính tổng giá cho mỗi room trong date range (t1 subquery)
+   * 2. Tìm room có giá thấp nhất cho mỗi hotel (t2 subquery) 
+   * 3. JOIN để chỉ lấy best offer (lowest price) cho mỗi hotel
+   * 
+   * Việc chuyển hoàn toàn sang Sequelize ORM sẽ rất phức tạp và kém hiệu quả.
+   * Vì vậy vẫn dùng sequelize.query() nhưng với parameterized query để đảm bảo an toàn.
+   * 
+   * @param params - Search parameters
+   * @returns Array of hotel results with best offers
+   */
+  private async buildSearchQuerySequelize(params: HotelSearchParams): Promise<any[]> {
     const isOvernight = params.stayType === "overnight";
-
     const nights = isOvernight 
       ? this.calculateNights(params.checkin!, params.checkout!)
       : 1;
     
     const rooms = params.rooms || 1;
-
-    const filters = this.buildFilters(params);
-    const orderBy = this.buildOrderBy(params.sort);
-
     const limit = params.limit || 10;
     const offset = params.offset || 0;
 
     // Build date range condition
-    const checkinDate = isOvernight ? params.checkin : params.date;
+    const checkinDate = (isOvernight ? params.checkin : params.date) || '';
     let checkoutDateStr: string;
     
     if (isOvernight) {
-      checkoutDateStr = params.checkout!;
+      checkoutDateStr = params.checkout || '';
     } else {
-      const checkoutDate = new Date(params.date!);
+      const checkoutDate = new Date(params.date || '');
       checkoutDate.setDate(checkoutDate.getDate() + 1);
       checkoutDateStr = checkoutDate.toISOString().split('T')[0];
     }
 
-    const sql = `
+    // Build Sequelize where conditions for filters
+    const whereConditions = this.buildSequelizeWhereConditions(params, checkinDate, checkoutDateStr, nights);
+
+    // Build Sequelize order (validated whitelist để tránh SQL injection)
+    const order = this.buildSequelizeOrder(params.sort);
+
+    /**
+     * Query structure:
+     * 
+     * t1 (subquery): Tính tổng giá và các thông tin cho mỗi room trong date range
+     *   - JOIN hotel, location, category, room_type, room, room_price_schedule
+     *   - GROUP BY để tính SUM/AVG/MIN/MAX cho mỗi room
+     *   - HAVING để đảm bảo đủ số ngày trong range
+     * 
+     * t2 (subquery): Tìm giá thấp nhất cho mỗi hotel
+     *   - Tính tổng giá cho mỗi room của hotel
+     *   - MIN(sum_price) để tìm best offer
+     * 
+     * Final JOIN: Chỉ lấy room có giá thấp nhất (best offer) cho mỗi hotel
+     */
+    const results = await sequelize.query(`
+      -- Main SELECT: Lấy thông tin hotel và best offer room
       SELECT
         t1.hotel_id,
         t1.name,
@@ -185,6 +212,7 @@ export class HotelSearchRepository {
         t1.refundable,
         t1.pay_later
       FROM (
+        -- t1: Tính tổng giá và aggregate cho mỗi room
         SELECT
           h.hotel_id,
           h.name,
@@ -215,17 +243,18 @@ export class HotelSearchRepository {
         JOIN room r ON r.room_type_id = rt.room_type_id
         JOIN room_price_schedule rps ON rps.room_id = r.room_id
         WHERE r.status = 'ACTIVE' 
-          AND CAST(rps.date AS DATE) >= ?
-          AND CAST(rps.date AS DATE) < ?
+          AND CAST(rps.date AS DATE) >= :checkinDate
+          AND CAST(rps.date AS DATE) < :checkoutDateStr
           AND rps.available_rooms > 0
-          ${filters.conditions.length > 0 ? 'AND ' + filters.conditions.join(' AND ') : ''}
+          ${whereConditions.sqlConditions}
         GROUP BY h.hotel_id, h.name, h.star_rating, h.avg_rating, h.review_count, h.main_image,
                  hc.name, hl.city, hl.district, hl.area_name, hl.distance_center,
                  rt.room_type_id, rt.name,
                  r.room_id, r.capacity
-        HAVING COUNT(DISTINCT CAST(rps.date AS DATE)) >= ?
+        HAVING COUNT(DISTINCT CAST(rps.date AS DATE)) >= :nights
       ) AS t1
       INNER JOIN (
+        -- t2: Tìm giá thấp nhất (best offer) cho mỗi hotel
         SELECT hotel_id, MIN(sum_price) as min_price
         FROM (
           SELECT
@@ -236,125 +265,210 @@ export class HotelSearchRepository {
           JOIN room r ON r.room_type_id = rt.room_type_id
           JOIN room_price_schedule rps ON rps.room_id = r.room_id
           WHERE r.status = 'ACTIVE' 
-            AND CAST(rps.date AS DATE) >= ?
-            AND CAST(rps.date AS DATE) < ?
+            AND CAST(rps.date AS DATE) >= :checkinDate2
+            AND CAST(rps.date AS DATE) < :checkoutDateStr2
             AND rps.available_rooms > 0
           GROUP BY h.hotel_id, r.room_id
-          HAVING COUNT(DISTINCT CAST(rps.date AS DATE)) >= ?
+          HAVING COUNT(DISTINCT CAST(rps.date AS DATE)) >= :nights2
         ) AS prices
         GROUP BY hotel_id
       ) AS t2 ON t1.hotel_id = t2.hotel_id AND t1.sum_price = t2.min_price
-      ${orderBy}
-      LIMIT ? OFFSET ?
-    `;
+      ORDER BY ${order.column} ${order.direction}
+      LIMIT :limit OFFSET :offset
+    `, {
+      replacements: {
+        checkinDate,
+        checkoutDateStr,
+        checkinDate2: checkinDate,
+        checkoutDateStr2: checkoutDateStr,
+        nights,
+        nights2: nights,
+        limit,
+        offset,
+        ...whereConditions.replacements
+      },
+      type: QueryTypes.SELECT
+    });
 
-    const finalValues = [
-      checkinDate,
-      checkoutDateStr,
-      ...filters.values,
-      nights,
-      checkinDate,
-      checkoutDateStr,
-      nights,
-      limit,
-      offset
-    ];
-
-    return { sql, values: finalValues };
+    // sequelize.query() with QueryTypes.SELECT should return array directly
+    // But ensure we always get an array
+    if (!results) {
+      return [];
+    }
+    
+    // Handle tuple [rows, metadata] case (though QueryTypes.SELECT shouldn't return this)
+    if (Array.isArray(results) && results.length === 2 && Array.isArray(results[0])) {
+      return results[0] as any[];
+    }
+    
+    // Direct array of rows (expected case)
+    if (Array.isArray(results)) {
+      return results as any[];
+    }
+    
+    // Fallback: wrap in array
+    return [results];
   }
 
-  private buildFilters(params: HotelSearchParams): SearchFilter {
+  /**
+   * Build WHERE conditions for Sequelize parameterized query
+   * 
+   * Sử dụng named parameters (:paramName) thay vì string interpolation
+   * để tránh SQL injection. Tất cả user input đều được truyền qua replacements.
+   */
+  /**
+   * Build facilities filter conditions - hỗ trợ cả HOTEL và ROOM facilities
+   * Trả về SQL conditions và replacements để có thể dùng trong WHERE clause
+   */
+  private buildFacilitiesFilterConditions(
+    facilities: string[],
+    replacements: Record<string, any>,
+    paramIndex: number,
+    useRoomFilter: boolean = true
+  ): { conditions: string[]; nextParamIndex: number } {
     const conditions: string[] = [];
-    const values: any[] = [];
+    let currentIndex = paramIndex;
+
+    facilities.forEach((facilityId) => {
+      const paramName = `facility_${currentIndex++}`;
+      replacements[paramName] = facilityId;
+      
+      if (useRoomFilter) {
+        // ✅ Filter cho query có JOIN room (như t1)
+        // Check cả hotel_facility VÀ room_amenity
+        conditions.push(`(
+          -- Check HOTEL facilities
+          EXISTS (
+            SELECT 1 FROM hotel_facility hf
+            INNER JOIN facility f ON f.facility_id = hf.facility_id
+            WHERE hf.hotel_id = h.hotel_id 
+              AND hf.facility_id = :${paramName}
+              AND f.category = 'HOTEL'
+          )
+          OR
+          -- Check ROOM facilities (phải có room với facility này)
+          EXISTS (
+            SELECT 1 FROM room_amenity ra
+            INNER JOIN facility f ON f.facility_id = ra.facility_id
+            WHERE ra.room_id = r.room_id
+              AND ra.facility_id = :${paramName}
+              AND f.category = 'ROOM'
+          )
+        )`);
+      } else {
+        // ✅ Filter cho query không có JOIN room (như một số subquery khác)
+        // Chỉ check hotel_facility
+        conditions.push(`EXISTS (
+          SELECT 1 FROM hotel_facility hf
+          INNER JOIN facility f ON f.facility_id = hf.facility_id
+          WHERE hf.hotel_id = h.hotel_id 
+            AND hf.facility_id = :${paramName}
+            AND f.category = 'HOTEL'
+        )`);
+      }
+    });
+
+    return { conditions, nextParamIndex: currentIndex };
+  }
+
+  private buildSequelizeWhereConditions(
+    params: HotelSearchParams, 
+    checkinDate: string, 
+    checkoutDateStr: string, 
+    nights: number
+  ): { sqlConditions: string; replacements: Record<string, any> } {
+    const sqlConditions: string[] = [];
+    const replacements: Record<string, any> = {};
+    let paramIndex = 1;
 
     if (params.q && params.q.trim()) {
-      // Tách keyword thành các phần (ví dụ: "Hoàn Kiếm, Hà Nội" → ["Hoàn Kiếm", "Hà Nội"])
       const parts = params.q.trim().split(',').map(p => p.trim()).filter(Boolean);
       
       if (parts.length === 1) {
-        // Search 1 keyword: tìm trong city, district, area_name, hotel.name
-        const normalizedKeyword = parts[0]
-          .replace(/đ/g, 'd')
-          .replace(/Đ/g, 'D')
-          .toLowerCase();
-        const keyword = `%${normalizedKeyword}%`;
+        const normalizedKeyword = parts[0].replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+        const keywordParam = `q_keyword_${paramIndex++}`;
+        replacements[keywordParam] = `%${normalizedKeyword}%`;
         
-        conditions.push(`(
-          LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE ?
+        sqlConditions.push(`(
+          LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
+          OR LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
+          OR LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
+          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
         )`);
-        values.push(keyword, keyword, keyword, keyword);
       } else if (parts.length === 2) {
-        // Search 2 keywords: part[0] là district/area, part[1] là city
-        // Tìm theo (district LIKE part[0] AND city LIKE part[1]) OR (city LIKE part[0]) OR (city LIKE part[1])
-        const keyword1 = `%${parts[0].replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
-        const keyword2 = `%${parts[1].replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
+        const keyword1Param = `q_keyword1_${paramIndex++}`;
+        const keyword2Param = `q_keyword2_${paramIndex++}`;
+        replacements[keyword1Param] = `%${parts[0].replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
+        replacements[keyword2Param] = `%${parts[1].replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
         
-        conditions.push(`(
-          (LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE ? 
-           AND LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?)
-          OR (LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE ? 
-              AND LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?)
-          OR LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE ?
+        sqlConditions.push(`(
+          (LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword1Param} 
+           AND LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword2Param})
+          OR (LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword1Param} 
+              AND LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword2Param})
+          OR LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword1Param}
+          OR LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword2Param}
+          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword1Param}
+          OR LOWER(REPLACE(REPLACE(h.name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keyword2Param}
         )`);
-        values.push(keyword1, keyword2, keyword1, keyword2, keyword1, keyword2, keyword1, keyword2);
       } else {
-        // Search nhiều keywords: tìm bất kỳ keyword nào match
-        const searchConditions = [];
+        const searchConditions: string[] = [];
         for (const part of parts) {
-          const keyword = `%${part.replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
+          const keywordParam = `q_keyword_${paramIndex++}`;
+          replacements[keywordParam] = `%${part.replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()}%`;
           searchConditions.push(`(
-            LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-            OR LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE ?
-            OR LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE ?
+            LOWER(REPLACE(REPLACE(hl.city, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
+            OR LOWER(REPLACE(REPLACE(hl.district, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
+            OR LOWER(REPLACE(REPLACE(hl.area_name, 'đ', 'd'), 'Đ', 'D')) LIKE :${keywordParam}
           )`);
-          values.push(keyword, keyword, keyword);
         }
-        conditions.push(`(${searchConditions.join(' AND ')})`);
+        sqlConditions.push(`(${searchConditions.join(' AND ')})`);
       }
     }
 
     if (params.star_min && params.star_min > 0) {
-      conditions.push("h.star_rating >= ?");
-      values.push(params.star_min);
+      const paramName = `star_min_${paramIndex++}`;
+      replacements[paramName] = params.star_min;
+      sqlConditions.push(`h.star_rating >= :${paramName}`);
     }
 
     if (params.max_distance && params.max_distance < 999) {
-      conditions.push("hl.distance_center <= ?");
-      values.push(params.max_distance);
+      const paramName = `max_distance_${paramIndex++}`;
+      replacements[paramName] = params.max_distance;
+      sqlConditions.push(`hl.distance_center <= :${paramName}`);
     }
 
     if (params.category_id) {
-      conditions.push("h.category_id = ?");
-      values.push(params.category_id);
+      const paramName = `category_id_${paramIndex++}`;
+      replacements[paramName] = params.category_id;
+      sqlConditions.push(`h.category_id = :${paramName}`);
     }
 
+    // ✅ FIX: Filter facilities - phân biệt HOTEL và ROOM facilities
     if (params.facilities && params.facilities.length > 0) {
-      params.facilities.forEach((facilityId) => {
-        conditions.push(`EXISTS (
-          SELECT 1 FROM hotel_facility hf
-          WHERE hf.hotel_id = h.hotel_id AND hf.facility_id = ?
-        )`);
-        values.push(facilityId);
-      });
+      const facilitiesFilter = this.buildFacilitiesFilterConditions(
+        params.facilities,
+        replacements,
+        paramIndex,
+        true // useRoomFilter = true vì query chính có JOIN room
+      );
+      sqlConditions.push(...facilitiesFilter.conditions);
+      paramIndex = facilitiesFilter.nextParamIndex;
     }
 
     if (params.bed_types && params.bed_types.length > 0) {
-      const bedTypePlaceholders = params.bed_types.map(() => '?').join(',');
-      conditions.push(`EXISTS (
+      const bedTypeParams = params.bed_types.map((_, idx) => {
+        const paramName = `bed_type_${paramIndex++}`;
+        replacements[paramName] = params.bed_types![idx];
+        return `:${paramName}`;
+      }).join(',');
+      sqlConditions.push(`EXISTS (
         SELECT 1 FROM room_type rtype
         WHERE rtype.hotel_id = h.hotel_id 
-        AND rtype.bed_type IN (${bedTypePlaceholders})
+        AND rtype.bed_type IN (${bedTypeParams})
       )`);
-      values.push(...params.bed_types);
     }
 
-    // ✅ Policies filter với whitelist (key-value structure)
     if (params.policies && params.policies.length > 0) {
       const validPolicies = [
         'free_cancellation',
@@ -366,47 +480,48 @@ export class HotelSearchRepository {
       
       params.policies.forEach((policy) => {
         if (validPolicies.includes(policy)) {
-          conditions.push(`EXISTS (
+          const paramName = `policy_${paramIndex++}`;
+          replacements[paramName] = policy;
+          sqlConditions.push(`EXISTS (
             SELECT 1 FROM room rm
             JOIN room_type rmt ON rmt.room_type_id = rm.room_type_id
             JOIN room_policy rp ON rp.room_id = rm.room_id
             WHERE rmt.hotel_id = h.hotel_id 
-              AND rp.policy_key = ?
+              AND rp.policy_key = :${paramName}
               AND (rp.value = '1' OR rp.value = 'true')
           )`);
-          values.push(policy);
         }
       });
     }
 
-    return { conditions, values };
-  }
-
-  // Build ORDER BY clause (for raw SQL queries)
-  private buildOrderBy(sort?: string): string {
-    const sortMappings: Record<string, string> = {
-      price_asc: 'sum_price ASC',
-      price_desc: 'sum_price DESC',
-      star_desc: 'star_rating DESC',
-      rating_desc: 'avg_rating DESC',
-      distance_asc: 'distance_center ASC'
+    return {
+      sqlConditions: sqlConditions.length > 0 ? 'AND ' + sqlConditions.join(' AND ') : '',
+      replacements
     };
-
-    const orderClause = sortMappings[sort || 'price_asc'] || sortMappings.price_asc;
-    return `ORDER BY ${orderClause}`;
   }
+
 
   // Build ORDER BY for Sequelize (for future migration)
-  private buildSequelizeOrder(sort?: string): [string, string][] {
-    const sortMappings: Record<string, [string, string]> = {
-      price_asc: ['sum_price', 'ASC'],
-      price_desc: ['sum_price', 'DESC'],
-      star_desc: ['star_rating', 'DESC'],
-      rating_desc: ['avg_rating', 'DESC'],
-      distance_asc: ['distance_center', 'ASC']
+  private buildSequelizeOrder(sort?: string): { column: string; direction: string } {
+    const sortMappings: Record<string, { column: string; direction: string }> = {
+      price_asc: { column: 'sum_price', direction: 'ASC' },
+      price_desc: { column: 'sum_price', direction: 'DESC' },
+      star_desc: { column: 'star_rating', direction: 'DESC' },
+      rating_desc: { column: 'avg_rating', direction: 'DESC' },
+      distance_asc: { column: 'distance_center', direction: 'ASC' }
     };
 
-    return [sortMappings[sort || 'price_asc'] || sortMappings.price_asc];
+    // Whitelist validation to prevent SQL injection
+    const validColumns = ['sum_price', 'star_rating', 'avg_rating', 'distance_center'];
+    const validDirections = ['ASC', 'DESC'];
+    
+    const selected = sortMappings[sort || 'price_asc'] || sortMappings.price_asc;
+    
+    // Ensure column and direction are safe
+    const safeColumn = validColumns.includes(selected.column) ? selected.column : 'sum_price';
+    const safeDirection = validDirections.includes(selected.direction) ? selected.direction : 'ASC';
+    
+    return { column: safeColumn, direction: safeDirection };
   }
 
   private calculateNights(checkin: string, checkout: string): number {
@@ -543,21 +658,35 @@ export class HotelSearchRepository {
         nest: true
       });
 
-      // Get highlights (vẫn dùng raw SQL vì chưa có model cho hotel_highlight)
-      const highlightsSql = `
-        SELECT 
-          h.highlight_id as highlightId,
-          COALESCE(hh.custom_text, h.name) as text,
-          h.icon_url as icon,
-          h.description as tooltip,
-          h.category,
-          hh.sort_order as sortOrder
-        FROM hotel_highlight hh
-        JOIN highlight h ON h.highlight_id = hh.highlight_id
-        WHERE hh.hotel_id = ?
-        ORDER BY hh.sort_order ASC
-      `;
-      const highlights = await this.query<any>(highlightsSql, [hotelId]);
+      // ✅ FIX: Get highlights using Sequelize - bỏ attributes để Sequelize tự select tất cả columns
+      // Hoặc dùng raw query để kiểm soát hoàn toàn
+      const highlightsData = await HotelHighlight.findAll({
+        where: { hotel_id: hotelId },
+        include: [
+          {
+            model: Highlight,
+            as: 'highlight',
+            attributes: ['highlight_id', 'name', 'icon_url', 'description', 'category'],
+            required: true
+          }
+        ],
+        // ✅ Không chỉ định attributes để Sequelize tự select tất cả columns có trong model
+        order: [['sort_order', 'ASC']],
+        raw: false
+      });
+
+      const highlights = highlightsData.map((item: any) => {
+        const data = item.toJSON();
+        const highlight = data.highlight || {};
+        return {
+          highlightId: highlight.highlight_id,
+          text: data.text || highlight.name || data.custom_text,
+          icon: highlight.icon_url,
+          tooltip: highlight.description,
+          category: highlight.category,
+          sortOrder: data.sort_order
+        };
+      });
   
       // Build structured policies
       const policies = {
@@ -635,7 +764,7 @@ export class HotelSearchRepository {
         policies
       };
     } catch (error: any) {
-      console.error('Get Hotel By ID DB Error:', error.message);
+      console.error('[HotelRepository] getHotelById error:', error.message);
       throw error;
     }
   }
@@ -654,20 +783,22 @@ export class HotelSearchRepository {
     try {
       const nights = this.calculateNights(checkIn, checkOut);
 
-      // Get all room price schedules with room type info
+      // ✅ FIX: Get all room price schedules with room type info
+      // Bỏ attributes để Sequelize tự select tất cả columns có trong model
       const schedules = await RoomPriceSchedule.findAll({
         include: [
           {
             model: Room,
             as: 'room',
-            attributes: ['room_id', 'capacity', 'status'],
+            attributes: ['room_id', 'room_number', 'capacity', 'status'],
             required: true,
             where: { status: 'ACTIVE' },
             include: [
               {
                 model: RoomType,
                 as: 'roomType',
-                attributes: ['room_type_id', 'name', 'description', 'bed_type', 'size_sqm'],
+                // ✅ Không chỉ định attributes để Sequelize tự select tất cả columns
+                // attributes: ['room_type_id', 'name', 'description', 'bed_type', 'size_sqm'],
                 required: true,
                 where: { hotel_id: hotelId }
               },
@@ -715,9 +846,10 @@ export class HotelSearchRepository {
           roomName: roomType.name,
           roomDescription: roomType.description,
           bedType: roomType.bed_type,
-          area: roomType.size_sqm, // Use size_sqm as area
+          area: roomType.size_sqm || roomType.area || null, // Use size_sqm (mapped from area column) as area
           roomImage: null, // Will get from room_image table later
           roomId: room.room_id,
+          roomNumber: room.room_number, // ✅ ADD: Lưu room_number để sort
           capacity: room.capacity,
           date: data.date,
           basePrice: data.base_price,
@@ -752,7 +884,8 @@ export class HotelSearchRepository {
             bedType: row.bedType,
             area: row.area ? Number(row.area) : null,
             roomImage: row.roomImage,
-            capacity: row.capacity ? Number(row.capacity) : 0,
+            capacity: 0, // ✅ FIX: Sẽ tính tổng capacity từ tất cả rooms
+            roomsCapacityMap: new Map<string, {capacity: number, roomNumber: string}>(), // Map<roomId, {capacity, roomNumber}> để track capacity và room_number của từng room
             dailyAvailabilityByDate: new Map(), // Map<date, {totalAvailable, prices[]}>
             facilities: [],
             refundable: Boolean(row.refundable),
@@ -768,6 +901,14 @@ export class HotelSearchRepository {
 
         const roomType = roomTypesMap.get(roomTypeId)!;
         roomsByType.get(roomTypeId)!.add(roomId);
+        
+        // ✅ FIX: Track capacity và room_number của từng room để sort đúng
+        if (!roomType.roomsCapacityMap.has(roomId)) {
+          roomType.roomsCapacityMap.set(roomId, {
+            capacity: row.capacity ? Number(row.capacity) : 0,
+            roomNumber: row.roomNumber || ''
+          });
+        }
         
         // Aggregate availability by date
         if (!roomType.dailyAvailabilityByDate.has(dateKey)) {
@@ -810,8 +951,34 @@ export class HotelSearchRepository {
         const minAvailable = Math.min(...dailyAvailability.map(day => day.totalAvailable));
         const totalRooms = roomsByType.get(roomTypeId)!.size;
         
-        // ✅ FIX: Tính capacity và availability với số phòng user muốn đặt
-        const totalCapacity = roomType.capacity * rooms;
+        // ✅ FIX: Tính capacity dựa trên số phòng user muốn đặt
+        // Sort rooms theo room_number để lấy N phòng đầu tiên
+        const roomsData = Array.from<[string, {capacity: number, roomNumber: string}]>(roomType.roomsCapacityMap.entries())
+          .map(entry => ({
+            roomId: entry[0],
+            capacity: entry[1].capacity,
+            roomNumber: entry[1].roomNumber
+          }))
+          .sort((a, b) => {
+            // Sort by room_number (số hoặc string)
+            const numA = parseInt(a.roomNumber) || 0;
+            const numB = parseInt(b.roomNumber) || 0;
+            if (numA !== numB) return numA - numB;
+            return a.roomNumber.localeCompare(b.roomNumber);
+          });
+        
+        // Lấy capacity của N phòng đầu tiên (N = rooms user muốn đặt)
+        const selectedRooms = roomsData.slice(0, rooms);
+        const selectedRoomsCapacity = selectedRooms.reduce((sum: number, room) => sum + room.capacity, 0);
+        
+        // Capacity hiển thị: Nếu user đặt 1 phòng → capacity của phòng đầu tiên
+        // Nếu user đặt 2 phòng → tổng capacity của 2 phòng đầu tiên
+        const displayCapacity = rooms === 1 
+          ? (selectedRooms[0]?.capacity || 0)  // 1 phòng → capacity của phòng đầu tiên
+          : selectedRoomsCapacity;    // N phòng → tổng capacity của N phòng đầu tiên
+        
+        // Tính tổng capacity để kiểm tra availability
+        const totalCapacity = selectedRoomsCapacity;
         const totalGuests = adults + children;
         const meetsCapacity = totalCapacity >= totalGuests;
         
@@ -825,12 +992,12 @@ export class HotelSearchRepository {
           bedType: roomType.bedType,
           area: roomType.area,
           roomImage: roomType.roomImage,
-          capacity: roomType.capacity,                // Capacity per room
+          capacity: displayCapacity,                 // ✅ FIX: Capacity hiển thị (theo số phòng user đặt)
           totalRooms: totalRooms,                     // Tổng số rooms vật lý thuộc loại này
           minAvailable: minAvailable,                 // Min available trong các ngày
           maxBookableSets: maxBookableSets,           // ✅ NEW: Số bộ có thể đặt
           requestedRooms: rooms,                      // ✅ NEW: Số phòng user muốn đặt
-          totalCapacity: totalCapacity,               // ✅ NEW: Total capacity (capacity × rooms)
+          totalCapacity: totalCapacity,               // ✅ NEW: Total capacity (tổng của N phòng đầu tiên)
           totalGuests: totalGuests,                   // ✅ NEW: Tổng số khách
           dailyAvailability: dailyAvailability,
           totalPrice: Number(totalPrice.toFixed(2)),
@@ -839,7 +1006,7 @@ export class HotelSearchRepository {
           hasFullAvailability: true,
           meetsCapacity: meetsCapacity,               // ✅ FIXED: capacity * rooms >= guests
           capacityWarning: !meetsCapacity ? 
-            `Phòng này chỉ chứa ${roomType.capacity} người/phòng. Với ${rooms} phòng, tối đa ${totalCapacity} người.` : null,
+            `Với ${rooms} phòng, tối đa ${totalCapacity} người.` : null,
           facilities: [],
           images: [],
           refundable: roomType.refundable,
@@ -889,13 +1056,13 @@ export class HotelSearchRepository {
           return acc;
         }, {});
         
-        // Fetch room facilities (DISTINCT room_type_id + facility)
+        // ✅ FIX: Fetch room facilities - sửa query để lấy đúng data
         const facilities = await RoomAmenity.findAll({
           include: [
             {
               model: Room,
               as: 'room',
-              attributes: [],
+              attributes: ['room_type_id'],
               required: true,
               include: [
                 {
@@ -916,36 +1083,59 @@ export class HotelSearchRepository {
               required: true
             }
           ],
-          attributes: [
-            [sequelize.fn('DISTINCT', sequelize.col('room.roomType.room_type_id')), 'roomTypeId']
-          ],
-          group: ['room.roomType.room_type_id', 'facility.facility_id'],
+          attributes: [],
           order: [
             [sequelize.col('room.roomType.room_type_id'), 'ASC'],
             [sequelize.col('facility.name'), 'ASC']
           ],
-          raw: true,
-          nest: true
+          raw: false
         });
         
-        // Group facilities by room_type_id
-        const facilitiesByRoomType = (facilities as any[]).reduce((acc: any, item: any) => {
-          const roomTypeId = item.roomTypeId || item.room?.roomType?.room_type_id;
-          if (!roomTypeId) return acc;
+        // Group facilities by room_type_id (loại bỏ duplicate)
+        const facilitiesByRoomType: Record<string, Set<string>> = {};
+        const facilitiesMap: Record<string, any> = {};
+        
+        facilities.forEach((item: any) => {
+          const roomTypeId = item.room?.roomType?.room_type_id;
+          const facilityId = item.facility?.facility_id;
           
-          if (!acc[roomTypeId]) acc[roomTypeId] = [];
-          acc[roomTypeId].push({
-            facilityId: item.facility.facility_id,
-            name: item.facility.name,
-            icon: item.facility.icon
-          });
-          return acc;
-        }, {});
+          if (!roomTypeId || !facilityId) return;
+          
+          // Track unique facilities per room type
+          if (!facilitiesByRoomType[roomTypeId]) {
+            facilitiesByRoomType[roomTypeId] = new Set();
+          }
+          
+          // Only add if not already added for this room type
+          const facilityKey = `${roomTypeId}_${facilityId}`;
+          if (!facilitiesMap[facilityKey]) {
+            facilitiesByRoomType[roomTypeId].add(facilityId);
+            facilitiesMap[facilityKey] = {
+              roomTypeId,
+              facility: {
+                facilityId: item.facility.facility_id,
+                name: item.facility.name,
+                icon: item.facility.icon
+              }
+            };
+          }
+        });
+        
+        // Convert to final format
+        const finalFacilitiesByRoomType: Record<string, any[]> = {};
+        Object.keys(facilitiesByRoomType).forEach(roomTypeId => {
+          finalFacilitiesByRoomType[roomTypeId] = Array.from(facilitiesByRoomType[roomTypeId])
+            .map(facilityId => {
+              const key = `${roomTypeId}_${facilityId}`;
+              return facilitiesMap[key]?.facility;
+            })
+            .filter(Boolean);
+        });
         
         // Attach facilities and images to room types
         availableRoomTypes.forEach(roomType => {
           roomType.images = imagesByRoomType[roomType.roomTypeId] || [];
-          roomType.facilities = facilitiesByRoomType[roomType.roomTypeId] || [];
+          roomType.facilities = finalFacilitiesByRoomType[roomType.roomTypeId] || [];
         });
       }
 
@@ -954,7 +1144,7 @@ export class HotelSearchRepository {
 
       return availableRoomTypes;
     } catch (error: any) {
-      console.error('Get Available Rooms DB Error:', error.message);
+      console.error('[HotelRepository] getAvailableRoomsByHotelId error:', error.message);
       throw error;
     }
   }

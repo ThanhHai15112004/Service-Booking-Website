@@ -29,8 +29,13 @@ export interface Policy {
 export const getCategories = async (): Promise<Category[]> => {
   try {
     const res = await api.get('/api/categories');
-    if (res.data.success) {
-      return res.data.items || [];
+    // Backend đã format: { success: true, data: [{ categoryId, name, icon, ... }] }
+    if (res.data.success && res.data.data) {
+      return res.data.data.map((item: any) => ({
+        categoryId: item.categoryId,
+        name: item.name,
+        icon: item.icon || undefined
+      }));
     }
     return [];
   } catch (error) {
@@ -42,8 +47,14 @@ export const getCategories = async (): Promise<Category[]> => {
 export const getFacilities = async (): Promise<Facility[]> => {
   try {
     const res = await api.get('/api/facilities');
-    if (res.data.success) {
-      return res.data.items || [];
+    // Backend đã format: { success: true, data: [{ facilityId, name, category, icon, ... }] }
+    if (res.data.success && res.data.data) {
+      return res.data.data.map((item: any) => ({
+        facilityId: item.facilityId,
+        name: item.name,
+        category: item.category as 'HOTEL' | 'ROOM',
+        icon: item.icon || undefined
+      }));
     }
     return [];
   } catch (error) {
@@ -55,8 +66,13 @@ export const getFacilities = async (): Promise<Facility[]> => {
 export const getBedTypes = async (): Promise<BedType[]> => {
   try {
     const res = await api.get('/api/bed-types');
-    if (res.data.success) {
-      return res.data.items || [];
+    // Backend đã format: { success: true, data: [{ key, label, labelEn, ... }] }
+    if (res.data.success && res.data.data) {
+      return res.data.data.map((item: any) => ({
+        key: item.key,
+        label: item.label || item.labelEn,
+        icon: item.icon || undefined
+      }));
     }
     return [];
   } catch (error) {
@@ -68,8 +84,14 @@ export const getBedTypes = async (): Promise<BedType[]> => {
 export const getPolicies = async (): Promise<Policy[]> => {
   try {
     const res = await api.get('/api/policies');
-    if (res.data.success) {
-      return res.data.items || [];
+    // Backend đã format: { success: true, data: [{ key, label, labelEn, icon, ... }] }
+    if (res.data.success && res.data.data) {
+      return res.data.data.map((item: any) => ({
+        key: item.key,
+        label: item.label || item.labelEn,
+        icon: item.icon || undefined,
+        available: item.available !== undefined ? item.available : true
+      }));
     }
     return [];
   } catch (error) {

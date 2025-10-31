@@ -11,6 +11,8 @@ interface BookingSuccessProps {
   checkIn: string;
   checkOut: string;
   total: number;
+  bookingCode?: string;
+  bookingId?: string;
 }
 
 export default function BookingSuccess({
@@ -19,7 +21,9 @@ export default function BookingSuccess({
   guestEmail,
   checkIn,
   checkOut,
-  total
+  total,
+  bookingCode,
+  bookingId
 }: BookingSuccessProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -43,6 +47,18 @@ export default function BookingSuccess({
       <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
         <h3 className="font-bold text-black mb-4">Thông tin đặt phòng</h3>
         <div className="space-y-3 text-sm">
+          {bookingCode && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Mã đặt phòng:</span>
+              <span className="font-bold text-blue-600 text-base">{bookingCode}</span>
+            </div>
+          )}
+          {bookingId && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Booking ID:</span>
+              <span className="font-medium text-black">{bookingId}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-gray-600">Khách sạn:</span>
             <span className="font-medium text-black">{hotel.name}</span>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import { searchHotels } from '../../services/hotelService';
@@ -186,51 +186,75 @@ export default function HotelsListPage() {
     fetchMetadata();
   }, []);
 
-  // Fetch hotels từ API khi có query params
+  // ✅ FIX: Tách riêng logic fetch hotels
+  // Chỉ fetch khi search params cơ bản thay đổi (từ search form) hoặc filters thay đổi
+  // Không fetch lại khi URL sync (vì URL sync chỉ update filter params trong URL, không thay đổi search params cơ bản)
+  
+  // Extract search params cơ bản (chỉ những params không phải filter)
+  // ✅ Dùng useMemo với searchParams.toString() để chỉ track search params cơ bản
+  // Filter params (category_id, star_min, facilities, etc.) sẽ không trigger lại fetch
+  const baseSearchKey = useMemo(() => {
+    // Chỉ lấy các params cơ bản, bỏ qua filter params
+    const basicParams = ['destination', 'checkIn', 'checkOut', 'guests', 'rooms', 'children', 'stayType'];
+    const params = new URLSearchParams();
+    basicParams.forEach(key => {
+      const value = searchParams.get(key);
+      if (value) params.set(key, value);
+    });
+    return params.toString();
+  }, [searchParams]);
+
+  // Fetch hotels - debounced để tránh gọi nhiều lần
   useEffect(() => {
     const destination = searchParams.get('destination');
     const checkIn = searchParams.get('checkIn');
-    const checkOut = searchParams.get('checkOut');
-    const guests = searchParams.get('guests');
-    const rooms = searchParams.get('rooms');
-    const children = searchParams.get('children');
-    const stayType = (searchParams.get('stayType') || 'overnight') as 'overnight' | 'dayuse';
+    
+    if (!destination || !checkIn) return;
 
-    if (destination && checkIn) {
+    // ✅ Debounce để tránh gọi API quá nhiều khi filter thay đổi nhanh
+    const timeoutId = setTimeout(() => {
       const fetchHotels = async () => {
         try {
           setIsLoading(true);
           setError(null);
 
-            const params = {
-              destination: destination || '',
-              checkIn: checkIn || '',
-              checkOut: checkOut || '',
-              guests: parseInt(guests || '2'),
-              rooms: parseInt(rooms || '1'),
-              children: parseInt(children || '0'),
-              stayType: stayType,
-              categoryId: filters.categoryId.length > 0 ? filters.categoryId[0] : undefined, // Backend only supports single category for now
-              starMin: filters.starRating.length > 0 ? Math.min(...filters.starRating) : undefined,
-              facilities: filters.facilities,
-              bedTypes: filters.bedTypes,
-              policies: filters.policies,
-              maxDistance: filters.maxDistance,
-              sort: filters.sortBy !== 'recommended' ? filters.sortBy : undefined
-            };
+          // Build search params with filters
+          const params = {
+            destination: destination || '',
+            checkIn: checkIn || '',
+            checkOut: searchParams.get('checkOut') || '',
+            guests: parseInt(searchParams.get('guests') || '2'),
+            rooms: parseInt(searchParams.get('rooms') || '1'),
+            children: parseInt(searchParams.get('children') || '0'),
+            stayType: (searchParams.get('stayType') || 'overnight') as 'overnight' | 'dayuse',
+            // ✅ Filters from sidebar - gửi lên API search
+            categoryId: filters.categoryId.length > 0 ? filters.categoryId[0] : undefined, // Backend only supports single category for now
+            starMin: filters.starRating.length > 0 ? Math.min(...filters.starRating) : undefined,
+            facilities: filters.facilities.length > 0 ? filters.facilities : undefined,
+            bedTypes: filters.bedTypes.length > 0 ? filters.bedTypes : undefined,
+            policies: filters.policies.length > 0 ? filters.policies : undefined,
+            maxDistance: filters.maxDistance,
+            sort: filters.sortBy !== 'recommended' ? filters.sortBy : undefined
+          };
+
+          console.log('🔍 Fetching hotels with filters:', params);
 
           const res = await searchHotels(params);
 
           // Handle new response format: { success, data: { hotels, pagination, searchParams } }
-          if (res.success && res.data && res.data.hotels && res.data.hotels.length > 0) {
+          if (res.success && res.data && res.data.hotels) {
             setHotels(res.data.hotels);
             setFilteredHotels(res.data.hotels);
+            if (res.data.hotels.length === 0) {
+              setError(res.message || 'Không tìm thấy khách sạn nào phù hợp với bộ lọc');
+            }
           } else {
             setError(res.message || 'Không tìm thấy khách sạn nào');
             setHotels([]);
             setFilteredHotels([]);
           }
         } catch (err: any) {
+          console.error('❌ Error fetching hotels:', err);
           setError('Có lỗi xảy ra khi tìm kiếm');
           setHotels([]);
           setFilteredHotels([]);
@@ -240,8 +264,12 @@ export default function HotelsListPage() {
       };
 
       fetchHotels();
-    }
-  }, [searchParams, filters]);
+    }, 400); // Debounce 400ms - đủ để user tick nhiều filter mà không gọi API nhiều lần
+
+    return () => clearTimeout(timeoutId);
+    // ✅ CHỈ phụ thuộc vào baseSearchKey (search params cơ bản) và filters
+    // KHÔNG phụ thuộc vào searchParams toàn bộ để tránh trigger lại khi URL sync
+  }, [baseSearchKey, filters]);
 
   // Apply client-side filters (price and rating - other filters are handled by backend)
   const applyFilters = useCallback(() => {
@@ -267,6 +295,7 @@ export default function HotelsListPage() {
   }, [applyFilters]);
 
   // Helper function to sync filters to URL
+  // ✅ FIX: Chỉ update URL, KHÔNG trigger lại fetch (vì fetch đã phụ thuộc vào filters)
   const syncFiltersToUrl = useCallback(() => {
     const destination = searchParams.get('destination');
     const checkIn = searchParams.get('checkIn');
@@ -298,9 +327,14 @@ export default function HotelsListPage() {
     if (filters.maxDistance) queryParams.max_distance = filters.maxDistance.toString();
     if (filters.sortBy && filters.sortBy !== 'recommended') queryParams.sort = filters.sortBy;
 
-    // Build new URL
+    // Build new URL - dùng replace: true để không trigger history change
     const newSearchParams = new URLSearchParams(queryParams).toString();
-    navigate(`/hotels/search?${newSearchParams}`, { replace: true });
+    const newUrl = `/hotels/search?${newSearchParams}`;
+    
+    // Chỉ update URL nếu khác với URL hiện tại để tránh trigger lại
+    if (window.location.pathname + window.location.search !== newUrl) {
+      navigate(newUrl, { replace: true });
+    }
   }, [filters, searchParams, navigate]);
 
   const handleSearch = (params: any) => {
@@ -331,11 +365,13 @@ export default function HotelsListPage() {
     navigate(`/hotels/search?${new URLSearchParams(queryParams).toString()}`);
   };
 
-  // Auto sync filters to URL when filters change (debounced)
+  // ✅ Auto sync filters to URL when filters change (debounced)
+  // Đảm bảo URL được update khi filter thay đổi để có thể share/bookmark
+  // ✅ FIX: Debounce lâu hơn để không conflict với fetch hotels
   useEffect(() => {
     const timer = setTimeout(() => {
       syncFiltersToUrl();
-    }, 100); // Debounce 100ms to avoid too many URL updates
+    }, 500); // Debounce 500ms - sau khi fetch hotels đã xong
 
     return () => clearTimeout(timer);
   }, [syncFiltersToUrl]);

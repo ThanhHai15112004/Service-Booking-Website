@@ -205,10 +205,31 @@ export class BookingValidator {
       return hotelValidation;
     }
 
-    // Validate room ID
-    const roomValidation = this.validateRoomId(request.roomId);
-    if (!roomValidation.valid) {
-      return roomValidation;
+    // ✅ Validate room ID OR roomTypeId (at least one must be provided)
+    const hasRoomId = request.roomId && request.roomId.trim().length > 0;
+    const hasRoomTypeId = (request as any).roomTypeId && String((request as any).roomTypeId).trim().length > 0;
+
+    if (!hasRoomId && !hasRoomTypeId) {
+      return { 
+        valid: false, 
+        message: "Phải cung cấp roomId hoặc roomTypeId" 
+      };
+    }
+
+    // If roomId is provided, validate it
+    if (hasRoomId) {
+      const roomValidation = this.validateRoomId(request.roomId!);
+      if (!roomValidation.valid) {
+        return roomValidation;
+      }
+    }
+
+    // If roomTypeId is provided, validate format (should start with RT)
+    if (hasRoomTypeId && !String((request as any).roomTypeId).match(/^RT\d{3,}$/)) {
+      return { 
+        valid: false, 
+        message: "Room Type ID không đúng format (phải bắt đầu bằng RT)" 
+      };
     }
 
     // Validate dates

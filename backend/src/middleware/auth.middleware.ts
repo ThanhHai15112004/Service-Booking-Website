@@ -15,7 +15,9 @@ export function authenticateJWT(req: any, res: any, next: any) {
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
+    // ✅ Set both res.locals and req.user for compatibility
     res.locals.accountId = decoded.account_id;
+    req.user = { account_id: decoded.account_id }; // ✅ Set req.user for controller
     next();
   } catch (err) {
     return res

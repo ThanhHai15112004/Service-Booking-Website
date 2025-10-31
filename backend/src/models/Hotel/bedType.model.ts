@@ -16,6 +16,9 @@ export class BedType extends Model {
   @Column(DataType.TEXT)
   description!: string | null;
 
+  @Column(DataType.STRING(255))
+  icon!: string | null;
+
   @Column(DataType.INTEGER)
   display_order!: number;
 }

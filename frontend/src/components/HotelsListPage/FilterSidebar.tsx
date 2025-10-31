@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getCategories, getFacilities, getBedTypes, getPolicies, Category, Facility, BedType, Policy } from '../../services/filterService';
 import { Search, MapPin, DollarSign, Award } from 'lucide-react';
 
@@ -34,6 +34,50 @@ export default function FilterSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(10000000);
+  
+  // ✅ State để track expanded state cho mỗi filter section
+  const [expandedSections, setExpandedSections] = useState({
+    categories: false,
+    hotelFacilities: false,
+    roomFacilities: false,
+    bedTypes: false,
+    policies: false
+  });
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // ✅ Helper function để render filter items với "Xem thêm"
+  const renderFilterItems = <T,>(
+    items: T[],
+    sectionKey: keyof typeof expandedSections,
+    renderItem: (item: T, index: number) => React.ReactNode
+  ) => {
+    const isExpanded = expandedSections[sectionKey];
+    const limit = 10;
+    const displayItems = isExpanded ? items : items.slice(0, limit);
+    const hasMore = items.length > limit;
+
+    return (
+      <>
+        <div className="space-y-2">
+          {displayItems.map((item, index) => renderItem(item, index))}
+        </div>
+        {hasMore && (
+          <button
+            onClick={() => toggleSection(sectionKey)}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium w-full text-center py-1 hover:bg-blue-50 rounded transition-colors"
+          >
+            {isExpanded ? 'Thu gọn ▲' : 'Xem thêm ▼'}
+          </button>
+        )}
+      </>
+    );
+  };
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -325,8 +369,10 @@ export default function FilterSidebar({
         {categories.length > 0 && (
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-semibold text-gray-900 mb-3 text-sm">Loại hình nơi ở</h4>
-            <div className="space-y-2">
-              {categories.map((cat) => (
+            {renderFilterItems(
+              categories,
+              'categories',
+              (cat) => (
                 <label key={cat.categoryId} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -342,8 +388,8 @@ export default function FilterSidebar({
                   {cat.icon && <img src={cat.icon} alt="" className="w-5 h-5 object-contain" />}
                   <span className="text-sm text-gray-700">{cat.name}</span>
                 </label>
-              ))}
-            </div>
+              )
+            )}
           </div>
         )}
 
@@ -351,8 +397,10 @@ export default function FilterSidebar({
         {hotelFacilities.length > 0 && (
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-semibold text-gray-900 mb-3 text-sm">Tiện nghi khách sạn</h4>
-            <div className="space-y-2">
-              {hotelFacilities.map((fac) => (
+            {renderFilterItems(
+              hotelFacilities,
+              'hotelFacilities',
+              (fac) => (
                 <label key={fac.facilityId} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -363,8 +411,8 @@ export default function FilterSidebar({
                   {fac.icon && <img src={fac.icon} alt="" className="w-5 h-5 object-contain" />}
                   <span className="text-sm text-gray-700">{fac.name}</span>
                 </label>
-              ))}
-            </div>
+              )
+            )}
           </div>
         )}
 
@@ -372,8 +420,10 @@ export default function FilterSidebar({
         {roomFacilities.length > 0 && (
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-semibold text-gray-900 mb-3 text-sm">Tiện nghi phòng</h4>
-            <div className="space-y-2">
-              {roomFacilities.map((fac) => (
+            {renderFilterItems(
+              roomFacilities,
+              'roomFacilities',
+              (fac) => (
                 <label key={fac.facilityId} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -384,8 +434,8 @@ export default function FilterSidebar({
                   {fac.icon && <img src={fac.icon} alt="" className="w-5 h-5 object-contain" />}
                   <span className="text-sm text-gray-700">{fac.name}</span>
                 </label>
-              ))}
-            </div>
+              )
+            )}
           </div>
         )}
 
@@ -393,8 +443,10 @@ export default function FilterSidebar({
         {bedTypes.length > 0 && (
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-semibold text-gray-900 mb-3 text-sm">Loại giường</h4>
-            <div className="space-y-2">
-              {bedTypes.map((bed) => (
+            {renderFilterItems(
+              bedTypes,
+              'bedTypes',
+              (bed) => (
                 <label key={bed.key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -402,19 +454,22 @@ export default function FilterSidebar({
                     onChange={() => toggleArrayFilter('bedTypes', bed.key)}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                  {bed.icon && <img src={bed.icon} alt="" className="w-5 h-5 object-contain" />}
                   <span className="text-sm text-gray-700">{bed.label}</span>
                 </label>
-              ))}
-            </div>
+              )
+            )}
           </div>
         )}
 
         {/* Policies */}
         {policies.length > 0 && (
           <div className="p-4">
-            <h4 className="font-semibold text-gray-900 mb-3 text-sm">Lựa chọn thanh toán</h4>
-            <div className="space-y-2">
-              {policies.map((policy) => (
+            <h4 className="font-semibold text-gray-900 mb-3 text-sm">Chính sách</h4>
+            {renderFilterItems(
+              policies,
+              'policies',
+              (policy) => (
                 <label key={policy.key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -422,10 +477,11 @@ export default function FilterSidebar({
                     onChange={() => toggleArrayFilter('policies', policy.key)}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                  {policy.icon && <img src={policy.icon} alt="" className="w-5 h-5 object-contain" />}
                   <span className="text-sm text-gray-700">{policy.label}</span>
                 </label>
-              ))}
-            </div>
+              )
+            )}
           </div>
         )}
       </div>

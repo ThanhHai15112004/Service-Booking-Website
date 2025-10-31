@@ -1,10 +1,13 @@
-import { X, Bed, CreditCard, Calendar, Coffee, Eye, Ban } from 'lucide-react';
+import { useState } from 'react';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { RoomFiltersState, FilterCounts } from '../../types';
+import { Facility, Policy } from '../../services/filterService';
 
 interface FilterOption {
-  key: keyof RoomFiltersState;
+  key: string;
   label: string;
-  icon: React.ReactNode;
+  icon?: string;
+  type: 'facility' | 'policy';
 }
 
 interface RoomFiltersProps {
@@ -12,53 +15,63 @@ interface RoomFiltersProps {
   filterCounts?: Partial<FilterCounts>;
   onFilterChange: (filters: RoomFiltersState) => void;
   totalRooms?: number;
+  // ✅ NEW: Nhận filters từ backend
+  roomFacilities?: Facility[];
+  policies?: Policy[];
 }
-
-const filterOptions: FilterOption[] = [
-  {
-    key: 'noSmoking',
-    label: 'Không hút thuốc',
-    icon: <Ban className="w-4 h-4" />
-  },
-  {
-    key: 'payLater',
-    label: 'Thanh toán sau',
-    icon: <CreditCard className="w-4 h-4" />
-  },
-  {
-    key: 'freeCancellation',
-    label: 'Hủy miễn phí',
-    icon: <Calendar className="w-4 h-4" />
-  },
-  {
-    key: 'breakfast',
-    label: 'Bao gồm bữa sáng',
-    icon: <Coffee className="w-4 h-4" />
-  },
-  {
-    key: 'kingBed',
-    label: 'Giường King',
-    icon: <Bed className="w-4 h-4" />
-  },
-  {
-    key: 'cityView',
-    label: 'Nhìn ra thành phố',
-    icon: <Eye className="w-4 h-4" />
-  },
-  {
-    key: 'noCreditCard',
-    label: 'Không cần thẻ tín dụng',
-    icon: <CreditCard className="w-4 h-4" />
-  }
-];
 
 export default function RoomFilters({ 
   filters, 
   filterCounts = {},
   onFilterChange,
-  totalRooms = 0
+  totalRooms = 0,
+  roomFacilities = [],
+  policies = []
 }: RoomFiltersProps) {
-  const toggleFilter = (key: keyof RoomFiltersState) => {
+  const [showAllFilters, setShowAllFilters] = useState(false);
+
+  // ✅ Build filterOptions từ backend data
+  const allFilterOptions: FilterOption[] = [
+    // Facilities từ backend
+    ...roomFacilities.map(facility => ({
+      key: facility.facilityId,
+      label: facility.name,
+      icon: facility.icon,
+      type: 'facility' as const
+    })),
+    // Policies từ backend
+    ...policies.map(policy => ({
+      key: policy.key,
+      label: policy.label,
+      icon: policy.icon,
+      type: 'policy' as const
+    }))
+  ];
+
+  // ✅ Sắp xếp: Filters có room (count > 0) ở đầu
+  const sortedFilterOptions = [...allFilterOptions].sort((a, b) => {
+    const countA = filterCounts[a.key] || 0;
+    const countB = filterCounts[b.key] || 0;
+    
+    // Nếu cả 2 đều có count > 0 hoặc cả 2 đều = 0 → giữ nguyên thứ tự
+    if ((countA > 0 && countB > 0) || (countA === 0 && countB === 0)) {
+      return 0;
+    }
+    
+    // countA > 0 và countB = 0 → a lên trước
+    if (countA > 0) return -1;
+    // countA = 0 và countB > 0 → b lên trước
+    return 1;
+  });
+
+  // ✅ Giới hạn hiển thị 14 filters ban đầu
+  const displayLimit = 14;
+  const hasMore = sortedFilterOptions.length > displayLimit;
+  const filterOptions = showAllFilters 
+    ? sortedFilterOptions 
+    : sortedFilterOptions.slice(0, displayLimit);
+
+  const toggleFilter = (key: string) => {
     onFilterChange({
       ...filters,
       [key]: !filters[key]
@@ -66,20 +79,16 @@ export default function RoomFilters({
   };
 
   const clearAllFilters = () => {
-    const clearedFilters: RoomFiltersState = {
-      noSmoking: false,
-      payLater: false,
-      freeCancellation: false,
-      breakfast: false,
-      kingBed: false,
-      cityView: false,
-      noCreditCard: false
-    };
+    const clearedFilters: RoomFiltersState = {};
+    // Clear tất cả filters hiện tại
+    Object.keys(filters).forEach(key => {
+      clearedFilters[key] = false;
+    });
     onFilterChange(clearedFilters);
   };
 
-  const hasActiveFilters = Object.values(filters).some(v => v);
-  const activeFilterCount = Object.values(filters).filter(v => v).length;
+  const hasActiveFilters = Object.values(filters).some(v => v === true);
+  const activeFilterCount = Object.values(filters).filter(v => v === true).length;
 
   return (
     <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
@@ -106,49 +115,76 @@ export default function RoomFilters({
       </div>
 
       {/* Filter Chips */}
-      <div className="flex flex-wrap gap-2">
-        {filterOptions.map(option => {
-          const count = filterCounts[option.key];
-          const isActive = filters[option.key];
-          const isDisabled = count === 0;
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map(option => {
+            const count = filterCounts[option.key];
+            const isActive = filters[option.key] === true;
+            // ✅ FIX: KHÔNG disable bất kỳ filter nào - cho phép click tất cả
 
-          return (
-            <button
-              key={option.key}
-              onClick={() => !isDisabled && toggleFilter(option.key)}
-              disabled={isDisabled}
-              className={`
-                inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                border transition-all duration-200 text-xs
-                ${isActive
-                  ? 'text-white border-blue-600 shadow-sm'
-                  : isDisabled
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+            return (
+              <button
+                key={option.key}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleFilter(option.key);
+                }}
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                  border transition-all duration-200 text-xs cursor-pointer
+                  ${isActive
+                    ? 'text-white border-blue-600 shadow-sm'
                     : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                }
-              `}
-              style={isActive ? { backgroundColor: '#2067da', borderColor: '#2067da' } : undefined}
-            >
-              <span className={isActive ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600'}>
-                {option.icon}
-              </span>
-              <span className="font-medium">
-                {option.label}
-              </span>
-              {count !== undefined && count > 0 && (
-                <span className={`
-                  text-xs px-1.5 py-0.5 rounded-full
-                  ${isActive 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 text-gray-700'
                   }
-                `}>
-                  {count}
+                `}
+                style={isActive ? { backgroundColor: '#2067da', borderColor: '#2067da' } : undefined}
+              >
+                {option.icon ? (
+                  <img 
+                    src={option.icon} 
+                    alt={option.label}
+                    className="w-4 h-4 object-contain opacity-100"
+                  />
+                ) : null}
+                <span className="font-medium">
+                  {option.label}
                 </span>
-              )}
-            </button>
-          );
-        })}
+                {count !== undefined && count > 0 && (
+                  <span className={`
+                    text-xs px-1.5 py-0.5 rounded-full
+                    ${isActive 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-200 text-gray-700'
+                    }
+                  `}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ✅ Nút "Xem thêm"/"Thu gọn" */}
+        {hasMore && (
+          <button
+            onClick={() => setShowAllFilters(!showAllFilters)}
+            className="flex items-center justify-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium py-2 hover:bg-blue-50 rounded transition-colors w-full"
+          >
+            {showAllFilters ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Thu gọn
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Xem thêm
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

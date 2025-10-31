@@ -17,17 +17,14 @@ export class RoomType extends Model {
   @Column(DataType.TEXT)
   description!: string | null;
 
-  @Column(DataType.INTEGER)
+  @Column({ type: DataType.DECIMAL(6, 2), field: 'area' })
   size_sqm!: number | null;
-
-  @Column(DataType.INTEGER)
-  max_occupancy!: number;
 
   @Column(DataType.STRING(50))
   bed_type!: string | null;
 
-  @Column(DataType.STRING(50))
-  view_type!: string | null;
+  @Column({ type: DataType.STRING(500), field: 'image_url' })
+  imageUrl!: string | null;
 
   @Column(DataType.DATE)
   created_at!: Date;

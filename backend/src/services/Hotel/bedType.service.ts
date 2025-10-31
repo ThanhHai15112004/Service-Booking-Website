@@ -5,13 +5,22 @@ export class BedTypeService {
 
   async getAllBedTypes() {
     try {
-      const data = await this.repo.getAll();
+      const rawData = await this.repo.getAll();
+      // Format data từ snake_case sang camelCase
+      const data = (rawData as any[]).map(item => ({
+        key: item.bed_type_key,
+        label: item.name_vi,
+        labelEn: item.name_en,
+        description: item.description,
+        icon: item.icon || null,
+        displayOrder: item.display_order
+      }));
       return {
         success: true,
         data
       };
-    } catch (error) {
-      console.error("❌ [BedTypeService] getAllBedTypes error:", error);
+    } catch (error: any) {
+      console.error("[BedTypeService] getAllBedTypes error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server",

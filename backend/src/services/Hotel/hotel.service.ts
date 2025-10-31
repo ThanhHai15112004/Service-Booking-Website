@@ -1,7 +1,7 @@
 // services/Hotel/hotel.service.ts
 
 import { HotelSearchRepository } from "../../Repository/Hotel/hotel.repository";
-import { HotelSearchResult, HotelSearchParams } from "../../models/Hotel/hotel.model";
+import { HotelSearchResult, HotelSearchParams } from "../../models/Hotel/hotelSearch.dto";
 import { HotelSearchValidator } from "../../utils/hotelSearch.validator";
 
 interface SearchHotelsResponse {
@@ -88,7 +88,7 @@ export class HotelService {
         }
       };
     } catch (error: any) {
-      console.error('Hotel Search Service Error:', error.message);
+      console.error('[HotelService] searchHotels error:', error.message);
       return { success: false, message: "Lỗi khi tìm kiếm khách sạn" };
     }
   }
@@ -96,7 +96,6 @@ export class HotelService {
   // Get hotel detail with available rooms
   async getHotelDetail(hotelId: string, params: any): Promise<any> {
     try {
-
       // Validate params
       if (!hotelId || hotelId.trim().length === 0) {
         return { success: false, message: "Hotel ID is required" };
@@ -151,14 +150,14 @@ export class HotelService {
         checkOut,
         adults,
         children,
-        rooms  // ✅ FIX: Pass rooms param
+        rooms
       );
 
       return {
         success: true,
         data: {
           hotel,
-          availableRooms,
+          availableRooms: availableRooms || [],
           searchParams: {
             checkIn,
             checkOut,
@@ -170,7 +169,7 @@ export class HotelService {
         }
       };
     } catch (error: any) {
-      console.error('Hotel Detail Service Error:', error.message);
+      console.error('[HotelService] getHotelDetail error:', error.message);
       return { success: false, message: "Lỗi khi lấy chi tiết khách sạn" };
     }
   }

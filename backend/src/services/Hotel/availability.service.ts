@@ -97,7 +97,7 @@ export class AvailabilityService {
         }
       };
     } catch (error: any) {
-      console.error("❌ Service error - checkRoomTypeAvailability:", error);
+      console.error("[AvailabilityService] checkRoomTypeAvailability error:", error?.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi kiểm tra phòng trống"
@@ -176,7 +176,7 @@ export class AvailabilityService {
         data: availability
       };
     } catch (error: any) {
-      console.error("❌ Service error - checkRoomAvailability:", error);
+      console.error("[AvailabilityService] checkRoomAvailability error:", error?.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi kiểm tra phòng trống"
@@ -262,7 +262,7 @@ export class AvailabilityService {
         data: result
       };
     } catch (error: any) {
-      console.error("❌ Service error - checkHotelAvailability:", error);
+      console.error("[AvailabilityService] checkHotelAvailability error:", error?.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi kiểm tra phòng trống"
@@ -319,7 +319,7 @@ export class AvailabilityService {
         message: `Đã giảm ${validatedParams.roomsCount} phòng thành công`
       };
     } catch (error: any) {
-      console.error("❌ Service error - reduceAvailability:", error);
+      console.error("[AvailabilityService] reduceAvailability error:", error?.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi cập nhật phòng trống"
@@ -361,7 +361,7 @@ export class AvailabilityService {
         message: `Đã tăng ${validatedParams.roomsCount} phòng thành công`
       };
     } catch (error: any) {
-      console.error("❌ Service error - increaseAvailability:", error);
+      console.error("[AvailabilityService] increaseAvailability error:", error?.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi cập nhật phòng trống"

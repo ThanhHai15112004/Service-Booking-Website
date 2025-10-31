@@ -1,4 +1,4 @@
-import { Breadcrumb, HotelImageGallery, StickyTabNav } from './index';
+import { Breadcrumb, HotelImageGallery } from './index';
 
 interface BreadcrumbItem {
   label: string;
@@ -6,24 +6,17 @@ interface BreadcrumbItem {
   count?: number;
 }
 
-interface TabSection {
-  id: string;
-  label: string;
-}
-
 interface HotelHeaderSectionProps {
   breadcrumbItems: BreadcrumbItem[];
   hotel: any;
   images: string[];
-  tabSections: TabSection[];
-  availableRooms?: any[];  // Thêm rooms để hiển thị tabs
+  availableRooms?: any[];
 }
 
 export default function HotelHeaderSection({
   breadcrumbItems,
   hotel,
   images,
-  tabSections,
   availableRooms = []
 }: HotelHeaderSectionProps) {
   return (
@@ -32,7 +25,7 @@ export default function HotelHeaderSection({
       <Breadcrumb items={breadcrumbItems} />
 
       {/* Back Button & Image Gallery - Full Width at Top */}
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+      <div className="max-w-[1200px] mx-auto px-4 pt-0 sm:px-6 lg:px-8 pt-6 pb-4">
         <button
           onClick={() => window.history.back()}
           className="text-black hover:underline mb-4"
@@ -46,8 +39,6 @@ export default function HotelHeaderSection({
         />
       </div>
 
-      {/* Sticky Tab Navigation */}
-      <StickyTabNav sections={tabSections} />
     </>
   );
 }

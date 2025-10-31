@@ -5,13 +5,21 @@ export class CategoryService {
 
   async getAllCategories() {
     try {
-      const data = await this.repo.getAll();
+      const rawData = await this.repo.getAll();
+      // Format data từ snake_case sang camelCase
+      const data = (rawData as any[]).map(item => ({
+        categoryId: item.category_id,
+        name: item.name,
+        description: item.description,
+        icon: item.icon,
+        createdAt: item.created_at
+      }));
       return {
         success: true,
         data
       };
-    } catch (error) {
-      console.error("❌ [CategoryService] getAllCategories error:", error);
+    } catch (error: any) {
+      console.error("[CategoryService] getAllCategories error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server",

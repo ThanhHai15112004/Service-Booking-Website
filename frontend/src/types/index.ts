@@ -197,13 +197,16 @@ export interface Booking {
 // ============================================================================
 
 export interface RoomFiltersState {
-  noSmoking: boolean;
-  payLater: boolean;
-  freeCancellation: boolean;
-  breakfast: boolean;
-  kingBed: boolean;
-  cityView: boolean;
-  noCreditCard: boolean;
+  // ✅ Backward compatibility - giữ các keys cũ
+  noSmoking?: boolean;
+  payLater?: boolean;
+  freeCancellation?: boolean;
+  breakfast?: boolean;
+  kingBed?: boolean;
+  cityView?: boolean;
+  noCreditCard?: boolean;
+  // ✅ Dynamic filters từ backend - facilityIds và policyKeys
+  [key: string]: boolean | undefined; // Cho phép dynamic keys
 }
 
 export interface FilterCounts {
@@ -214,6 +217,8 @@ export interface FilterCounts {
   kingBed?: number;
   cityView?: number;
   noCreditCard?: number;
+  // ✅ Dynamic counts từ backend
+  [key: string]: number | undefined; // Cho phép dynamic keys
 }
 
 // ============================================================================

@@ -19,21 +19,15 @@ export const createBooking = async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`\n🎫 === CREATE BOOKING REQUEST ===`);
-    console.log(`👤 User: ${accountId}`);
-    console.log(`📦 Request:`, JSON.stringify(bookingRequest, null, 2));
-
     const result = await bookingService.createBooking(bookingRequest, accountId);
 
     if (!result.success) {
-      console.log(`❌ Booking failed: ${result.message}`);
       return res.status(400).json(result);
     }
 
-    console.log(`✅ Booking created successfully`);
     res.status(201).json(result);
   } catch (error: any) {
-    console.error("❌ Controller error - createBooking:", error);
+    console.error("[BookingController] createBooking error:", error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server khi tạo booking"
@@ -47,14 +41,9 @@ export const getBooking = async (req: Request, res: Response) => {
     const { bookingId } = req.params;
     const accountId = (req as any).user?.account_id;
 
-    console.log(`\n📋 === GET BOOKING ===`);
-    console.log(`📦 Booking ID: ${bookingId}`);
-    console.log(`👤 User: ${accountId}`);
-
     const result = await bookingService.getBookingById(bookingId);
 
     if (!result.success) {
-      console.log(`❌ Get booking failed: ${result.message}`);
       return res.status(404).json(result);
     }
 
@@ -66,10 +55,9 @@ export const getBooking = async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`✅ Booking found`);
     res.status(200).json(result);
   } catch (error: any) {
-    console.error("❌ Controller error - getBooking:", error);
+    console.error("[BookingController] getBooking error:", error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy thông tin booking"
@@ -89,20 +77,15 @@ export const getMyBookings = async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`\n📋 === GET MY BOOKINGS ===`);
-    console.log(`👤 User: ${accountId}`);
-
     const result = await bookingService.getBookingsByAccount(accountId);
 
     if (!result.success) {
-      console.log(`❌ Get bookings failed: ${result.message}`);
       return res.status(400).json(result);
     }
 
-    console.log(`✅ Found ${result.data?.length || 0} booking(s)`);
     res.status(200).json(result);
   } catch (error: any) {
-    console.error("❌ Controller error - getMyBookings:", error);
+    console.error("[BookingController] getMyBookings error:", error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy danh sách booking"
@@ -123,21 +106,15 @@ export const cancelBooking = async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`\n❌ === CANCEL BOOKING ===`);
-    console.log(`📦 Booking ID: ${bookingId}`);
-    console.log(`👤 User: ${accountId}`);
-
     const result = await bookingService.cancelBooking(bookingId, accountId);
 
     if (!result.success) {
-      console.log(`❌ Cancel failed: ${result.message}`);
       return res.status(400).json(result);
     }
 
-    console.log(`✅ Booking cancelled successfully`);
     res.status(200).json(result);
   } catch (error: any) {
-    console.error("❌ Controller error - cancelBooking:", error);
+    console.error("[BookingController] cancelBooking error:", error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server khi hủy booking"

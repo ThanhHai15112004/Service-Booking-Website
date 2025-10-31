@@ -18,7 +18,7 @@ export const searchHotelsController = async (req: Request, res: Response) => {
     
     res.status(200).json(result);
   } catch (error: any) {
-    console.error('❌ Hotel Search Error:', error.message);
+    console.error('[HotelController] searchHotels error:', error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server"
@@ -39,7 +39,7 @@ export const getHotelDetailController = async (req: Request, res: Response) => {
 
     res.status(200).json(result);
   } catch (error: any) {
-    console.error('❌ Hotel Detail Error:', error.message);
+    console.error('[HotelController] getHotelDetail error:', error.message);
     res.status(500).json({
       success: false,
       message: "Lỗi server"

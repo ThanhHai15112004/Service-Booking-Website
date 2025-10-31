@@ -1,5 +1,6 @@
 import { BookingRepository } from "../../Repository/Booking/booking.repository";
 import { AvailabilityRepository } from "../../Repository/Hotel/availability.repository";
+import { RoomRepository } from "../../Repository/Hotel/room.repository";
 import {
   CreateBookingRequest,
   BookingConfirmation,
@@ -13,6 +14,7 @@ import { calculateNights } from "../../helpers/date.helper";
 export class BookingService {
   private bookingRepo = new BookingRepository();
   private availabilityRepo = new AvailabilityRepository();
+  private roomRepo = new RoomRepository();
 
   // Tạo booking mới
   async createBooking(
@@ -20,17 +22,9 @@ export class BookingService {
     accountId: string
   ): Promise<BookingResponse<BookingConfirmation>> {
     try {
-      console.log(`\n🎫 === CREATE BOOKING ===`);
-      console.log(`👤 Account ID: ${accountId}`);
-      console.log(`🏨 Hotel ID: ${request.hotelId}`);
-      console.log(`🚪 Room ID: ${request.roomId}`);
-      console.log(`📅 ${request.checkIn} → ${request.checkOut}`);
-      console.log(`🔢 Rooms: ${request.rooms}, Adults: ${request.adults}, Children: ${request.children || 0}`);
-
       // Step 1: Validate request
       const validation = BookingValidator.validateCreateBookingRequest(request);
       if (!validation.valid) {
-        console.log(`❌ Validation failed: ${validation.message}`);
         return { success: false, message: validation.message };
       }
 
@@ -43,8 +37,30 @@ export class BookingService {
         };
       }
 
+      // ✅ NEW: Auto-select room if roomTypeId is provided instead of roomId
+      let selectedRoomId = request.roomId;
+      if (!selectedRoomId && (request as any).roomTypeId) {
+        // User chọn room_type, system tự động chọn phòng đầu tiên
+        const availableRooms = await this.roomRepo.getAvailableRoomsByRoomTypeId(
+          (request as any).roomTypeId,
+          request.checkIn,
+          request.checkOut,
+          request.rooms
+        );
+        
+        if (availableRooms.length === 0) {
+          return {
+            success: false,
+            message: "Không tìm thấy phòng trống cho loại phòng này"
+          };
+        }
+        
+        // Chọn phòng đầu tiên từ danh sách
+        selectedRoomId = availableRooms[0].roomId;
+      }
+
       // Step 3: Verify room exists, is active, and belongs to hotel
-      const room = await this.bookingRepo.getRoomById(request.roomId);
+      const room = await this.bookingRepo.getRoomById(selectedRoomId);
       if (!room) {
         return { 
           success: false, 
@@ -63,15 +79,8 @@ export class BookingService {
       // Step 3.5: Validate capacity (CRITICAL)
       const totalCapacity = room.capacity * request.rooms;
       const totalGuests = request.adults + (request.children || 0);
-      
-      console.log(`📊 Capacity Validation:`);
-      console.log(`  - Room capacity: ${room.capacity} người/phòng`);
-      console.log(`  - Rooms requested: ${request.rooms}`);
-      console.log(`  - Total capacity: ${totalCapacity} người`);
-      console.log(`  - Total guests: ${totalGuests} người`);
 
       if (totalCapacity < totalGuests) {
-        console.log(`❌ CAPACITY CHECK FAILED!`);
         const minRoomsNeeded = Math.ceil(totalGuests / room.capacity);
         return {
           success: false,
@@ -81,12 +90,10 @@ export class BookingService {
                    `Vui lòng đặt ít nhất ${minRoomsNeeded} phòng hoặc giảm số người.`
         };
       }
-      console.log(`✅ Capacity check PASSED`);
 
       // Step 4: Re-check availability (CRITICAL - prevent double booking)
-      console.log(`🔍 Re-checking availability...`);
       const hasEnough = await this.availabilityRepo.hasEnoughAvailability(
-        request.roomId,
+        selectedRoomId,
         request.checkIn,
         request.checkOut,
         request.rooms
@@ -100,9 +107,8 @@ export class BookingService {
       }
 
       // Step 5: Calculate price
-      console.log(`💰 Calculating price...`);
       const priceCalculation = await this.bookingRepo.calculateBookingPrice(
-        request.roomId,
+        selectedRoomId,
         request.checkIn,
         request.checkOut,
         request.rooms
@@ -116,9 +122,8 @@ export class BookingService {
       }
 
       // Step 6: Lock rooms - Reduce availability (ATOMIC OPERATION)
-      console.log(`🔒 Locking ${request.rooms} room(s)...`);
       const lockResult = await this.availabilityRepo.reduceAvailableRooms(
-        request.roomId,
+        selectedRoomId,
         request.checkIn,
         request.checkOut,
         request.rooms
@@ -132,7 +137,6 @@ export class BookingService {
       }
 
       // Step 7: Create booking record
-      console.log(`📝 Creating booking record...`);
       const bookingId = this.bookingRepo.generateBookingId();
       const bookingCode = this.bookingRepo.generateBookingCode();
 
@@ -151,9 +155,8 @@ export class BookingService {
       const bookingCreated = await this.bookingRepo.createBooking(booking);
       if (!bookingCreated) {
         // Rollback: tăng lại availability
-        console.log(`❌ Booking creation failed, rolling back...`);
         await this.availabilityRepo.increaseAvailableRooms(
-          request.roomId,
+          selectedRoomId,
           request.checkIn,
           request.checkOut,
           request.rooms
@@ -165,14 +168,13 @@ export class BookingService {
       }
 
       // Step 8: Create booking detail
-      console.log(`📋 Creating booking detail...`);
       const guestsCount = request.adults + (request.children || 0);
       const avgPricePerNight = priceCalculation.subtotal / priceCalculation.nightsCount / request.rooms;
 
       const bookingDetail: BookingDetail = {
         booking_detail_id: this.bookingRepo.generateBookingDetailId(),
         booking_id: bookingId,
-        room_id: request.roomId,
+        room_id: selectedRoomId, // ✅ Use selected room ID
         checkin_date: request.checkIn,
         checkout_date: request.checkOut,
         guests_count: guestsCount,
@@ -184,10 +186,9 @@ export class BookingService {
       const detailCreated = await this.bookingRepo.createBookingDetail(bookingDetail);
       if (!detailCreated) {
         // Rollback: cancel booking và tăng lại availability
-        console.log(`❌ Booking detail creation failed, rolling back...`);
         await this.bookingRepo.cancelBooking(bookingId);
         await this.availabilityRepo.increaseAvailableRooms(
-          request.roomId,
+          selectedRoomId,
           request.checkIn,
           request.checkOut,
           request.rooms
@@ -218,9 +219,10 @@ export class BookingService {
           phone: hotel.phone_number
         },
         room: {
-          id: room.room_id,
+          id: selectedRoomId, // ✅ Use selected room ID
           name: room.room_type_name,
-          type: room.bed_type
+          type: room.bed_type,
+          roomNumber: room.room_number || null // ✅ Include room number for provider
         },
         checkIn: request.checkIn,
         checkOut: request.checkOut,
@@ -242,9 +244,6 @@ export class BookingService {
         createdAt: new Date()
       };
 
-      console.log(`✅ Booking created successfully: ${bookingId}`);
-      console.log(`📧 Booking code: ${bookingCode}`);
-
       // TODO: Step 11: Send confirmation email
       // await this.sendConfirmationEmail(confirmation);
 
@@ -255,7 +254,7 @@ export class BookingService {
       };
 
     } catch (error: any) {
-      console.error("❌ Service error - createBooking:", error);
+      console.error("[BookingService] createBooking error:", error.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi tạo booking"
@@ -284,7 +283,7 @@ export class BookingService {
         data: booking
       };
     } catch (error: any) {
-      console.error("❌ Service error - getBookingById:", error);
+      console.error("[BookingService] getBookingById error:", error.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi lấy thông tin booking"
@@ -302,7 +301,7 @@ export class BookingService {
         data: bookings
       };
     } catch (error: any) {
-      console.error("❌ Service error - getBookingsByAccount:", error);
+      console.error("[BookingService] getBookingsByAccount error:", error.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi lấy danh sách booking"
@@ -366,7 +365,7 @@ export class BookingService {
         message: "Hủy booking thành công"
       };
     } catch (error: any) {
-      console.error("❌ Service error - cancelBooking:", error);
+      console.error("[BookingService] cancelBooking error:", error.message || error);
       return {
         success: false,
         message: error.message || "Lỗi khi hủy booking"

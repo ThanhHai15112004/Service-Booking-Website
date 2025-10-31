@@ -9,6 +9,7 @@ import facilityRoute from "./Hotel/facility.route";
 import policyRoute from "./Hotel/policy.route";
 import bedTypeRoutes from "./Hotel/bedType.route";
 import availabilityRoutes from "./Hotel/availability.route";
+import roomRoutes from "./Hotel/room.route";
 
 import bookingRoutes from "./Booking/booking.route";
 
@@ -25,6 +26,7 @@ export function initRoutes(app: Express): void {
   app.use("/api/policies", policyRoute);
   app.use("/api/bed-types", bedTypeRoutes);
   app.use("/api/availability", availabilityRoutes);
+  app.use("/api/rooms", roomRoutes);
 
   //Booking
   app.use("/api/bookings", bookingRoutes);

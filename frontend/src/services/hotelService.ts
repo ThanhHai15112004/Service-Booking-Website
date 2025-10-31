@@ -57,6 +57,8 @@ export const getHotelDetail = async (hotelId: string, params: {
   rooms?: number;
 }) => {
   try {
+    console.log('🔍 getHotelDetail called:', { hotelId, params });
+    
     const res = await api.get(`/api/hotels/${hotelId}`, {
       params: {
         checkIn: params.checkIn,
@@ -66,10 +68,39 @@ export const getHotelDetail = async (hotelId: string, params: {
         rooms: params.rooms || 1
       }
     });
+    
+    console.log('✅ getHotelDetail API response:', {
+      status: res.status,
+      success: res.data?.success,
+      hasData: !!res.data?.data,
+      hasHotel: !!res.data?.data?.hotel,
+      availableRoomsCount: res.data?.data?.availableRooms?.length || 0
+    });
+    
+    // ✅ FIX: Validate response structure
+    if (!res.data) {
+      console.error('❌ Empty response from API');
+      return { success: false, message: "Không nhận được dữ liệu từ server." };
+    }
+    
     return res.data;
   } catch (error: any) {
     console.error('❌ getHotelDetail error:', error);
-    return { success: false, message: error.response?.data?.message || "Không thể lấy chi tiết khách sạn." };
+    console.error('❌ Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      config: {
+        url: error.config?.url,
+        params: error.config?.params
+      }
+    });
+    
+    // ✅ FIX: Return proper error structure
+    return { 
+      success: false, 
+      message: error.response?.data?.message || error.message || "Không thể lấy chi tiết khách sạn." 
+    };
   }
 };
 

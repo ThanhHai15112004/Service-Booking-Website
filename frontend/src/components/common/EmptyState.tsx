@@ -94,12 +94,16 @@ export function NoHotelsAvailable() {
   );
 }
 
-export function NoRoomsAvailable() {
+export function NoRoomsAvailable({ hasActiveFilters }: { hasActiveFilters?: boolean } = {}) {
+  const message = hasActiveFilters
+    ? "Không tìm thấy phòng nào phù hợp với bộ lọc đã chọn. Vui lòng thử bỏ bớt hoặc thay đổi bộ lọc."
+    : "Không có phòng trống cho thời gian này. Vui lòng thử chọn ngày khác.";
+  
   return (
     <EmptyState
       icon="hotel"
-      title="Không có phòng trống"
-      message="Không có phòng trống cho thời gian này. Vui lòng thử chọn ngày khác."
+      title={hasActiveFilters ? "Không tìm thấy phòng" : "Không có phòng trống"}
+      message={message}
     />
   );
 }

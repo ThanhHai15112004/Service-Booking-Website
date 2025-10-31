@@ -11,7 +11,7 @@ export interface HotelSearchParams {
   country?: string;
 
   // Dates
-  stayType: 'overnight' | 'hourly';
+  stayType: 'overnight' | 'dayuse';
   checkin?: string;
   checkout?: string;
   date?: string;
@@ -58,7 +58,7 @@ export interface HotelSearchResult {
   
   // Best offer info (nested)
   bestOffer: {
-    stayType: 'overnight' | 'hourly';
+    stayType: 'overnight' | 'dayuse';
     nights: number;
     rooms: number;
     adults: number;

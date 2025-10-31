@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import {
   useHotelDetail,
@@ -11,6 +11,7 @@ import {
 
 export default function HotelDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   
   // Custom hook handles all business logic
   const {
@@ -63,13 +64,6 @@ export default function HotelDetailPage() {
     { label: hotel?.name || 'Đặt phòng', href: '#' }
   ];
 
-  // Tab sections for sticky navigation
-  const tabSections = [
-    { id: 'overview', label: 'Tổng quan' },
-    { id: 'facilities', label: 'Cơ sở vật chất' },
-    { id: 'policies', label: 'Chính sách' },
-    { id: 'rooms', label: 'Phòng nghỉ' },
-  ];
 
   return (
     <MainLayout>
@@ -85,12 +79,11 @@ export default function HotelDetailPage() {
           initialChildren={children}
         />
 
-        {/* Header Section: Breadcrumb + Hotel Info + Image Gallery + Sticky Nav */}
+        {/* Header Section: Breadcrumb + Hotel Info + Image Gallery */}
         <HotelHeaderSection
           breadcrumbItems={breadcrumbItems}
           hotel={hotel}
           images={images}
-          tabSections={tabSections}
           availableRooms={availableRooms}
         />
 
@@ -106,9 +99,36 @@ export default function HotelDetailPage() {
           hotelImages={images}
           roomFilters={roomFilters}
           onRoomFiltersChange={setRoomFilters}
-          onSelectRoom={(room) => {
-            // TODO: Navigate to booking page
-            console.log('Selected room:', room);
+          onSelectRoom={(room, paymentMethod) => {
+            // ✅ Navigate to booking page với room và payment method
+            // Sử dụng hotelId trong URL path, roomTypeId trong query params
+            const hotelId = id; // hotelId từ URL params
+            if (!hotelId) {
+              console.error('Hotel ID not found');
+              return;
+            }
+
+            const roomTypeId = room.roomTypeId;
+            if (!roomTypeId) {
+              console.error('Room Type ID not found');
+              return;
+            }
+
+            // Build query params
+            const bookingParams = new URLSearchParams();
+            bookingParams.set('checkIn', checkIn || '');
+            bookingParams.set('checkOut', checkOut || '');
+            bookingParams.set('guests', guests.toString());
+            bookingParams.set('rooms', rooms.toString());
+            bookingParams.set('children', children.toString());
+            bookingParams.set('roomTypeId', roomTypeId); // ✅ Thêm roomTypeId vào query params
+            
+            // Map payment method: 'payNow' -> 'online_payment', 'payLater' -> 'pay_at_hotel'
+            const paymentMethodParam = paymentMethod === 'payNow' ? 'online_payment' : 'pay_at_hotel';
+            bookingParams.set('paymentMethod', paymentMethodParam);
+            
+            // Navigate to booking page với hotelId
+            navigate(`/booking/${hotelId}?${bookingParams.toString()}`);
           }}
         />
       </div>

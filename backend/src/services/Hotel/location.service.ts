@@ -23,8 +23,8 @@ export class LocationService {
         count: items.length,
         items,
       };
-    } catch (error) {
-      console.error("❌ [LocationService] searchLocations error:", error);
+    } catch (error: any) {
+      console.error("[LocationService] searchLocations error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server khi tìm kiếm địa điểm",
@@ -43,8 +43,8 @@ export class LocationService {
         count: items.length,
         items,
       };
-    } catch (error) {
-      console.error("❌ [LocationService] getHotLocations error:", error);
+    } catch (error: any) {
+      console.error("[LocationService] getHotLocations error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server khi lấy địa điểm nổi bật",
@@ -62,8 +62,8 @@ export class LocationService {
         data,
         message: "Lấy số lượng khách sạn thành công"
       };
-    } catch (error) {
-      console.error("❌ [LocationService] getHotelCounts error:", error);
+    } catch (error: any) {
+      console.error("[LocationService] getHotelCounts error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server khi đếm khách sạn",

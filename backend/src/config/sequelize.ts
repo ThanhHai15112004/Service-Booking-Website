@@ -16,6 +16,8 @@ import { RoomPolicy } from '../models/Hotel/roomPolicy.model';
 import { RoomPriceSchedule } from '../models/Hotel/roomPriceSchedule.model';
 import { RoomImage } from '../models/Hotel/roomImage.model';
 import { RoomAmenity } from '../models/Hotel/roomAmenity.model';
+import { Highlight } from '../models/Hotel/highlight.model';
+import { HotelHighlight } from '../models/Hotel/hotelHighlight.model';
 
 
 dotenv.config();
@@ -64,7 +66,9 @@ const hotelModels = [
   RoomPolicy,
   RoomPriceSchedule,
   RoomImage,
-  RoomAmenity
+  RoomAmenity,
+  Highlight,
+  HotelHighlight
 ];
 
 

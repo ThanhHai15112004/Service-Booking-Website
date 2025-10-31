@@ -59,7 +59,7 @@ export const checkEmailExistsController = async (req: Request, res: Response) =>
       message: exists ? "Email đã tồn tại." : "Email có thể sử dụng."
     });
   } catch (error: any) {
-    console.error(" checkEmailExistsController:", error.message);
+    console.error("[AuthController] checkEmailExists error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi kiểm tra email."
@@ -224,7 +224,7 @@ export const googleLoginController = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Lỗi đăng nhập Google:", error);
+    console.error("[AuthController] googleLogin error:", error?.message || error);
     return res.status(400).json({
       success: false,
       message: error.message || "Đăng nhập Google thất bại.",

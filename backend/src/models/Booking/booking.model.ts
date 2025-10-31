@@ -16,7 +16,8 @@ export interface GuestInfo {
 // Request để tạo booking mới
 export interface CreateBookingRequest {
   hotelId: string;
-  roomId: string;
+  roomId?: string;            // ✅ Optional: Can use roomTypeId instead
+  roomTypeId?: string;        // ✅ Optional: If provided, system will auto-select room
   checkIn: string;           // YYYY-MM-DD
   checkOut: string;          // YYYY-MM-DD
   rooms: number;             // Số phòng đặt
@@ -71,6 +72,7 @@ export interface BookingConfirmation {
     id: string;
     name: string;
     type: string;
+    roomNumber?: string | null; // ✅ NEW: Room number for provider
   };
   checkIn: string;
   checkOut: string;

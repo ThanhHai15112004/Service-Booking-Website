@@ -59,14 +59,21 @@ export default function StickyTabNav({ sections }: StickyTabNavProps) {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80; // Height of sticky nav
-      const elementPosition = element.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      // ✅ Tính offset chính xác: sticky nav height + top position + padding
+      // Sticky nav: top-[125px] + border (1px) + height (khoảng 60px) + padding
+      const stickyNavOffset = 125 + 1 + 60 + 20; // ~206px
+      
+      const elementRect = element.getBoundingClientRect();
+      const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+      const offsetPosition = elementRect.top + scrollPosition - stickyNavOffset;
 
       window.scrollTo({
-        top: offsetPosition,
+        top: Math.max(0, offsetPosition), // Đảm bảo không scroll âm
         behavior: 'smooth',
       });
+      
+      // ✅ Set active tab ngay sau khi click
+      setActiveTab(sectionId);
     }
   };
 

@@ -5,13 +5,21 @@ export class FacilityService {
 
   async getAllFacilities() {
     try {
-      const data = await this.repo.getAll();
+      const rawData = await this.repo.getAll();
+      // Format data từ snake_case sang camelCase
+      const data = (rawData as any[]).map(item => ({
+        facilityId: item.facility_id,
+        name: item.name,
+        category: item.category,
+        icon: item.icon,
+        createdAt: item.created_at
+      }));
       return {
         success: true,
         data
       };
-    } catch (error) {
-      console.error("❌ [FacilityService] getAllFacilities error:", error);
+    } catch (error: any) {
+      console.error("[FacilityService] getAllFacilities error:", error?.message || error);
       return {
         success: false,
         message: "Lỗi server",

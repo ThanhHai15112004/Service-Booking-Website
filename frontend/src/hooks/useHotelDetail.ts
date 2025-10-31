@@ -119,27 +119,68 @@ export function useHotelDetail(): UseHotelDetailReturn {
 
         console.log('📦 Hotel API response:', response);
 
-        if (response.success && response.data) {
-          const hotelData = response.data.hotel;
-          setHotel(hotelData);
-          
-          // Set available rooms
-          const rooms = response.data.availableRooms || [];
-          setAvailableRooms(rooms);
-          
-          // Fetch hotel counts for breadcrumb
-          if (hotelData?.city) {
+        // ✅ FIX: Kiểm tra response structure kỹ hơn
+        if (!response || !response.success) {
+          const errorMsg = response?.message || 'Không tìm thấy khách sạn';
+          console.error('❌ API response error:', errorMsg, response);
+          setError(errorMsg);
+          return;
+        }
+
+        if (!response.data) {
+          console.error('❌ API response missing data:', response);
+          setError('Dữ liệu không hợp lệ từ server');
+          return;
+        }
+
+        const hotelData = response.data.hotel;
+        
+        // ✅ FIX: Validate hotel data
+        if (!hotelData) {
+          console.error('❌ API response missing hotel data:', response);
+          setError('Không tìm thấy thông tin khách sạn');
+          return;
+        }
+
+        console.log('✅ Hotel data received:', hotelData);
+        setHotel(hotelData);
+        
+        // ✅ FIX: Đổi tên biến để tránh conflict với `rooms` param
+        const availableRoomsData = response.data.availableRooms || [];
+        console.log('✅ Available rooms count:', availableRoomsData.length);
+        setAvailableRooms(availableRoomsData);
+        
+        // Fetch hotel counts for breadcrumb
+        if (hotelData?.city) {
+          try {
             const countsResponse = await getHotelCounts('Vietnam', hotelData.city);
             if (countsResponse.success) {
               setHotelCounts(countsResponse.data);
             }
+          } catch (countsErr) {
+            console.warn('⚠️ Failed to fetch hotel counts:', countsErr);
+            // Không fail nếu counts fail, chỉ log warning
           }
-        } else {
-          setError(response.message || 'Không tìm thấy khách sạn');
         }
       } catch (err: any) {
         console.error('❌ Error fetching hotel:', err);
-        setError('Có lỗi xảy ra khi tải thông tin khách sạn');
+        console.error('❌ Error details:', {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+          stack: err.stack
+        });
+        
+        // ✅ FIX: Xử lý error message chi tiết hơn
+        let errorMessage = 'Có lỗi xảy ra khi tải thông tin khách sạn';
+        
+        if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

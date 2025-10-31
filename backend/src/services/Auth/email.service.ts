@@ -16,7 +16,6 @@ export class EmailService {
 
     const html = this.getVerificationTemplate(verifyUrl);
     await this.send(email, subject, html);
-    console.log(`Verification email sent to ${email}`);
   }
 
   //Gửi email đặt lại mật khẩu
@@ -26,7 +25,6 @@ export class EmailService {
 
     const html = this.getPasswordResetTemplate(resetUrl);
     await this.send(email, subject, html);
-    console.log(`Password reset email sent to ${email}`);
   }
 
   //Gửi thông báo đổi mật khẩu
@@ -34,7 +32,6 @@ export class EmailService {
     const subject = "Mật khẩu của bạn đã được thay đổi - Booking Service";
     const html = this.getPasswordChangedTemplate();
     await this.send(email, subject, html);
-    console.log(`Password changed notice sent to ${email}`);
   }
 
   //Gửi email (core function)
@@ -46,8 +43,8 @@ export class EmailService {
         subject,
         html,
       });
-    } catch (error) {
-      console.error(`❌ Email sending failed to ${to}:`, error);
+    } catch (error: any) {
+      console.error("[EmailService] send error:", error?.message || error);
       throw new Error("Không thể gửi email. Vui lòng thử lại sau.");
     }
   }
