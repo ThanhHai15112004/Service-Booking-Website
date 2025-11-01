@@ -43,24 +43,30 @@ api.interceptors.response.use(
                 }
 
                 const refreshUrl = `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/auth/refresh-token`;
+                console.log('🔄 Attempting to refresh token...');
                 const response = await axios.post(refreshUrl, {
                     refresh_token: refreshToken
                 }, {
                     // ✅ Don't send Authorization header for refresh token endpoint
-                    headers: {}
+                    headers: {},
+                    // ✅ Don't retry refresh token request
+                    withCredentials: false
                 });
 
-                if (response.data.success && response.data.access_token) {
-                    const newAccessToken = response.data.access_token;
-                    localStorage.setItem('accessToken', newAccessToken);
+                // ✅ Check response structure (may have success field or direct access_token)
+                const accessToken = response.data?.access_token || response.data?.accessToken;
+                if (response.data && accessToken) {
+                    localStorage.setItem('accessToken', accessToken);
+                    console.log('✅ Token refreshed successfully');
                     
                     // Retry original request với token mới
                     if (originalRequest.headers) {
-                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                     }
                     return api(originalRequest);
                 } else {
-                    throw new Error('Failed to refresh token');
+                    console.error('❌ Invalid refresh token response:', response.data);
+                    throw new Error('Failed to refresh token: Invalid response');
                 }
             } catch (refreshError) {
                 // Refresh failed, clear tokens and redirect to login

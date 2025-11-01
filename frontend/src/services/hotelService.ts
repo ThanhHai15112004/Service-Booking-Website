@@ -122,3 +122,74 @@ export const getHotelCounts = async (country: string, city?: string) => {
     };
   }
 };
+
+/**
+ * Get similar hotels in the same city (excluding current hotel)
+ */
+export const getSimilarHotelsInCity = async (params: {
+  city: string;
+  excludeHotelId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  rooms: number;
+  children: number;
+  limit?: number;
+}) => {
+  try {
+    const beParams: any = {
+      q: params.city,
+      adults: params.guests,
+      rooms: params.rooms,
+      children: params.children,
+      checkin: params.checkIn,
+      checkout: params.checkOut,
+      stayType: 'overnight', // ✅ Required by backend validator
+      limit: params.limit || 12,
+    };
+
+    const res = await api.get("/api/hotels/search", { params: beParams });
+    
+    // ✅ Check response structure - API returns { success, data: { hotels: [...] } }
+    const hotels = res.data?.data?.hotels || res.data?.data || [];
+    
+    if (res.data?.success && Array.isArray(hotels)) {
+      // Filter out current hotel and map to SimilarHotel format
+      let filteredHotels = hotels
+        .filter((hotel: any) => hotel.hotelId !== params.excludeHotelId)
+        .map((hotel: any) => {
+          // ✅ Map từ HotelSearchResult sang SimilarHotel
+          return {
+            hotelId: hotel.hotelId,
+            name: hotel.name,
+            starRating: hotel.starRating,
+            avgRating: hotel.avgRating,
+            reviewCount: hotel.reviewCount,
+            mainImage: hotel.mainImage,
+            city: hotel.location?.city || hotel.city,
+            distanceCenter: hotel.location?.distanceCenter || hotel.distanceCenter,
+            categoryName: hotel.categoryName,
+            // ✅ Map từ bestOffer
+            sumPrice: hotel.bestOffer?.totalPrice,
+            originalPrice: hotel.bestOffer?.totalOriginalPrice,
+            avgDiscountPercent: hotel.bestOffer?.discountPercent,
+            capacity: hotel.bestOffer?.capacity,
+            roomName: hotel.bestOffer?.roomName,
+          };
+        });
+
+      filteredHotels = filteredHotels.slice(0, params.limit || 12);
+      
+      return {
+        success: true,
+        data: filteredHotels,
+        count: filteredHotels.length
+      };
+    }
+    
+    return { success: false, data: [], count: 0 };
+  } catch (error: any) {
+    console.error('❌ getSimilarHotelsInCity error:', error);
+    return { success: false, data: [], count: 0, message: "Không thể lấy danh sách khách sạn tương tự." };
+  }
+};

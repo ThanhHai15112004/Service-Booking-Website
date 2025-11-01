@@ -19,9 +19,16 @@ export function authenticateJWT(req: any, res: any, next: any) {
     res.locals.accountId = decoded.account_id;
     req.user = { account_id: decoded.account_id }; // ✅ Set req.user for controller
     next();
-  } catch (err) {
-    return res
-      .status(403)
-      .json({ message: "Token không hợp lệ hoặc đã hết hạn." });
+  } catch (err: any) {
+    // ✅ Differentiate between expired token (401) and invalid token (403)
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        message: "Token đã hết hạn. Vui lòng refresh token." 
+      });
+    }
+    // Invalid token (malformed, wrong secret, etc.)
+    return res.status(403).json({ 
+      message: "Token không hợp lệ." 
+    });
   }
 }

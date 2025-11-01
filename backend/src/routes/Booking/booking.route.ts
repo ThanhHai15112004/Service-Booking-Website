@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createBooking,
+  createTemporaryBooking,
   getBooking,
   getMyBookings,
   cancelBooking
@@ -9,7 +10,10 @@ import { authenticateJWT } from "../../middleware/auth.middleware";
 
 const router = Router();
 
-// Tạo booking mới (yêu cầu đăng nhập)
+// ✅ Tạo booking tạm thời (status CREATED) khi vào trang booking (yêu cầu đăng nhập)
+router.post("/temporary", authenticateJWT, createTemporaryBooking);
+
+// Tạo booking mới hoặc update booking tạm thời (yêu cầu đăng nhập)
 router.post("/", authenticateJWT, createBooking);
 
 // Lấy danh sách bookings của user (yêu cầu đăng nhập)

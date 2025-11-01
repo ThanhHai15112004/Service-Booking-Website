@@ -1,6 +1,18 @@
 import api from "../api/axiosClient";
 
+// ✅ Request để tạo booking tạm thời (khi vào trang booking)
+export interface CreateTemporaryBookingRequest {
+  hotelId: string;
+  roomTypeId: string;
+  checkIn: string;
+  checkOut: string;
+  rooms: number;
+  adults: number;
+  children?: number;
+}
+
 export interface CreateBookingRequest {
+  bookingId?: string;        // ✅ Optional: Booking ID từ temporary booking
   hotelId: string;
   roomId?: string;
   roomTypeId?: string; // ✅ Backend supports auto-selecting room if roomTypeId is provided
@@ -66,6 +78,81 @@ export interface BookingConfirmation {
   specialRequests?: string;
   createdAt: Date;
 }
+
+// ✅ Tạo booking tạm thời (status CREATED) khi vào trang booking
+export const createTemporaryBooking = async (request: CreateTemporaryBookingRequest): Promise<{
+  success: boolean;
+  data?: {
+    bookingId: string;
+    bookingCode: string;
+    expiresAt: Date;
+  };
+  message?: string;
+}> => {
+  try {
+    console.log('📤 Creating temporary booking:', request);
+    const res = await api.post('/api/bookings/temporary', request);
+    console.log('✅ Temporary booking created:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error creating temporary booking:', error);
+    
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        message: 'Vui lòng đăng nhập để đặt phòng'
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể tạo booking tạm thời'
+    };
+  }
+};
+
+// ✅ Check if booking exists and is still valid
+export const checkBookingExists = async (bookingId: string): Promise<{
+  success: boolean;
+  data?: any;
+  message?: string;
+}> => {
+  try {
+    const res = await api.get(`/api/bookings/${bookingId}`);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error checking booking:', error);
+    
+    if (error.response?.status === 404) {
+      return {
+        success: false,
+        message: 'Booking không tồn tại'
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể kiểm tra booking'
+    };
+  }
+};
+
+// ✅ Cancel booking
+export const cancelBooking = async (bookingId: string): Promise<{
+  success: boolean;
+  message?: string;
+}> => {
+  try {
+    const res = await api.delete(`/api/bookings/${bookingId}`);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error canceling booking:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể hủy booking'
+    };
+  }
+};
 
 export const createBooking = async (request: CreateBookingRequest): Promise<{
   success: boolean;

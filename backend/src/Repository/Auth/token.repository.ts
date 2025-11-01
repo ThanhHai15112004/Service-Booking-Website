@@ -6,7 +6,21 @@ export class TokenRepository {
     // Lưu refresh token
   async saveRefreshToken(account_id: string, token: string): Promise<void> {
     const raw = process.env.JWT_REFRESH_EXPIRES_IN || "6h";
-    const hours = raw.endsWith("h") ? parseInt(raw.replace("h", ""), 10) : parseInt(raw, 10);
+    
+    // ✅ Parse expiration time correctly (support h, d, m formats)
+    let hours = 6; // default
+    if (raw.endsWith("h")) {
+      hours = parseInt(raw.replace("h", ""), 10);
+    } else if (raw.endsWith("d")) {
+      const days = parseInt(raw.replace("d", ""), 10);
+      hours = days * 24;
+    } else if (raw.endsWith("m")) {
+      const minutes = parseInt(raw.replace("m", ""), 10);
+      hours = Math.ceil(minutes / 60); // Round up to nearest hour
+    } else {
+      // Try to parse as hours if no suffix
+      hours = parseInt(raw, 10) || 6;
+    }
 
     await pool.execute(
       `INSERT INTO refresh_tokens (account_id, token, expires_at)

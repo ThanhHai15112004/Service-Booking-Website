@@ -1,15 +1,18 @@
 import { useState } from 'react';
 
-interface HotelInfoProps {
-  description: string;
-}
+// ✅ Text mặc định theo ảnh người dùng gửi - luôn dùng text này
+const DEFAULT_DESCRIPTION = `Hãy để chuyến đi của quý khách có một khởi đầu tuyệt vời khi ở lại khách sạn này, nơi có Wi-Fi miễn phí trong tất cả các phòng. Quý khách lui tới và gần với các điểm thu hút và tham quan địa phương. Chỗ nghỉ này giúp cho kỳ nghỉ của quý khách thêm thư thái và đáng nhớ.`;
 
-export default function HotelInfo({ description }: HotelInfoProps) {
+export default function HotelInfo() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const shouldTruncate = description.length > 300;
+  
+  // ✅ Luôn dùng text mặc định, không dùng description từ database
+  const displayDescription = DEFAULT_DESCRIPTION;
+  
+  const shouldTruncate = displayDescription.length > 300;
   const displayText = isExpanded || !shouldTruncate 
-    ? description 
-    : description.slice(0, 300) + '...';
+    ? displayDescription 
+    : displayDescription.slice(0, 300) + '...';
 
   return (
     <div className="mb-6 p-5 bg-white rounded-lg border border-gray-200">

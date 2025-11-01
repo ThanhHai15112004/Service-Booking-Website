@@ -96,6 +96,7 @@ export default function HotelDetailPage() {
           checkOut={checkOut}
           guests={guests}
           rooms={rooms}
+          children={children}
           hotelImages={images}
           roomFilters={roomFilters}
           onRoomFiltersChange={setRoomFilters}

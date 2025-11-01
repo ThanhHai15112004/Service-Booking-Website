@@ -2,7 +2,8 @@ import pool from "../../config/db";
 import { 
   Booking, 
   BookingDetail, 
-  BookingPriceCalculation 
+  BookingPriceCalculation,
+  BookingStatus
 } from "../../models/Booking/booking.model";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -229,7 +230,8 @@ export class BookingRepository {
         bd.checkout_date,
         bd.guests_count,
         bd.nights_count,
-        rt.name as room_type_name
+        rt.name as room_type_name,
+        CONCAT('BK', LPAD(b.booking_id, 8, '0')) as booking_code
       FROM booking b
       JOIN hotel h ON h.hotel_id = b.hotel_id
       LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
@@ -259,6 +261,133 @@ export class BookingRepository {
     const conn = await pool.getConnection();
     try {
       const [result] = await conn.query(sql, [bookingId]);
+      return (result as ResultSetHeader).affectedRows > 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  // ✅ Update booking status and info
+  async updateBooking(bookingId: string, updates: {
+    status?: BookingStatus;
+    special_requests?: string | null;
+    subtotal?: number;
+    tax_amount?: number;
+    discount_amount?: number;
+    total_amount?: number;
+  }): Promise<boolean> {
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.status !== undefined) {
+      updateFields.push('status = ?');
+      values.push(updates.status);
+    }
+
+    if (updates.special_requests !== undefined) {
+      updateFields.push('special_requests = ?');
+      values.push(updates.special_requests);
+    }
+
+    if (updates.subtotal !== undefined) {
+      updateFields.push('subtotal = ?');
+      values.push(updates.subtotal);
+    }
+
+    if (updates.tax_amount !== undefined) {
+      updateFields.push('tax_amount = ?');
+      values.push(updates.tax_amount);
+    }
+
+    if (updates.discount_amount !== undefined) {
+      updateFields.push('discount_amount = ?');
+      values.push(updates.discount_amount);
+    }
+
+    if (updates.total_amount !== undefined) {
+      updateFields.push('total_amount = ?');
+      values.push(updates.total_amount);
+    }
+
+    if (updateFields.length === 0) {
+      return false;
+    }
+
+    updateFields.push('updated_at = NOW()');
+    values.push(bookingId);
+
+    const sql = `
+      UPDATE booking
+      SET ${updateFields.join(', ')}
+      WHERE booking_id = ?
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [result] = await conn.query(sql, values);
+      return (result as ResultSetHeader).affectedRows > 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  // ✅ Update booking detail (dates, price, etc.)
+  async updateBookingDetail(bookingId: string, updates: {
+    checkin_date?: string;
+    checkout_date?: string;
+    guests_count?: number;
+    price_per_night?: number;
+    nights_count?: number;
+    total_price?: number;
+  }): Promise<boolean> {
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.checkin_date !== undefined) {
+      updateFields.push('checkin_date = ?');
+      values.push(updates.checkin_date);
+    }
+
+    if (updates.checkout_date !== undefined) {
+      updateFields.push('checkout_date = ?');
+      values.push(updates.checkout_date);
+    }
+
+    if (updates.guests_count !== undefined) {
+      updateFields.push('guests_count = ?');
+      values.push(updates.guests_count);
+    }
+
+    if (updates.price_per_night !== undefined) {
+      updateFields.push('price_per_night = ?');
+      values.push(updates.price_per_night);
+    }
+
+    if (updates.nights_count !== undefined) {
+      updateFields.push('nights_count = ?');
+      values.push(updates.nights_count);
+    }
+
+    if (updates.total_price !== undefined) {
+      updateFields.push('total_price = ?');
+      values.push(updates.total_price);
+    }
+
+    if (updateFields.length === 0) {
+      return false;
+    }
+
+    values.push(bookingId);
+
+    const sql = `
+      UPDATE booking_detail
+      SET ${updateFields.join(', ')}
+      WHERE booking_id = ?
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [result] = await conn.query(sql, values);
       return (result as ResultSetHeader).affectedRows > 0;
     } finally {
       conn.release();

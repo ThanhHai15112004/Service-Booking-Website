@@ -13,8 +13,20 @@ export interface GuestInfo {
   country?: string;
 }
 
-// Request để tạo booking mới
+// Request để tạo booking tạm thời (khi vào trang booking)
+export interface CreateTemporaryBookingRequest {
+  hotelId: string;
+  roomTypeId: string;         // Required for temporary booking
+  checkIn: string;           // YYYY-MM-DD
+  checkOut: string;          // YYYY-MM-DD
+  rooms: number;             // Số phòng đặt
+  adults: number;
+  children?: number;
+}
+
+// Request để tạo booking mới (hoàn chỉnh)
 export interface CreateBookingRequest {
+  bookingId?: string;        // ✅ Optional: Nếu có, sẽ update booking tạm thời
   hotelId: string;
   roomId?: string;            // ✅ Optional: Can use roomTypeId instead
   roomTypeId?: string;        // ✅ Optional: If provided, system will auto-select room

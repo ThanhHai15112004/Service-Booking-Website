@@ -12,6 +12,10 @@ export { default as RoomList } from './RoomList';
 export { default as HotelSearchUpdateBar } from './HotelSearchUpdateBar';
 export { default as HotelReviews } from './HotelReviews';
 export { default as HotelLocation } from './HotelLocation';
+export { default as HotelSlider } from './HotelSlider';
+export { default as HotelLocationMap } from './HotelLocationMap';
+export { default as TopDestinationsSlider } from './TopDestinationsSlider';
+export { default as TrendingCitiesSlider } from './TrendingCitiesSlider';
 
 // Export wrapper components
 export { default as HotelDetailLoadingState } from './HotelDetailLoadingState';

@@ -5,7 +5,7 @@ export class ProfileRepository {
   // Lấy thông tin user
   async getProfile(accountId: string): Promise<Partial<Account> | null> {
     const [rows]: any = await pool.query(
-      `SELECT account_id, full_name, email, phone_number, status, created_at, updated_at
+      `SELECT account_id, full_name, email, phone_number, status, role, is_verified, avatar_url, created_at, updated_at
        FROM account
        WHERE account_id = ?`,
       [accountId]

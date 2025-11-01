@@ -1,12 +1,16 @@
-import { CheckCircle, Wifi, ThumbsUp, Bell } from 'lucide-react';
+import { CheckCircle, ThumbsUp, Bell } from 'lucide-react';
 
 interface Hotel {
   name?: string;
   main_image?: string;
+  mainImage?: string;
   address?: string;
   price_per_night?: number;
   avgRating?: number;
   reviewCount?: number;
+  starRating?: number;
+  city?: string;
+  country?: string;
   hotelId?: string;
   id?: string;
 }
@@ -27,6 +31,11 @@ interface Room {
   freeCancellation?: boolean;
   noCreditCard?: boolean;
   area?: number;
+  roomNumber?: string | null; // ✅ Room number from database
+  refundable?: boolean;
+  extraBedFee?: number;
+  childrenAllowed?: boolean;
+  petsAllowed?: boolean;
 }
 
 interface BookingSummaryProps {
@@ -49,7 +58,9 @@ export default function BookingSummary({
   room,
   checkIn,
   checkOut,
+  guests,
   rooms = 1,
+  children = 0,
   nights,
   subtotal,
   tax,
@@ -74,7 +85,7 @@ export default function BookingSummary({
     return `${days[date.getDay()]}, ngày ${date.getDate()}, ${months[date.getMonth()]}`;
   };
 
-  const roomImage = room?.images?.[0]?.imageUrl || room?.images?.find(img => img.isPrimary)?.imageUrl || hotel.main_image;
+  const roomImage = room?.images?.[0]?.imageUrl || room?.images?.find(img => img.isPrimary)?.imageUrl || hotel.main_image || hotel.mainImage;
   const roomFeatures = room?.facilities || [];
   const discountPercent = 0; // TODO: Calculate from original price
 
@@ -109,21 +120,41 @@ export default function BookingSummary({
           />
         )}
         <h3 className="font-bold text-black text-base mb-1">{hotel.name}</h3>
-        {hotel.avgRating && (
+        
+        {/* ✅ Hotel Star Rating */}
+        {hotel.starRating && (
           <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center gap-1">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(Math.floor(hotel.starRating))].map((_, i) => (
                 <span key={i} className="text-yellow-400 text-xs">★</span>
               ))}
             </div>
+            <span className="text-xs text-gray-600">{hotel.starRating} sao</span>
+          </div>
+        )}
+        
+        {/* ✅ Hotel Rating & Reviews */}
+        {hotel.avgRating && (
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-semibold text-black">{hotel.avgRating}</span>
             <span className="text-xs text-gray-600">Tuyệt vời</span>
             {hotel.reviewCount && (
-              <span className="text-xs text-gray-600">({hotel.reviewCount} bài)</span>
+              <span className="text-xs text-gray-600">({hotel.reviewCount} đánh giá)</span>
             )}
           </div>
         )}
-        <p className="text-xs text-gray-600 mb-3">{hotel.address}</p>
+        
+        {/* ✅ Hotel Address */}
+        {hotel.address && (
+          <p className="text-xs text-gray-600 mb-3">{hotel.address}</p>
+        )}
+        
+        {/* ✅ Hotel City/Country */}
+        {(hotel.city || hotel.country) && (
+          <p className="text-xs text-gray-500 mb-3">
+            {hotel.city}{hotel.city && hotel.country ? ', ' : ''}{hotel.country}
+          </p>
+        )}
         
         {/* Room Details */}
         {room && (
@@ -131,14 +162,56 @@ export default function BookingSummary({
             <p className="text-sm font-medium text-black mb-2">
               {rooms} × {room.roomName || room.roomType || 'Phòng đã chọn'}
             </p>
+            
+            {/* ✅ Room Number - Hiển thị nếu có */}
+            {room.roomNumber && (
+              <p className="text-xs text-blue-600 font-semibold mb-1">
+                Phòng số: {room.roomNumber}
+              </p>
+            )}
+            
+            {/* ✅ Room Description */}
+            {room.roomDescription && (
+              <p className="text-xs text-gray-600 mb-2">{room.roomDescription}</p>
+            )}
+            
+            {/* ✅ Room Area */}
             {room.area && (
               <p className="text-xs text-gray-600 mb-1">Diện tích: {room.area} m²</p>
             )}
-            {room.capacity && (
-              <p className="text-xs text-gray-600 mb-1">Tối đa: {room.capacity} người lớn</p>
-            )}
+            
+            {/* ✅ Bed Type */}
             {room.bedType && (
-              <p className="text-xs text-gray-600 mb-2">{room.bedType}</p>
+              <p className="text-xs text-gray-600 mb-1">Loại giường: {room.bedType}</p>
+            )}
+            
+            {/* ✅ Number of guests - Hiển thị số người đang đi */}
+            <p className="text-xs text-gray-600 mb-2">
+              Số người: {guests} người lớn{children > 0 ? `, ${children} trẻ em` : ''}
+              {room.capacity && ` (Tối đa ${room.capacity} người/phòng)`}
+            </p>
+            
+            {/* ✅ Room Features - Hiển thị thêm thông tin */}
+            {(room.childrenAllowed !== undefined || room.petsAllowed !== undefined) && (
+              <div className="text-xs text-gray-600 mb-2 space-y-1">
+                {room.childrenAllowed !== undefined && (
+                  <p className={room.childrenAllowed ? 'text-green-600' : 'text-red-600'}>
+                    {room.childrenAllowed ? '✓' : '✗'} {room.childrenAllowed ? 'Cho phép' : 'Không cho phép'} trẻ em
+                  </p>
+                )}
+                {room.petsAllowed !== undefined && (
+                  <p className={room.petsAllowed ? 'text-green-600' : 'text-red-600'}>
+                    {room.petsAllowed ? '✓' : '✗'} {room.petsAllowed ? 'Cho phép' : 'Không cho phép'} vật nuôi
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* ✅ Extra Bed Fee - Chỉ hiển thị nếu có giá > 0 */}
+            {typeof room.extraBedFee === 'number' && room.extraBedFee > 0 && (
+              <p className="text-xs text-gray-600 mb-2">
+                Phí giường phụ: {formatPrice(room.extraBedFee)}
+              </p>
             )}
             
             {/* Room Features */}
@@ -161,21 +234,24 @@ export default function BookingSummary({
                   <span className="text-xs text-gray-700">Miễn phí hủy</span>
                 </div>
               )}
-              {roomFeatures.slice(0, 3).map((facility, index) => (
-                <div key={facility.facilityId || index} className="flex items-center gap-2">
-                  {facility.icon ? (
-                    <img src={facility.icon} alt={facility.name} className="w-4 h-4 object-contain flex-shrink-0" />
-                  ) : (
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+              {roomFeatures.length > 0 ? (
+                <>
+                  {roomFeatures.slice(0, 5).map((facility, index) => (
+                    <div key={facility.facilityId || index} className="flex items-center gap-2">
+                      {facility.icon ? (
+                        <img src={facility.icon} alt={facility.name} className="w-4 h-4 object-contain flex-shrink-0" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      )}
+                      <span className="text-xs text-gray-700">{facility.name}</span>
+                    </div>
+                  ))}
+                  {roomFeatures.length > 5 && (
+                    <p className="text-xs text-gray-500">+ {roomFeatures.length - 5} tiện nghi khác</p>
                   )}
-                  <span className="text-xs text-gray-700">{facility.name}</span>
-                </div>
-              ))}
-              {roomFeatures.length > 3 && (
-                <button className="flex items-center gap-2 text-blue-600 text-xs font-medium">
-                  <Wifi className="w-4 h-4" />
-                  Wi-Fi Miễn Phí
-                </button>
+                </>
+              ) : (
+                <p className="text-xs text-gray-500">Đang tải thông tin tiện nghi...</p>
               )}
             </div>
           </div>

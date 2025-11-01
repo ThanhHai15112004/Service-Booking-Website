@@ -1,4 +1,4 @@
-import { CreditCard, Lock, Info, Gift, AlertCircle } from 'lucide-react';
+import { Lock, Info } from 'lucide-react';
 import { useState } from 'react';
 
 interface BookingStep2Props {
@@ -44,6 +44,9 @@ export default function BookingStep2({
   nights,
   rooms
 }: BookingStep2Props) {
+  // ✅ State để quản lý support level được chọn
+  const [supportLevel, setSupportLevel] = useState<'standard' | 'fast'>('fast');
+  
   const formatPrice = (price: number) => {
     if (!price || isNaN(price)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -92,8 +95,22 @@ export default function BookingStep2({
           <a href="#" className="text-blue-600 text-sm hover:underline">Tìm hiểu thêm</a>
         </div>
         <div className="space-y-3">
-          <label className="flex items-start gap-4 p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-gray-400">
-            <input type="radio" name="support" defaultChecked className="mt-1" />
+          {/* Tiêu chuẩn */}
+          <label 
+            onClick={() => setSupportLevel('standard')}
+            className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+              supportLevel === 'standard' 
+                ? 'border-gray-600 bg-gray-50' 
+                : 'border-gray-300 hover:border-gray-400 bg-white'
+            }`}
+          >
+            <input 
+              type="radio" 
+              name="support" 
+              checked={supportLevel === 'standard'}
+              onChange={() => setSupportLevel('standard')}
+              className="mt-1" 
+            />
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-black">Tiêu chuẩn</span>
@@ -102,17 +119,38 @@ export default function BookingStep2({
               <p className="text-sm text-gray-600">Hỗ trợ trực tiếp 24/7</p>
             </div>
           </label>
-          <label className="flex items-start gap-4 p-4 border-2 border-green-600 bg-green-50 rounded-lg cursor-pointer relative">
-            <span className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
-              Phổ biến
-            </span>
-            <input type="radio" name="support" className="mt-1" />
+          
+          {/* Hỗ trợ nhanh */}
+          <label 
+            onClick={() => setSupportLevel('fast')}
+            className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer relative transition-colors ${
+              supportLevel === 'fast' 
+                ? 'border-green-600 bg-green-50' 
+                : 'border-gray-300 hover:border-gray-400 bg-white'
+            }`}
+          >
+            <input 
+              type="radio" 
+              name="support" 
+              checked={supportLevel === 'fast'}
+              onChange={() => setSupportLevel('fast')}
+              className="mt-1" 
+            />
             <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1 relative">
                 <span className="font-medium text-black">Hỗ trợ nhanh</span>
-                <span className="font-bold text-black">{formatPrice(17063)}</span>
+                <div className="flex items-center gap-2">
+                  {supportLevel === 'fast' && (
+                    <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
+                      Phổ biến
+                    </span>
+                  )}
+                  <span className="font-bold text-black">{formatPrice(17063)}</span>
+                </div>
               </div>
-              <ul className="text-sm text-gray-600 space-y-1">
+              <ul className={`text-sm space-y-1 ${
+                supportLevel === 'fast' ? 'text-green-700' : 'text-gray-600'
+              }`}>
                 <li>• Mã khuyến mại 263.296 ₫ cho chuyến đi tiếp theo của quý khách</li>
                 <li>• Hỗ trợ trực tiếp 24/7</li>
                 <li>• Hỗ trợ ưu tiên</li>

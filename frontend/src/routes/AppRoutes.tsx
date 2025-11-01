@@ -21,7 +21,11 @@ function AppRoutes() {
       <Route path="/hotels" element={<HotelLandingPage />} />
       <Route path="/hotels/search" element={<HotelsListPage />} />
       <Route path="/hotel/:id" element={<HotelDetailPage />} />
-      <Route path="/booking/:id" element={<BookingPage />} />
+      <Route path="/booking/:id" element={
+        <ProtectedRoute>
+          <BookingPage />
+        </ProtectedRoute>
+      } />
       
       {/* Auth Routes */}
       <Route path="/login" element={<LoginPage />} />

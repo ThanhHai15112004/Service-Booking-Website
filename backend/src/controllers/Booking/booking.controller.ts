@@ -1,8 +1,39 @@
 import { Request, Response } from "express";
 import { BookingService } from "../../services/Booking/booking.service";
-import { CreateBookingRequest } from "../../models/Booking/booking.model";
+import { CreateBookingRequest, CreateTemporaryBookingRequest } from "../../models/Booking/booking.model";
 
 const bookingService = new BookingService();
+
+// ✅ Tạo booking tạm thời (status CREATED) khi vào trang booking
+export const createTemporaryBooking = async (req: Request, res: Response) => {
+  try {
+    const request: CreateTemporaryBookingRequest = req.body;
+    
+    // Get account ID from authenticated user
+    const accountId = (req as any).user?.account_id;
+    
+    if (!accountId) {
+      return res.status(401).json({
+        success: false,
+        message: "Vui lòng đăng nhập để đặt phòng"
+      });
+    }
+
+    const result = await bookingService.createTemporaryBooking(request, accountId);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.status(201).json(result);
+  } catch (error: any) {
+    console.error("[BookingController] createTemporaryBooking error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi tạo booking tạm thời"
+    });
+  }
+};
 
 // Tạo booking mới
 export const createBooking = async (req: Request, res: Response) => {

@@ -12,6 +12,10 @@ import HotelFacilitiesDetailed from './HotelFacilitiesDetailed';
 import HotelPoliciesDetailed from './HotelPoliciesDetailed';
 import HotelUsefulInfo from './HotelUsefulInfo';
 import HotelReviewsDetailed from './HotelReviewsDetailed';
+import HotelSlider from './HotelSlider';
+import HotelLocationMap from './HotelLocationMap';
+import TopDestinationsSlider from './TopDestinationsSlider';
+import TrendingCitiesSlider from './TrendingCitiesSlider';
 import { HotelDetail, HotelHighlight, Room, RoomFiltersState, FilterCounts } from '../../types';
 import { getFacilities, getPolicies, Facility, Policy } from '../../services/filterService';
 
@@ -23,6 +27,7 @@ interface HotelMainContentProps {
   checkOut: string;
   guests: number;        // Thêm số khách
   rooms: number;         // Thêm số phòng
+  children?: number;     // ✅ Thêm children prop
   hotelImages?: string[]; // Ảnh khách sạn
   roomFilters: RoomFiltersState;
   onRoomFiltersChange: (filters: RoomFiltersState) => void;
@@ -37,6 +42,7 @@ export default function HotelMainContent({
   checkOut,
   guests,
   rooms,
+  children = 0,
   hotelImages = [],
   roomFilters,
   onRoomFiltersChange,
@@ -205,7 +211,7 @@ export default function HotelMainContent({
           {/* Overview Section */}
           <section id="overview">
             <HotelHighlights highlights={highlights} />
-            <HotelInfo description={hotel?.description || 'Đang tải thông tin khách sạn...'} />
+            <HotelInfo />
           </section>
 
           {/* Facilities Section */}
@@ -283,7 +289,8 @@ export default function HotelMainContent({
         <section className="mb-8">
           <HotelDetailedInfo 
             description={hotel?.description} 
-            name={hotel?.name || ''} 
+            name={hotel?.name || ''}
+            bannerImage={hotel?.mainImage || hotel?.images?.[0]?.imageUrl || undefined}
           />
         </section>
 
@@ -315,6 +322,55 @@ export default function HotelMainContent({
               { label: 'Độ sạch sẽ', score: hotel?.avgRating ? hotel.avgRating + 0.2 : 8.7 },
               { label: 'Đáng giá tiền', score: hotel?.avgRating ? hotel.avgRating + 0.2 : 8.7 }
             ]}
+          />
+        </section>
+
+        {/* ✅ Map hiển thị vị trí khách sạn */}
+        {hotel && hotel.latitude && hotel.longitude && (
+          <section className="mb-8">
+            <HotelLocationMap
+              latitude={hotel.latitude}
+              longitude={hotel.longitude}
+              address={hotel.address}
+              hotelName={hotel.name}
+            />
+          </section>
+        )}
+
+        {/* ✅ Slider các khách sạn cùng khu vực */}
+        {hotel && (
+          <section className="mb-8">
+            <HotelSlider
+              city={hotel.city}
+              currentHotelId={hotel.hotelId}
+              checkIn={checkIn}
+              checkOut={checkOut}
+              guests={guests}
+              rooms={rooms}
+              children={children}
+            />
+          </section>
+        )}
+
+        {/* ✅ Slider Điểm đến hàng đầu */}
+        <section className="mb-8">
+          <TopDestinationsSlider
+            checkIn={checkIn}
+            checkOut={checkOut}
+            guests={guests}
+            rooms={rooms}
+            children={children}
+          />
+        </section>
+
+        {/* ✅ Slider Thành phố xu hướng */}
+        <section className="mb-8">
+          <TrendingCitiesSlider
+            checkIn={checkIn}
+            checkOut={checkOut}
+            guests={guests}
+            rooms={rooms}
+            children={children}
           />
         </section>
       </div>
