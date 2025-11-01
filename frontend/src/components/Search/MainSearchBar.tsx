@@ -4,7 +4,7 @@ import SearchTypeTabs from './SearchTypeTabs';
 import SearchTab from './SearchTab';
 import DateRangePicker, { FlexibleDate } from './DateRangePicker';
 import RoomGuestPicker from './RoomGuestPicker';
-import { Search, MapPin, Clock, Star, X } from 'lucide-react';
+import { Search, MapPin, Clock, X } from 'lucide-react';
 import { searchLocations, formatLocationDetail, Location } from '../../services/locationService';
 import { searchHotels } from '../../services/hotelService';
 import { useSearch } from '../../contexts/SearchContext';
@@ -15,7 +15,7 @@ interface MainSearchBarProps {
 
 export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
   const navigate = useNavigate();
-  const { searchParams } = useSearch(); // ✅ Removed updateSearchParams - không dùng nữa
+  const { searchParams } = useSearch();
   
   const [searchType, setSearchType] = useState('hotel');
   const [tab, setTab] = useState<'overnight' | 'dayuse'>('overnight');
@@ -349,37 +349,7 @@ export default function MainSearchBar({ onSearch }: MainSearchBarProps) {
                     </div>
                   )}
 
-                  {recentSearches.length > 0 && (
-                    <div className="border-t border-gray-100 mb-6"></div>
-                  )}
-
-                  {hotLocations.length > 0 ? (
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                          <Star className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                          <span>Điểm đến phổ biến</span>
-                        </h3>
-                        <div className="grid grid-cols-3 gap-2">
-                          {hotLocations.slice(0, 6).map((location) => (
-                            <button
-                              key={location.locationId}
-                              type="button"
-                              className="text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 group"
-                              onClick={() => handleSelectLocation(location)}
-                            >
-                              <div className="font-semibold text-gray-900 text-sm truncate group-hover:text-blue-700">
-                                {location.city}
-                              </div>
-                              <div className="text-xs text-gray-600 truncate">
-                                {location.district || 'Toàn thành phố'}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                  
                 </div>
               )}
             </div>
