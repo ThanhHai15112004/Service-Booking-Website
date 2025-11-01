@@ -2,7 +2,7 @@ import pool from "../../config/db";
 import { Account } from "../../models/Auth/account.model";
 
 export class ProfileRepository {
-  // Lấy thông tin user
+  // Hàm lấy thông tin user
   async getProfile(accountId: string): Promise<Partial<Account> | null> {
     const [rows]: any = await pool.query(
       `SELECT account_id, full_name, email, phone_number, status, role, is_verified, avatar_url, created_at, updated_at
@@ -13,7 +13,7 @@ export class ProfileRepository {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  // Cập nhật thông tin user
+  // Hàm cập nhật thông tin user
   async updateProfile(
     accountId: string,
     data: { full_name: string; phone_number: string }
@@ -27,7 +27,7 @@ export class ProfileRepository {
     );
   }
 
-  // Lấy hash mật khẩu
+  // Hàm lấy hash mật khẩu
   async getPasswordHash(accountId: string): Promise<string | null> {
     const [rows]: any = await pool.query(
       `SELECT password_hash FROM account WHERE account_id = ?`,
@@ -36,7 +36,7 @@ export class ProfileRepository {
     return rows.length > 0 ? rows[0].password_hash : null;
   }
 
-  // Cập nhật mật khẩu
+  // Hàm cập nhật mật khẩu
   async updatePassword(accountId: string, newHash: string): Promise<void> {
     await pool.query(
       `UPDATE account SET password_hash = ?, updated_at = NOW() WHERE account_id = ?`,
@@ -44,7 +44,7 @@ export class ProfileRepository {
     );
   }
 
-  // Xóa refresh token (buộc login lại)
+  // Hàm xóa refresh token (buộc login lại)
   async revokeRefreshTokens(accountId: string): Promise<void> {
     await pool.query(`DELETE FROM refresh_tokens WHERE account_id = ?`, [
       accountId,

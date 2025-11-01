@@ -1,10 +1,9 @@
-// controllers/Hotel/hotel.controller.ts
-
 import { Request, Response } from "express";
 import { HotelService } from "../../services/Hotel/hotel.service";
 
 const hotelService = new HotelService();
 
+// Hàm tìm kiếm khách sạn
 export const searchHotelsController = async (req: Request, res: Response) => {
   try {
     const result = await hotelService.searchHotels(req.query);
@@ -26,6 +25,7 @@ export const searchHotelsController = async (req: Request, res: Response) => {
   }
 };
 
+// Hàm lấy thông tin chi tiết khách sạn
 export const getHotelDetailController = async (req: Request, res: Response) => {
   try {
     const result = await hotelService.getHotelDetail(req.params.hotelId, req.query);

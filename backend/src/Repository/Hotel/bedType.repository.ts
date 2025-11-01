@@ -3,7 +3,7 @@ import sequelize from "../../config/sequelize";
 import { QueryTypes } from "sequelize";
 
 export class BedTypeRepository {
-  // Lấy tất cả loại giường
+  // Hàm lấy tất cả loại giường
   async getAll() {
     return await BedType.findAll({
       order: [['display_order', 'ASC']],
@@ -11,7 +11,7 @@ export class BedTypeRepository {
     });
   }
 
-  // Lấy loại giường đang được sử dụng
+  // Hàm lấy loại giường đang được sử dụng
   async getActive(): Promise<string[]> {
     const sql = `SELECT DISTINCT bed_type FROM room_type WHERE bed_type IS NOT NULL`;
 

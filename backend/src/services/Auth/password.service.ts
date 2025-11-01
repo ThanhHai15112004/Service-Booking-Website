@@ -14,7 +14,7 @@ export class PasswordService {
     private accountRepo = new AccountRepository()
   ) {}
 
-  // Chuyển đổi chuỗi thời gian hết hạn thành phút
+  // Hàm chuyển đổi chuỗi thời gian hết hạn thành phút
   private parseExpireToMinutes(raw?: string): number {
     const val = raw || "15m";
     if (val.endsWith("m")) return parseInt(val.replace("m", ""), 10);
@@ -22,10 +22,10 @@ export class PasswordService {
     return parseInt(val, 10);
   }
 
-  // Yêu cầu đặt lại mật khẩu
+  // Hàm yêu cầu đặt lại mật khẩu
   async requestPasswordReset(email: string): Promise<void> {
     const accountId = await this.repo.getAccountIdByEmail(email);
-    if (!accountId) return; // không tiết lộ email tồn tại
+    if (!accountId) return;
 
     const token = crypto.randomBytes(32).toString("hex");
     const minutes = this.parseExpireToMinutes(
@@ -35,13 +35,13 @@ export class PasswordService {
     await this.emailService.sendPasswordReset(email, token);
   }
 
-  // Xác thực token đặt lại mật khẩu
+  // Hàm xác thực token đặt lại mật khẩu
   async verifyResetToken(token: string): Promise<boolean> {
     const record = await this.repo.isResetTokenValid(token);
     return !!record;
   }
 
-  // Đặt lại mật khẩu
+  // Hàm đặt lại mật khẩu
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const record = await this.repo.isResetTokenValid(token);
     if (!record) throw new Error("Token không hợp lệ hoặc đã hết hạn.");
@@ -53,14 +53,14 @@ export class PasswordService {
     if (email) await this.emailService.sendPasswordChanged(email);
   }
 
-  // Xử lý xác minh token đặt lại mật khẩu
+  // Hàm xử lý xác minh token đặt lại mật khẩu
   async handleVerifyResetToken(token: string): Promise<string> {
     const record = await this.repo.isResetTokenValid(token);
     if (!record) throw new Error("Token không hợp lệ hoặc đã hết hạn.");
     return "Token hợp lệ. Bạn có thể đặt lại mật khẩu.";
   }
 
-  // Xử lý đặt lại mật khẩu
+  // Hàm xử lý đặt lại mật khẩu
   async handleResetPassword(token: string, newPassword: string): Promise<string> {
     if (typeof newPassword !== "string" || newPassword.length < 6) {
       throw new Error("Mật khẩu mới phải có ít nhất 6 ký tự.");

@@ -9,7 +9,7 @@ export class EmailService {
     this.sender = process.env.EMAIL_FROM || "noreply@booking.com";
   }
 
-  //Gửi email xác thực tài khoản
+  // Hàm gửi email xác thực tài khoản
   async sendVerification(email: string, token: string): Promise<void> {
     const verifyUrl = `${this.frontendUrl}/verify-email?token=${token}`;
     const subject = "Xác thực email của bạn - Booking Service";
@@ -18,7 +18,7 @@ export class EmailService {
     await this.send(email, subject, html);
   }
 
-  //Gửi email đặt lại mật khẩu
+  // Hàm gửi email đặt lại mật khẩu
   async sendPasswordReset(email: string, token: string): Promise<void> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${token}`;
     const subject = "Đặt lại mật khẩu của bạn - Booking Service";
@@ -27,14 +27,14 @@ export class EmailService {
     await this.send(email, subject, html);
   }
 
-  //Gửi thông báo đổi mật khẩu
+  // Hàm gửi thông báo đổi mật khẩu
   async sendPasswordChanged(email: string): Promise<void> {
     const subject = "Mật khẩu của bạn đã được thay đổi - Booking Service";
     const html = this.getPasswordChangedTemplate();
     await this.send(email, subject, html);
   }
 
-  //Gửi email (core function)
+  // Hàm gửi email (core function)
   private async send(to: string, subject: string, html: string) {
     try {
       await transporter.sendMail({
@@ -49,7 +49,7 @@ export class EmailService {
     }
   }
 
-  //Template: Xác thực tài khoản
+  // Template xác thực tài khoản
   private getVerificationTemplate(verifyUrl: string): string {
     return `
       <html>
@@ -72,7 +72,7 @@ export class EmailService {
     `;
   }
 
-  //Template: Đặt lại mật khẩu
+  // Template đặt lại mật khẩu
   private getPasswordResetTemplate(resetUrl: string): string {
     return `
       <html>
@@ -93,7 +93,7 @@ export class EmailService {
     `;
   }
 
-  //Template: Thông báo đổi mật khẩu
+  // Template thông báo đổi mật khẩu
   private getPasswordChangedTemplate(): string {
     const date = new Date().toLocaleString("vi-VN");
     return `

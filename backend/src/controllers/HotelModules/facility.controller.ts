@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 
 const facilityServices = new FacilityService();
 
+// Hàm lấy tất cả facilities
 export const getAllFacilitiesController = async (req: Request, res: Response) => {
     try {
         const result = await facilityServices.getAllFacilities();

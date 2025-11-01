@@ -3,7 +3,7 @@ import { CategoryService } from "../../services/Hotel/category.service";
 
 const categoryService = new CategoryService();
 
-
+// Hàm lấy tất cả categories
 export const getAllCategoriesController = async(req: Request, res: Response) => {
     try {
     const result = await categoryService.getAllCategories();

@@ -3,11 +3,7 @@ import { RoomType } from "../../models/Hotel/roomType.model";
 import { Op } from "sequelize";
 
 export class RoomRepository {
-  /**
-   * Lấy hotelId từ roomTypeId
-   * @param roomTypeId - ID của loại phòng
-   * @returns hotelId hoặc null
-   */
+  // Hàm lấy hotelId từ roomTypeId
   async getHotelIdByRoomTypeId(roomTypeId: string): Promise<string | null> {
     try {
       const roomType = await RoomType.findOne({
@@ -23,12 +19,7 @@ export class RoomRepository {
     }
   }
 
-  /**
-   * Lấy danh sách phòng theo room_type_id
-   * @param roomTypeId - ID của loại phòng
-   * @param status - Status của phòng (default: 'ACTIVE')
-   * @returns Danh sách phòng thuộc room_type đó
-   */
+  // Hàm lấy danh sách phòng theo roomTypeId
   async getRoomsByRoomTypeId(
     roomTypeId: string,
     status: string = 'ACTIVE'
@@ -48,7 +39,7 @@ export class RoomRepository {
           status: status
         },
         order: [
-          ['room_number', 'ASC'], // Sort theo room_number để chọn phòng đầu tiên khi booking
+          ['room_number', 'ASC'],
           ['room_id', 'ASC']
         ],
         raw: false
@@ -59,7 +50,7 @@ export class RoomRepository {
         return {
           roomId: roomData.room_id,
           roomTypeId: roomData.room_type_id,
-          hotelId: roomData.roomType?.hotel_id || null, // ✅ Thêm hotelId
+          hotelId: roomData.roomType?.hotel_id || null,
           roomNumber: roomData.room_number,
           capacity: roomData.capacity,
           imageUrl: roomData.image_url,
@@ -73,15 +64,7 @@ export class RoomRepository {
     }
   }
 
-  /**
-   * Lấy phòng đầu tiên còn trống theo room_type_id và date range
-   * Dùng để tự động chọn phòng khi booking
-   * @param roomTypeId - ID của loại phòng
-   * @param checkIn - Ngày check-in
-   * @param checkOut - Ngày check-out
-   * @param roomsNeeded - Số phòng cần đặt
-   * @returns Danh sách phòng có thể đặt
-   */
+  // Hàm lấy phòng có thể đặt theo roomTypeId và date range
   async getAvailableRoomsByRoomTypeId(
     roomTypeId: string,
     checkIn: string,
@@ -89,11 +72,7 @@ export class RoomRepository {
     roomsNeeded: number = 1
   ): Promise<any[]> {
     try {
-      // TODO: Implement logic để lấy phòng có availability đủ trong date range
-      // Tạm thời chỉ lấy danh sách phòng ACTIVE
       const rooms = await this.getRoomsByRoomTypeId(roomTypeId, 'ACTIVE');
-      
-      // Trả về số phòng đầu tiên đủ cho booking
       return rooms.slice(0, roomsNeeded);
     } catch (error: any) {
       console.error("[RoomRepository] getAvailableRoomsByRoomTypeId error:", error.message);

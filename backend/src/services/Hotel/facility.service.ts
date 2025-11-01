@@ -3,10 +3,10 @@ import { FacilityRepository } from "../../Repository/Hotel/facility.repository";
 export class FacilityService {
   private repo = new FacilityRepository();
 
+  // Hàm lấy tất cả facilities
   async getAllFacilities() {
     try {
       const rawData = await this.repo.getAll();
-      // Format data từ snake_case sang camelCase
       const data = (rawData as any[]).map(item => ({
         facilityId: item.facility_id,
         name: item.name,

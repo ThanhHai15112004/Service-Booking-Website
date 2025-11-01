@@ -1,4 +1,3 @@
-// src/services/Auth/google.service.ts
 import { OAuth2Client } from "google-auth-library";
 import { TokenService } from "./token.service";
 import { AuthService } from "./auth.service";
@@ -9,14 +8,14 @@ export class GoogleAuthService {
   private client: OAuth2Client;
   private tokenService = new TokenService();
   private authService = new AuthService();
-  private accountRepo = new AccountRepository
+  private accountRepo = new AccountRepository();
 
   constructor() {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
 
+  // Hàm đăng nhập bằng Google
   async loginWithGoogle(idToken: string) {
-    //Xác thực token với Google
     const ticket = await this.client.verifyIdToken({
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -28,13 +27,11 @@ export class GoogleAuthService {
     const { sub: googleId, email, name, picture } = payload;
     if (!email) throw new Error("Không lấy được email từ Google.");
 
-    // Kiểm tra tài khoản đã tồn tại chưa
     const existing = await this.accountRepo.findByEmail(email);
     let user: Account;
 
     if (existing) {
       user = existing;
-      // Nếu tài khoản cũ chưa link Google thì update
       if (user.provider !== "GOOGLE") {
         await this.accountRepo.updateProviderInfo(
           user.account_id,
@@ -47,13 +44,12 @@ export class GoogleAuthService {
         user.is_verified = true;
       }
     } else {
-      // Nếu chưa có → tạo mới
       const account_id = await this.authService["generateAccountId"]();
       await this.accountRepo.create({
         account_id,
         full_name: name,
         email,
-        password_hash: "", // không cần vì Google
+        password_hash: "",
         is_verified: true,
         provider: "GOOGLE",
         provider_id: googleId,
@@ -64,7 +60,6 @@ export class GoogleAuthService {
       user = (await this.accountRepo.findById(account_id)) as Account;
     }
 
-    // Sinh token đăng nhập
     const payloadJWT = {
       account_id: user.account_id,
       email: user.email,
@@ -75,7 +70,6 @@ export class GoogleAuthService {
     const refreshToken = await this.tokenService.generateRefreshToken(payloadJWT);
     await this.tokenService.saveRefreshToken(user.account_id, refreshToken);
 
-    // Trả dữ liệu
     return {
       user,
       tokens: {

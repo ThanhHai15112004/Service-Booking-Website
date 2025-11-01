@@ -14,26 +14,23 @@ import { calculateNights } from "../../helpers/date.helper";
 export class AvailabilityService {
   private repository = new AvailabilityRepository();
 
-  // ✅ FLOW ĐÚNG: Kiểm tra phòng trống theo LOẠI PHÒNG (room_type_id)
+  // Hàm kiểm tra phòng trống theo loại phòng (roomTypeId)
   async checkRoomTypeAvailability(
     roomTypeId: string,
     params: AvailabilityCheckParams
   ): Promise<AvailabilityResponse<any>> {
     try {
-      // Validate params
       const paramsValidation = AvailabilityValidator.validateCheckParams(params);
       if (!paramsValidation.valid) {
         return { success: false, message: paramsValidation.message };
       }
 
-      // Get data from repository
       const availability = await this.repository.getRoomTypeAvailability(
         roomTypeId,
         paramsValidation.data!.startDate,
         paramsValidation.data!.endDate
       );
 
-      // Kiểm tra nếu không có dữ liệu
       if (availability.length === 0) {
         return {
           success: false,
@@ -43,7 +40,6 @@ export class AvailabilityService {
 
       const dailyData = availability as any[];
 
-      // Tính tổng giá và min available
       const totalPrice = dailyData.reduce((sum: number, day: any) => {
         return sum + parseFloat(day.finalPrice);
       }, 0);
@@ -51,7 +47,6 @@ export class AvailabilityService {
       const minAvailable = Math.min(...dailyData.map((d: any) => parseInt(d.availableRooms)));
       const totalRooms = dailyData[0]?.totalRooms || 0;
 
-      // Nếu có roomsCount, kiểm tra có đủ phòng không
       if (params.roomsCount !== undefined) {
         const roomsNeeded = params.roomsCount;
 
@@ -83,7 +78,6 @@ export class AvailabilityService {
         };
       }
 
-      // Nếu không có roomsCount, trả về dữ liệu đầy đủ
       return {
         success: true,
         data: {
@@ -105,32 +99,28 @@ export class AvailabilityService {
     }
   }
 
-  // ⚠️ DEPRECATED: Kiểm tra phòng trống của một phòng cụ thể (legacy)
+  // Hàm kiểm tra phòng trống của một phòng cụ thể (legacy - deprecated)
   async checkRoomAvailability(
     roomId: string,
     params: AvailabilityCheckParams
   ): Promise<AvailabilityResponse<DailyRoomAvailability[] | RoomAvailabilityCheckResult>> {
     try {
-      // Validate roomId
       const roomIdValidation = AvailabilityValidator.validateRoomId(roomId);
       if (!roomIdValidation.valid) {
         return { success: false, message: roomIdValidation.message };
       }
 
-      // Validate params
       const paramsValidation = AvailabilityValidator.validateCheckParams(params);
       if (!paramsValidation.valid) {
         return { success: false, message: paramsValidation.message };
       }
 
-      // Get data from repository
       const availability = await this.repository.getRoomDailyAvailability(
         roomId,
         paramsValidation.data!.startDate,
         paramsValidation.data!.endDate
       ) as any as DailyRoomAvailability[];
 
-      // Kiểm tra nếu không có dữ liệu
       if (availability.length === 0) {
         return {
           success: false,
@@ -138,11 +128,9 @@ export class AvailabilityService {
         };
       }
 
-      // Nếu có roomsCount, kiểm tra có đủ phòng không
       if (params.roomsCount !== undefined) {
         const roomsNeeded = params.roomsCount;
         
-        // Validate roomsCount
         if (roomsNeeded <= 0) {
           return {
             success: false,
@@ -150,7 +138,6 @@ export class AvailabilityService {
           };
         }
 
-        // Tìm số phòng tối thiểu available trong khoảng thời gian
         const minAvailable = Math.min(...availability.map((d: any) => d.availableRooms));
         const hasEnoughRooms = minAvailable >= roomsNeeded;
 
@@ -170,7 +157,6 @@ export class AvailabilityService {
         };
       }
 
-      // Nếu không có roomsCount, trả về dữ liệu như cũ
       return {
         success: true,
         data: availability
@@ -184,31 +170,27 @@ export class AvailabilityService {
     }
   }
 
-  // Kiểm tra phòng trống của toàn khách sạn
+  // Hàm kiểm tra phòng trống của toàn khách sạn
   async checkHotelAvailability(
     hotelId: string,
     params: AvailabilityCheckParams
   ): Promise<AvailabilityResponse<HotelAvailability>> {
     try {
-      // Validate hotelId
       const hotelIdValidation = AvailabilityValidator.validateHotelId(hotelId);
       if (!hotelIdValidation.valid) {
         return { success: false, message: hotelIdValidation.message };
       }
 
-      // Validate params
       const paramsValidation = AvailabilityValidator.validateCheckParams(params);
       if (!paramsValidation.valid) {
         return { success: false, message: paramsValidation.message };
       }
 
-      // Get hotel info
       const hotel = await this.repository.getHotelById(hotelId);
       if (!hotel) {
         return { success: false, message: "Không tìm thấy khách sạn" };
       }
 
-      // Get all active rooms
       const rooms = await this.repository.getActiveRoomsByHotel(hotelId);
       if (rooms.length === 0) {
         return {
@@ -217,13 +199,11 @@ export class AvailabilityService {
         };
       }
 
-      // Calculate expected nights using helper
       const expectedNights = calculateNights(
         paramsValidation.data!.startDate,
         paramsValidation.data!.endDate
       );
 
-      // Get availability for each room
       const roomsAvailability: RoomAvailabilitySummary[] = await Promise.all(
         rooms.map(async (room: any) => {
           const dailyAvailability = await this.repository.getRoomDailyAvailability(
@@ -270,12 +250,11 @@ export class AvailabilityService {
     }
   }
 
-  // Giảm số phòng trống
+  // Hàm giảm số phòng trống
   async reduceAvailability(
     params: AvailabilityUpdateParams
   ): Promise<AvailabilityResponse<{ affectedRows: number }>> {
     try {
-      // Validate using validator
       const validation = AvailabilityValidator.validateUpdateParams(params);
       if (!validation.valid) {
         return { success: false, message: validation.message };
@@ -283,7 +262,6 @@ export class AvailabilityService {
 
       const validatedParams = validation.data!;
 
-      // Kiểm tra xem có đủ phòng không
       const hasEnough = await this.repository.hasEnoughAvailability(
         validatedParams.roomId,
         validatedParams.startDate,
@@ -298,7 +276,6 @@ export class AvailabilityService {
         };
       }
 
-      // Giảm availability
       const result = await this.repository.reduceAvailableRooms(
         validatedParams.roomId,
         validatedParams.startDate,
@@ -327,12 +304,11 @@ export class AvailabilityService {
     }
   }
 
-  // Tăng số phòng trống
+  // Hàm tăng số phòng trống
   async increaseAvailability(
     params: AvailabilityUpdateParams
   ): Promise<AvailabilityResponse<{ affectedRows: number }>> {
     try {
-      // Validate using validator
       const validation = AvailabilityValidator.validateUpdateParams(params);
       if (!validation.valid) {
         return { success: false, message: validation.message };
@@ -340,7 +316,6 @@ export class AvailabilityService {
 
       const validatedParams = validation.data!;
 
-      // Tăng availability
       const result = await this.repository.increaseAvailableRooms(
         validatedParams.roomId,
         validatedParams.startDate,

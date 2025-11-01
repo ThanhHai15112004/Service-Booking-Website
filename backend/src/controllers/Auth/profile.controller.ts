@@ -3,7 +3,7 @@ import { ProfileService } from "../../services/Auth/profile.service";
 
 const profileService = new ProfileService();
 
-// Lấy thông tin người dùng
+// Hàm lấy thông tin người dùng
 export const getProfile = async (req: Request, res: Response) => {
   try {
     const accountId = res.locals.accountId;
@@ -17,7 +17,7 @@ export const getProfile = async (req: Request, res: Response) => {
   }
 };
 
-// Cập nhật thông tin cá nhân
+// Hàm cập nhật thông tin cá nhân
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const accountId = res.locals.accountId;
@@ -31,7 +31,7 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
-//Đổi mật khẩu
+// Hàm đổi mật khẩu
 export const updatePassword = async (req: Request, res: Response) => {
   try {
     const accountId = res.locals.accountId;

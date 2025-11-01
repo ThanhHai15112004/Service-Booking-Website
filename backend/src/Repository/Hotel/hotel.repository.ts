@@ -1,5 +1,3 @@
-// repositories/Hotel/hotel.repository.ts
-
 import sequelize from "../../config/sequelize";
 import { Op, Sequelize, fn, col, literal, where, cast, QueryTypes } from "sequelize";
 import { Hotel } from "../../models/Hotel/hotel.model";
@@ -20,11 +18,11 @@ import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models
 
 export class HotelSearchRepository {
 
+  // Hàm tìm kiếm khách sạn
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
     try {
       const rows = await this.buildSearchQuerySequelize(params);
       
-      // Ensure rows is an array
       if (!Array.isArray(rows)) {
         console.error('[HotelRepository] search - Expected array but got:', typeof rows);
         return [];
@@ -42,6 +40,7 @@ export class HotelSearchRepository {
     }
   }
 
+  // Hàm attach images vào results
   private async attachImagesToResults(results: HotelSearchResult[]): Promise<void> {
     if (results.length === 0) return;
     
@@ -67,7 +66,6 @@ export class HotelSearchRepository {
       raw: true
     });
     
-    // Group images by hotel_id
     const imagesByHotel = (images as any[]).reduce((acc: any, img: any) => {
       if (!acc[img.hotelId]) acc[img.hotelId] = [];
       acc[img.hotelId].push({
@@ -80,12 +78,12 @@ export class HotelSearchRepository {
       return acc;
     }, {});
     
-    // Attach images to each result
     results.forEach(result => {
       result.images = imagesByHotel[result.hotelId] || [];
     });
   }
 
+  // Hàm attach facilities vào results
   private async attachFacilitiesToResults(results: HotelSearchResult[]): Promise<void> {
     if (results.length === 0) return;
     
@@ -112,7 +110,6 @@ export class HotelSearchRepository {
       nest: true
     });
     
-    // Group facilities by hotel_id
     const facilitiesByHotel = (facilities as any[]).reduce((acc: any, item: any) => {
       const hotelId = item.hotel_id;
       if (!acc[hotelId]) acc[hotelId] = [];
@@ -124,26 +121,12 @@ export class HotelSearchRepository {
       return acc;
     }, {});
     
-    // Attach facilities to each result
     results.forEach(result => {
       result.facilities = facilitiesByHotel[result.hotelId] || [];
     });
   }
 
-  /**
-   * Build and execute search query using Sequelize parameterized query
-   * 
-   * NOTE: Query này phức tạp do cần:
-   * 1. Tính tổng giá cho mỗi room trong date range (t1 subquery)
-   * 2. Tìm room có giá thấp nhất cho mỗi hotel (t2 subquery) 
-   * 3. JOIN để chỉ lấy best offer (lowest price) cho mỗi hotel
-   * 
-   * Việc chuyển hoàn toàn sang Sequelize ORM sẽ rất phức tạp và kém hiệu quả.
-   * Vì vậy vẫn dùng sequelize.query() nhưng với parameterized query để đảm bảo an toàn.
-   * 
-   * @param params - Search parameters
-   * @returns Array of hotel results with best offers
-   */
+  // Hàm build và execute search query (query phức tạp với subquery để tìm best offer)
   private async buildSearchQuerySequelize(params: HotelSearchParams): Promise<any[]> {
     const isOvernight = params.stayType === "overnight";
     const nights = isOvernight 
@@ -154,7 +137,6 @@ export class HotelSearchRepository {
     const limit = params.limit || 10;
     const offset = params.offset || 0;
 
-    // Build date range condition
     const checkinDate = (isOvernight ? params.checkin : params.date) || '';
     let checkoutDateStr: string;
     
@@ -166,28 +148,10 @@ export class HotelSearchRepository {
       checkoutDateStr = checkoutDate.toISOString().split('T')[0];
     }
 
-    // Build Sequelize where conditions for filters
     const whereConditions = this.buildSequelizeWhereConditions(params, checkinDate, checkoutDateStr, nights);
-
-    // Build Sequelize order (validated whitelist để tránh SQL injection)
     const order = this.buildSequelizeOrder(params.sort);
 
-    /**
-     * Query structure:
-     * 
-     * t1 (subquery): Tính tổng giá và các thông tin cho mỗi room trong date range
-     *   - JOIN hotel, location, category, room_type, room, room_price_schedule
-     *   - GROUP BY để tính SUM/AVG/MIN/MAX cho mỗi room
-     *   - HAVING để đảm bảo đủ số ngày trong range
-     * 
-     * t2 (subquery): Tìm giá thấp nhất cho mỗi hotel
-     *   - Tính tổng giá cho mỗi room của hotel
-     *   - MIN(sum_price) để tìm best offer
-     * 
-     * Final JOIN: Chỉ lấy room có giá thấp nhất (best offer) cho mỗi hotel
-     */
     const results = await sequelize.query(`
-      -- Main SELECT: Lấy thông tin hotel và best offer room
       SELECT
         t1.hotel_id,
         t1.name,
@@ -212,7 +176,6 @@ export class HotelSearchRepository {
         t1.refundable,
         t1.pay_later
       FROM (
-        -- t1: Tính tổng giá và aggregate cho mỗi room
         SELECT
           h.hotel_id,
           h.name,
@@ -254,7 +217,6 @@ export class HotelSearchRepository {
         HAVING COUNT(DISTINCT CAST(rps.date AS DATE)) >= :nights
       ) AS t1
       INNER JOIN (
-        -- t2: Tìm giá thấp nhất (best offer) cho mỗi hotel
         SELECT hotel_id, MIN(sum_price) as min_price
         FROM (
           SELECT
@@ -290,36 +252,22 @@ export class HotelSearchRepository {
       type: QueryTypes.SELECT
     });
 
-    // sequelize.query() with QueryTypes.SELECT should return array directly
-    // But ensure we always get an array
     if (!results) {
       return [];
     }
     
-    // Handle tuple [rows, metadata] case (though QueryTypes.SELECT shouldn't return this)
     if (Array.isArray(results) && results.length === 2 && Array.isArray(results[0])) {
       return results[0] as any[];
     }
     
-    // Direct array of rows (expected case)
     if (Array.isArray(results)) {
       return results as any[];
     }
     
-    // Fallback: wrap in array
     return [results];
   }
 
-  /**
-   * Build WHERE conditions for Sequelize parameterized query
-   * 
-   * Sử dụng named parameters (:paramName) thay vì string interpolation
-   * để tránh SQL injection. Tất cả user input đều được truyền qua replacements.
-   */
-  /**
-   * Build facilities filter conditions - hỗ trợ cả HOTEL và ROOM facilities
-   * Trả về SQL conditions và replacements để có thể dùng trong WHERE clause
-   */
+  // Hàm build facilities filter conditions (hỗ trợ HOTEL và ROOM facilities)
   private buildFacilitiesFilterConditions(
     facilities: string[],
     replacements: Record<string, any>,
@@ -334,10 +282,7 @@ export class HotelSearchRepository {
       replacements[paramName] = facilityId;
       
       if (useRoomFilter) {
-        // ✅ Filter cho query có JOIN room (như t1)
-        // Check cả hotel_facility VÀ room_amenity
         conditions.push(`(
-          -- Check HOTEL facilities
           EXISTS (
             SELECT 1 FROM hotel_facility hf
             INNER JOIN facility f ON f.facility_id = hf.facility_id
@@ -346,7 +291,6 @@ export class HotelSearchRepository {
               AND f.category = 'HOTEL'
           )
           OR
-          -- Check ROOM facilities (phải có room với facility này)
           EXISTS (
             SELECT 1 FROM room_amenity ra
             INNER JOIN facility f ON f.facility_id = ra.facility_id
@@ -356,8 +300,6 @@ export class HotelSearchRepository {
           )
         )`);
       } else {
-        // ✅ Filter cho query không có JOIN room (như một số subquery khác)
-        // Chỉ check hotel_facility
         conditions.push(`EXISTS (
           SELECT 1 FROM hotel_facility hf
           INNER JOIN facility f ON f.facility_id = hf.facility_id
@@ -371,6 +313,7 @@ export class HotelSearchRepository {
     return { conditions, nextParamIndex: currentIndex };
   }
 
+  // Hàm build WHERE conditions cho search query (dùng named parameters để tránh SQL injection)
   private buildSequelizeWhereConditions(
     params: HotelSearchParams, 
     checkinDate: string, 
@@ -444,13 +387,12 @@ export class HotelSearchRepository {
       sqlConditions.push(`h.category_id = :${paramName}`);
     }
 
-    // ✅ FIX: Filter facilities - phân biệt HOTEL và ROOM facilities
     if (params.facilities && params.facilities.length > 0) {
       const facilitiesFilter = this.buildFacilitiesFilterConditions(
         params.facilities,
         replacements,
         paramIndex,
-        true // useRoomFilter = true vì query chính có JOIN room
+        true
       );
       sqlConditions.push(...facilitiesFilter.conditions);
       paramIndex = facilitiesFilter.nextParamIndex;
@@ -501,7 +443,7 @@ export class HotelSearchRepository {
   }
 
 
-  // Build ORDER BY for Sequelize (for future migration)
+  // Hàm build ORDER BY cho search query (whitelist validation để tránh SQL injection)
   private buildSequelizeOrder(sort?: string): { column: string; direction: string } {
     const sortMappings: Record<string, { column: string; direction: string }> = {
       price_asc: { column: 'sum_price', direction: 'ASC' },
@@ -511,19 +453,18 @@ export class HotelSearchRepository {
       distance_asc: { column: 'distance_center', direction: 'ASC' }
     };
 
-    // Whitelist validation to prevent SQL injection
     const validColumns = ['sum_price', 'star_rating', 'avg_rating', 'distance_center'];
     const validDirections = ['ASC', 'DESC'];
     
     const selected = sortMappings[sort || 'price_asc'] || sortMappings.price_asc;
     
-    // Ensure column and direction are safe
     const safeColumn = validColumns.includes(selected.column) ? selected.column : 'sum_price';
     const safeDirection = validDirections.includes(selected.direction) ? selected.direction : 'ASC';
     
     return { column: safeColumn, direction: safeDirection };
   }
 
+  // Hàm tính số đêm
   private calculateNights(checkin: string, checkout: string): number {
     const d1 = new Date(checkin);
     const d2 = new Date(checkout);
@@ -532,6 +473,7 @@ export class HotelSearchRepository {
     return nights > 0 ? nights : 1;
   }
 
+  // Hàm map kết quả từ database sang HotelSearchResult
   private mapResults(rows: any[], params: HotelSearchParams): HotelSearchResult[] {
     const nights = params.stayType === "overnight"
       ? this.calculateNights(params.checkin!, params.checkout!)
@@ -576,7 +518,6 @@ export class HotelSearchRepository {
           discountPercent: row.avg_discount_percent ? Number(row.avg_discount_percent) : 0,
           refundable: Boolean(row.refundable),
           payLater: Boolean(row.pay_later),
-          // Policy fields from room_policy (key-value) - set default false since not in SELECT
           freeCancellation: false,
           noCreditCard: false,
           petsAllowed: false,
@@ -586,16 +527,9 @@ export class HotelSearchRepository {
     });
   }
 
-  // ============================================================================
-  // HOTEL DETAIL METHODS
-  // ============================================================================
-
-  /**
-   * Get hotel detail by ID with all images, facilities, and policies
-   */
+  // Hàm lấy chi tiết hotel by ID
   async getHotelById(hotelId: string): Promise<any | null> {
     try {
-      // Get hotel with category and location
       const hotelData = await Hotel.findOne({
         where: { hotel_id: hotelId },
         include: [
@@ -624,7 +558,6 @@ export class HotelSearchRepository {
 
       const hotel = hotelData.toJSON() as any;
 
-      // Get images
       const images = await HotelImage.findAll({
         where: { hotel_id: hotelId },
         attributes: [
@@ -641,7 +574,6 @@ export class HotelSearchRepository {
         raw: true
       });
 
-      // Get facilities
       const facilities = await HotelFacility.findAll({
         include: [
           {
@@ -658,8 +590,6 @@ export class HotelSearchRepository {
         nest: true
       });
 
-      // ✅ FIX: Get highlights using Sequelize - bỏ attributes để Sequelize tự select tất cả columns
-      // Hoặc dùng raw query để kiểm soát hoàn toàn
       const highlightsData = await HotelHighlight.findAll({
         where: { hotel_id: hotelId },
         include: [
@@ -670,7 +600,6 @@ export class HotelSearchRepository {
             required: true
           }
         ],
-        // ✅ Không chỉ định attributes để Sequelize tự select tất cả columns có trong model
         order: [['sort_order', 'ASC']],
         raw: false
       });
@@ -687,8 +616,6 @@ export class HotelSearchRepository {
           sortOrder: data.sort_order
         };
       });
-  
-      // Build structured policies
       const policies = {
         checkIn: {
           from: hotel.checkin_time || '14:00',
@@ -702,9 +629,8 @@ export class HotelSearchRepository {
         smoking: false,
         pets: false,
         additionalPolicies: []
-      };
+        };
 
-      // Generate badges
       const badges = this.generateBadges({
         avgRating: hotel.avg_rating,
         reviewCount: hotel.review_count,
@@ -712,7 +638,6 @@ export class HotelSearchRepository {
         createdAt: hotel.created_at
       });
 
-      // Format response
       return {
         hotelId: hotel.hotel_id,
         name: hotel.name,
@@ -769,9 +694,7 @@ export class HotelSearchRepository {
     }
   }
 
-  /**
-   * Get available rooms for a hotel within a date range
-   */
+  // Hàm lấy phòng có sẵn theo hotelId và date range
   async getAvailableRoomsByHotelId(
     hotelId: string, 
     checkIn: string, 
@@ -783,8 +706,6 @@ export class HotelSearchRepository {
     try {
       const nights = this.calculateNights(checkIn, checkOut);
 
-      // ✅ FIX: Get all room price schedules with room type info
-      // Bỏ attributes để Sequelize tự select tất cả columns có trong model
       const schedules = await RoomPriceSchedule.findAll({
         include: [
           {
@@ -797,8 +718,6 @@ export class HotelSearchRepository {
               {
                 model: RoomType,
                 as: 'roomType',
-                // ✅ Không chỉ định attributes để Sequelize tự select tất cả columns
-                // attributes: ['room_type_id', 'name', 'description', 'bed_type', 'size_sqm'],
                 required: true,
                 where: { hotel_id: hotelId }
               },
@@ -828,14 +747,12 @@ export class HotelSearchRepository {
         raw: false
       });
 
-      // Convert to plain objects
       const rows = schedules.map((schedule: any) => {
         const data = schedule.toJSON();
         const room = data.room || {};
         const roomType = room.roomType || {};
         const policies = room.policies || [];
         
-        // Build policy map
         const policyMap: any = {};
         policies.forEach((p: any) => {
           policyMap[p.policy_key] = p.value;
@@ -846,10 +763,10 @@ export class HotelSearchRepository {
           roomName: roomType.name,
           roomDescription: roomType.description,
           bedType: roomType.bed_type,
-          area: roomType.size_sqm || roomType.area || null, // Use size_sqm (mapped from area column) as area
-          roomImage: null, // Will get from room_image table later
+          area: roomType.size_sqm || roomType.area || null,
+          roomImage: null,
           roomId: room.room_id,
-          roomNumber: room.room_number, // ✅ ADD: Lưu room_number để sort
+          roomNumber: room.room_number,
           capacity: room.capacity,
           date: data.date,
           basePrice: data.base_price,
@@ -865,17 +782,14 @@ export class HotelSearchRepository {
         };
       });
 
-      // Group by room_type_id (not room_id!)
-      // Vì hiển thị theo LOẠI PHÒNG, không phải từng phòng riêng lẻ
       const roomTypesMap = new Map<string, any>();
-      const roomsByType = new Map<string, Set<string>>(); // Track rooms per type
+      const roomsByType = new Map<string, Set<string>>();
 
       for (const row of rows) {
         const roomTypeId = row.roomTypeId;
         const roomId = row.roomId;
         const dateKey = row.date;
         
-        // Initialize room type nếu chưa có
         if (!roomTypesMap.has(roomTypeId)) {
           roomTypesMap.set(roomTypeId, {
             roomTypeId: row.roomTypeId,
@@ -884,9 +798,9 @@ export class HotelSearchRepository {
             bedType: row.bedType,
             area: row.area ? Number(row.area) : null,
             roomImage: row.roomImage,
-            capacity: 0, // ✅ FIX: Sẽ tính tổng capacity từ tất cả rooms
-            roomsCapacityMap: new Map<string, {capacity: number, roomNumber: string}>(), // Map<roomId, {capacity, roomNumber}> để track capacity và room_number của từng room
-            dailyAvailabilityByDate: new Map(), // Map<date, {totalAvailable, prices[]}>
+            capacity: 0,
+            roomsCapacityMap: new Map<string, {capacity: number, roomNumber: string}>(),
+            dailyAvailabilityByDate: new Map(),
             facilities: [],
             refundable: Boolean(row.refundable),
             payLater: Boolean(row.payLater),
@@ -902,7 +816,6 @@ export class HotelSearchRepository {
         const roomType = roomTypesMap.get(roomTypeId)!;
         roomsByType.get(roomTypeId)!.add(roomId);
         
-        // ✅ FIX: Track capacity và room_number của từng room để sort đúng
         if (!roomType.roomsCapacityMap.has(roomId)) {
           roomType.roomsCapacityMap.set(roomId, {
             capacity: row.capacity ? Number(row.capacity) : 0,
@@ -910,7 +823,6 @@ export class HotelSearchRepository {
           });
         }
         
-        // Aggregate availability by date
         if (!roomType.dailyAvailabilityByDate.has(dateKey)) {
           roomType.dailyAvailabilityByDate.set(dateKey, {
             date: dateKey,
@@ -921,16 +833,13 @@ export class HotelSearchRepository {
           });
         }
         
-        // Cộng dồn available_rooms của tất cả rooms cùng loại
         const dayData = roomType.dailyAvailabilityByDate.get(dateKey)!;
         dayData.totalAvailable += Number(row.availableRooms);
       }
 
-      // Convert Map to Array và tính toán
       const availableRoomTypes: any[] = [];
       
       for (const [roomTypeId, roomType] of roomTypesMap) {
-        // Convert dailyAvailabilityByDate Map to Array
         type DayAvailability = {
           date: string;
           totalAvailable: number;
@@ -940,19 +849,15 @@ export class HotelSearchRepository {
         };
         const dailyAvailability: DayAvailability[] = Array.from(roomType.dailyAvailabilityByDate.values());
         
-        // Filter: Chỉ giữ room_type có đủ availability cho tất cả các ngày
         if (dailyAvailability.length < nights) {
-          continue; // Skip room type này
+          continue;
         }
         
-        // Calculate totals
         const totalPrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.finalPrice, 0);
         const totalBasePrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.basePrice, 0);
         const minAvailable = Math.min(...dailyAvailability.map(day => day.totalAvailable));
         const totalRooms = roomsByType.get(roomTypeId)!.size;
         
-        // ✅ FIX: Tính capacity dựa trên số phòng user muốn đặt
-        // Sort rooms theo room_number để lấy N phòng đầu tiên
         const roomsData = Array.from<[string, {capacity: number, roomNumber: string}]>(roomType.roomsCapacityMap.entries())
           .map(entry => ({
             roomId: entry[0],
@@ -960,29 +865,23 @@ export class HotelSearchRepository {
             roomNumber: entry[1].roomNumber
           }))
           .sort((a, b) => {
-            // Sort by room_number (số hoặc string)
             const numA = parseInt(a.roomNumber) || 0;
             const numB = parseInt(b.roomNumber) || 0;
             if (numA !== numB) return numA - numB;
             return a.roomNumber.localeCompare(b.roomNumber);
           });
         
-        // Lấy capacity của N phòng đầu tiên (N = rooms user muốn đặt)
         const selectedRooms = roomsData.slice(0, rooms);
         const selectedRoomsCapacity = selectedRooms.reduce((sum: number, room) => sum + room.capacity, 0);
         
-        // Capacity hiển thị: Nếu user đặt 1 phòng → capacity của phòng đầu tiên
-        // Nếu user đặt 2 phòng → tổng capacity của 2 phòng đầu tiên
         const displayCapacity = rooms === 1 
-          ? (selectedRooms[0]?.capacity || 0)  // 1 phòng → capacity của phòng đầu tiên
-          : selectedRoomsCapacity;    // N phòng → tổng capacity của N phòng đầu tiên
+          ? (selectedRooms[0]?.capacity || 0)
+          : selectedRoomsCapacity;
         
-        // Tính tổng capacity để kiểm tra availability
         const totalCapacity = selectedRoomsCapacity;
         const totalGuests = adults + children;
         const meetsCapacity = totalCapacity >= totalGuests;
         
-        // Tính số "bộ phòng" có thể đặt (VD: user muốn 2 phòng/lần, available=5 → 2 bộ)
         const maxBookableSets = rooms > 0 ? Math.floor(minAvailable / rooms) : minAvailable;
         
         availableRoomTypes.push({
@@ -992,19 +891,19 @@ export class HotelSearchRepository {
           bedType: roomType.bedType,
           area: roomType.area,
           roomImage: roomType.roomImage,
-          capacity: displayCapacity,                 // ✅ FIX: Capacity hiển thị (theo số phòng user đặt)
-          totalRooms: totalRooms,                     // Tổng số rooms vật lý thuộc loại này
-          minAvailable: minAvailable,                 // Min available trong các ngày
-          maxBookableSets: maxBookableSets,           // ✅ NEW: Số bộ có thể đặt
-          requestedRooms: rooms,                      // ✅ NEW: Số phòng user muốn đặt
-          totalCapacity: totalCapacity,               // ✅ NEW: Total capacity (tổng của N phòng đầu tiên)
-          totalGuests: totalGuests,                   // ✅ NEW: Tổng số khách
+          capacity: displayCapacity,
+          totalRooms: totalRooms,
+          minAvailable: minAvailable,
+          maxBookableSets: maxBookableSets,
+          requestedRooms: rooms,
+          totalCapacity: totalCapacity,
+          totalGuests: totalGuests,
           dailyAvailability: dailyAvailability,
           totalPrice: Number(totalPrice.toFixed(2)),
           avgPricePerNight: Number((totalPrice / nights).toFixed(2)),
           totalBasePrice: Number(totalBasePrice.toFixed(2)),
           hasFullAvailability: true,
-          meetsCapacity: meetsCapacity,               // ✅ FIXED: capacity * rooms >= guests
+          meetsCapacity: meetsCapacity,
           capacityWarning: !meetsCapacity ? 
             `Với ${rooms} phòng, tối đa ${totalCapacity} người.` : null,
           facilities: [],
@@ -1019,11 +918,9 @@ export class HotelSearchRepository {
         });
       }
 
-      // Fetch facilities và images cho room types
       if (availableRoomTypes.length > 0) {
         const roomTypeIds = availableRoomTypes.map(rt => rt.roomTypeId);
         
-        // Fetch room images
         const images = await RoomImage.findAll({
           where: {
             room_type_id: { [Op.in]: roomTypeIds }
@@ -1043,7 +940,6 @@ export class HotelSearchRepository {
           raw: true
         });
         
-        // Group images by room_type_id
         const imagesByRoomType = (images as any[]).reduce((acc: any, img: any) => {
           if (!acc[img.roomTypeId]) acc[img.roomTypeId] = [];
           acc[img.roomTypeId].push({
@@ -1056,7 +952,6 @@ export class HotelSearchRepository {
           return acc;
         }, {});
         
-        // ✅ FIX: Fetch room facilities - sửa query để lấy đúng data
         const facilities = await RoomAmenity.findAll({
           include: [
             {
@@ -1091,7 +986,6 @@ export class HotelSearchRepository {
           raw: false
         });
         
-        // Group facilities by room_type_id (loại bỏ duplicate)
         const facilitiesByRoomType: Record<string, Set<string>> = {};
         const facilitiesMap: Record<string, any> = {};
         
@@ -1101,12 +995,10 @@ export class HotelSearchRepository {
           
           if (!roomTypeId || !facilityId) return;
           
-          // Track unique facilities per room type
           if (!facilitiesByRoomType[roomTypeId]) {
             facilitiesByRoomType[roomTypeId] = new Set();
           }
           
-          // Only add if not already added for this room type
           const facilityKey = `${roomTypeId}_${facilityId}`;
           if (!facilitiesMap[facilityKey]) {
             facilitiesByRoomType[roomTypeId].add(facilityId);
@@ -1121,7 +1013,6 @@ export class HotelSearchRepository {
           }
         });
         
-        // Convert to final format
         const finalFacilitiesByRoomType: Record<string, any[]> = {};
         Object.keys(facilitiesByRoomType).forEach(roomTypeId => {
           finalFacilitiesByRoomType[roomTypeId] = Array.from(facilitiesByRoomType[roomTypeId])
@@ -1132,14 +1023,12 @@ export class HotelSearchRepository {
             .filter(Boolean);
         });
         
-        // Attach facilities and images to room types
         availableRoomTypes.forEach(roomType => {
           roomType.images = imagesByRoomType[roomType.roomTypeId] || [];
           roomType.facilities = finalFacilitiesByRoomType[roomType.roomTypeId] || [];
         });
       }
 
-      // Sort by price
       availableRoomTypes.sort((a, b) => a.totalPrice - b.totalPrice);
 
       return availableRoomTypes;
@@ -1149,14 +1038,11 @@ export class HotelSearchRepository {
     }
   }
 
-  /**
-   * Generate highlights based on facilities and hotel features
-   */
+  // Hàm generate highlights từ facilities và hotel info
   private generateHighlights(facilities: any[], hotel: any): any[] {
     const highlights: any[] = [];
     const facilityNames = facilities.map(f => f.name.toLowerCase());
 
-    // Check for 24h reception (based on typical hotel features)
     if (facilityNames.includes('lễ tân 24 giờ') || facilityNames.includes('reception 24h')) {
       highlights.push({
         iconType: 'reception',
@@ -1165,7 +1051,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for WiFi
     if (facilityNames.some(f => f.includes('wifi') || f.includes('wi-fi'))) {
       highlights.push({
         iconType: 'wifi',
@@ -1174,7 +1059,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for parking
     if (facilityNames.some(f => f.includes('bãi đỗ xe') || f.includes('parking'))) {
       highlights.push({
         iconType: 'parking',
@@ -1183,7 +1067,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for pool
     if (facilityNames.some(f => f.includes('bể bơi') || f.includes('pool'))) {
       highlights.push({
         iconType: 'pool',
@@ -1192,7 +1075,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for restaurant
     if (facilityNames.some(f => f.includes('nhà hàng') || f.includes('restaurant'))) {
       highlights.push({
         iconType: 'restaurant',
@@ -1201,7 +1083,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for gym
     if (facilityNames.some(f => f.includes('phòng gym') || f.includes('fitness'))) {
       highlights.push({
         iconType: 'gym',
@@ -1210,7 +1091,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Check for spa
     if (facilityNames.some(f => f.includes('spa'))) {
       highlights.push({
         iconType: 'spa',
@@ -1222,13 +1102,10 @@ export class HotelSearchRepository {
     return highlights;
   }
 
-  /**
-   * Generate badges based on hotel rating and reviews
-   */
+  // Hàm generate badges cho hotel
   private generateBadges(hotel: any): any[] {
     const badges: any[] = [];
 
-    // Top rated badge
     if (hotel.avgRating >= 4.5 && hotel.reviewCount >= 100) {
       badges.push({
         type: 'top_rated',
@@ -1237,7 +1114,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Popular badge
     if (hotel.reviewCount >= 500) {
       badges.push({
         type: 'popular',
@@ -1246,7 +1122,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // Best value badge
     if (hotel.avgRating >= 4.0 && hotel.starRating >= 3) {
       badges.push({
         type: 'best_value',
@@ -1255,7 +1130,6 @@ export class HotelSearchRepository {
       });
     }
 
-    // New badge (created within last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     if (hotel.createdAt && new Date(hotel.createdAt) > sixMonthsAgo) {

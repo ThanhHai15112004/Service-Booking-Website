@@ -3,11 +3,7 @@ import { RoomRepository } from "../../Repository/Hotel/room.repository";
 export class RoomService {
   private repository = new RoomRepository();
 
-  /**
-   * Lấy hotelId từ roomTypeId
-   * @param roomTypeId - ID của loại phòng
-   * @returns hotelId hoặc null
-   */
+  // Hàm lấy hotelId từ roomTypeId
   async getHotelIdByRoomTypeId(roomTypeId: string): Promise<any> {
     try {
       if (!roomTypeId || roomTypeId.trim().length === 0) {
@@ -43,11 +39,7 @@ export class RoomService {
     }
   }
 
-  /**
-   * Lấy danh sách phòng theo room_type_id
-   * @param roomTypeId - ID của loại phòng
-   * @returns Danh sách phòng thuộc room_type đó
-   */
+  // Hàm lấy danh sách phòng theo roomTypeId
   async getRoomsByRoomTypeId(roomTypeId: string): Promise<any> {
     try {
       if (!roomTypeId || roomTypeId.trim().length === 0) {
@@ -75,14 +67,7 @@ export class RoomService {
     }
   }
 
-  /**
-   * Lấy phòng có thể đặt theo room_type_id và date range
-   * @param roomTypeId - ID của loại phòng
-   * @param checkIn - Ngày check-in
-   * @param checkOut - Ngày check-out
-   * @param roomsNeeded - Số phòng cần đặt
-   * @returns Danh sách phòng có thể đặt
-   */
+  // Hàm lấy phòng có thể đặt theo roomTypeId và date range
   async getAvailableRoomsByRoomTypeId(
     roomTypeId: string,
     checkIn: string,

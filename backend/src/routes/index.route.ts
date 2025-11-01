@@ -12,6 +12,7 @@ import availabilityRoutes from "./Hotel/availability.route";
 import roomRoutes from "./Hotel/room.route";
 
 import bookingRoutes from "./Booking/booking.route";
+import paymentRoutes from "./Payment/payment.route";
 
 export function initRoutes(app: Express): void {
   //Auth
@@ -30,4 +31,7 @@ export function initRoutes(app: Express): void {
 
   //Booking
   app.use("/api/bookings", bookingRoutes);
+
+  //Payment
+  app.use("/api/payments", paymentRoutes);
 }

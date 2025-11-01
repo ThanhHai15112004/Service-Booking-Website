@@ -9,6 +9,7 @@ const passwordService = new PasswordService();
 const googleAuthService = new GoogleAuthService();
 const tokenService = new TokenService();
 
+// Hàm đăng ký (register)
 export const Register = async (req: Request, res: Response) => {
   try {
     const { full_name, email, password, phone_number } = req.body;
@@ -24,7 +25,7 @@ export const Register = async (req: Request, res: Response) => {
 };
 
 
-// Xác thực email
+// Hàm xác thực email
 export const verifyEmailController = async (req: Request, res: Response) => {
   try {
     const token = req.query.token as string;
@@ -38,7 +39,7 @@ export const verifyEmailController = async (req: Request, res: Response) => {
   }
 }
 
-// Kiểm tra email có tồn tại
+// Hàm kiểm tra email có tồn tại
 export const checkEmailExistsController = async (req: Request, res: Response) => {
   try {
     let email = req.query.email;
@@ -68,7 +69,7 @@ export const checkEmailExistsController = async (req: Request, res: Response) =>
 };
 
 
-// Gửi lại email xác minh
+// Hàm gửi lại email xác minh
 export const resendVerificationController = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -97,7 +98,7 @@ export const resendVerificationController = async (req: Request, res: Response) 
 
 
 
-// Login
+// Hàm đăng nhập (login)
 export const Login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -109,7 +110,7 @@ export const Login = async (req: Request, res: Response) => {
 };
 
 
-// Logout
+// Hàm đăng xuất (logout)
 export const Logout = async (req: Request, res: Response) => {
   try {
     const { refresh_token } = req.body;
@@ -123,7 +124,7 @@ export const Logout = async (req: Request, res: Response) => {
   }
 };
 
-// refresh Access Token
+// Hàm refresh access token
 export const refreshAccessToken = async (req: Request, res: Response) => {
   try {
     const { refresh_token } = req.body;
@@ -146,7 +147,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
 
 
 
-// Forgot Password - Gửi email trước để  reset
+// Hàm quên mật khẩu (gửi email reset)
 export const forgotPasswordController = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -165,7 +166,7 @@ export const forgotPasswordController = async (req: Request, res: Response) => {
 };
 
 
-// ✅ Xác minh token reset
+// Hàm xác minh token reset
 export const verifyResetTokenController = async (req: Request, res: Response) => {
   try {
     const token = req.query.token as string;
@@ -179,7 +180,7 @@ export const verifyResetTokenController = async (req: Request, res: Response) =>
 };
 
 
-// ✅ Đặt lại mật khẩu bằng token
+// Hàm đặt lại mật khẩu bằng token
 export const resetPasswordController = async (req: Request, res: Response) => {
   try {
     const { token, new_password } = req.body;
@@ -196,6 +197,7 @@ export const resetPasswordController = async (req: Request, res: Response) => {
 
 
 
+// Hàm đăng nhập bằng Google
 export const googleLoginController = async (req: Request, res: Response) => {
   try {
     const { id_token } = req.body;

@@ -4,12 +4,10 @@ import { CreateBookingRequest, CreateTemporaryBookingRequest } from "../../model
 
 const bookingService = new BookingService();
 
-// ✅ Tạo booking tạm thời (status CREATED) khi vào trang booking
+// Hàm tạo booking tạm thời (status CREATED) khi vào trang booking
 export const createTemporaryBooking = async (req: Request, res: Response) => {
   try {
     const request: CreateTemporaryBookingRequest = req.body;
-    
-    // Get account ID from authenticated user
     const accountId = (req as any).user?.account_id;
     
     if (!accountId) {
@@ -35,12 +33,10 @@ export const createTemporaryBooking = async (req: Request, res: Response) => {
   }
 };
 
-// Tạo booking mới
+// Hàm tạo booking mới
 export const createBooking = async (req: Request, res: Response) => {
   try {
     const bookingRequest: CreateBookingRequest = req.body;
-    
-    // Get account ID from authenticated user
     const accountId = (req as any).user?.account_id;
     
     if (!accountId) {
@@ -66,7 +62,7 @@ export const createBooking = async (req: Request, res: Response) => {
   }
 };
 
-// Lấy thông tin booking by ID
+// Hàm lấy thông tin booking theo ID
 export const getBooking = async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
@@ -78,7 +74,6 @@ export const getBooking = async (req: Request, res: Response) => {
       return res.status(404).json(result);
     }
 
-    // Verify ownership (optional - tùy business logic)
     if (accountId && result.data.account_id !== accountId) {
       return res.status(403).json({
         success: false,
@@ -96,7 +91,7 @@ export const getBooking = async (req: Request, res: Response) => {
   }
 };
 
-// Lấy danh sách bookings của user
+// Hàm lấy danh sách bookings của user
 export const getMyBookings = async (req: Request, res: Response) => {
   try {
     const accountId = (req as any).user?.account_id;
@@ -124,7 +119,7 @@ export const getMyBookings = async (req: Request, res: Response) => {
   }
 };
 
-// Hủy booking
+// Hàm hủy booking
 export const cancelBooking = async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;

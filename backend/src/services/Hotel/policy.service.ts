@@ -3,10 +3,10 @@ import { PolicyRepository } from "../../Repository/Hotel/policy.repository";
 export class PolicyService {
   private repo = new PolicyRepository();
 
+  // Hàm lấy tất cả policies
   async getAllPolicies() {
     try {
       const rawData = await this.repo.getAll();
-      // Format data từ snake_case sang camelCase
       const data = (rawData as any[]).map(item => ({
         key: item.policy_key,
         label: item.name_vi,

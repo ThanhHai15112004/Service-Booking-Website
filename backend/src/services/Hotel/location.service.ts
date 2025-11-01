@@ -3,6 +3,7 @@ import { LocationRepository } from "../../Repository/Hotel/location.repository";
 export class LocationService {
   private repo = new LocationRepository();
 
+  // Hàm tìm kiếm địa điểm
   async searchLocations(q: string, limit: number = 10) {
     try {
       const lowerQ = q.toLowerCase().trim();
@@ -33,6 +34,7 @@ export class LocationService {
     }
   }
 
+  // Hàm lấy địa điểm nổi bật
   async getHotLocations(limit: number = 10) {
     try {
       const items = await this.repo.getHotLocations(limit);
@@ -53,6 +55,7 @@ export class LocationService {
     }
   }
 
+  // Hàm lấy số lượng khách sạn theo country/city
   async getHotelCounts(country: string, city?: string) {
     try {
       const data = await this.repo.getHotelCounts(country, city);

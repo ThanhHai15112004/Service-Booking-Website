@@ -3,10 +3,7 @@ import { RoomService } from "../../services/Hotel/room.service";
 
 const roomService = new RoomService();
 
-/**
- * GET /api/rooms/hotel/:roomTypeId
- * Lấy hotelId từ roomTypeId
- */
+// Hàm lấy hotelId từ roomTypeId
 export const getHotelIdByRoomTypeId = async (req: Request, res: Response) => {
   try {
     const { roomTypeId } = req.params;
@@ -36,10 +33,7 @@ export const getHotelIdByRoomTypeId = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/rooms?roomTypeId=RT001
- * Lấy danh sách phòng theo room_type_id
- */
+// Hàm lấy danh sách phòng theo roomTypeId
 export const getRoomsByRoomTypeId = async (req: Request, res: Response) => {
   try {
     const { roomTypeId } = req.query;
@@ -69,10 +63,7 @@ export const getRoomsByRoomTypeId = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/rooms/available?roomTypeId=RT001&checkIn=2025-11-01&checkOut=2025-11-03&roomsNeeded=1
- * Lấy danh sách phòng có thể đặt theo room_type_id và date range
- */
+// Hàm lấy danh sách phòng có thể đặt theo roomTypeId và date range
 export const getAvailableRoomsByRoomTypeId = async (req: Request, res: Response) => {
   try {
     const { roomTypeId, checkIn, checkOut, roomsNeeded } = req.query;

@@ -1,7 +1,5 @@
-// Booking status
 export type BookingStatus = 'CREATED' | 'CONFIRMED' | 'CANCELLED' | 'PAID';
 
-// Payment method
 export type PaymentMethod = 'VNPAY' | 'MOMO' | 'CASH';
 
 // Guest information
@@ -13,26 +11,24 @@ export interface GuestInfo {
   country?: string;
 }
 
-// Request để tạo booking tạm thời (khi vào trang booking)
 export interface CreateTemporaryBookingRequest {
   hotelId: string;
-  roomTypeId: string;         // Required for temporary booking
-  checkIn: string;           // YYYY-MM-DD
-  checkOut: string;          // YYYY-MM-DD
-  rooms: number;             // Số phòng đặt
+  roomTypeId: string;        
+  checkIn: string;          
+  checkOut: string;     
+  rooms: number;           
   adults: number;
   children?: number;
 }
 
-// Request để tạo booking mới (hoàn chỉnh)
 export interface CreateBookingRequest {
-  bookingId?: string;        // ✅ Optional: Nếu có, sẽ update booking tạm thời
+  bookingId?: string;       
   hotelId: string;
-  roomId?: string;            // ✅ Optional: Can use roomTypeId instead
-  roomTypeId?: string;        // ✅ Optional: If provided, system will auto-select room
-  checkIn: string;           // YYYY-MM-DD
-  checkOut: string;          // YYYY-MM-DD
-  rooms: number;             // Số phòng đặt
+  roomId?: string;          
+  roomTypeId?: string;       
+  checkIn: string;          
+  checkOut: string;         
+  rooms: number;            
   adults: number;
   children?: number;
   childAges?: number[];
@@ -41,7 +37,6 @@ export interface CreateBookingRequest {
   paymentMethod: PaymentMethod;
 }
 
-// Booking record trong database
 export interface Booking {
   booking_id: string;
   account_id: string;
@@ -56,7 +51,6 @@ export interface Booking {
   updated_at: Date;
 }
 
-// Booking detail record trong database
 export interface BookingDetail {
   booking_detail_id: string;
   booking_id: string;
@@ -69,7 +63,6 @@ export interface BookingDetail {
   total_price: number;
 }
 
-// Response trả về khi tạo booking thành công
 export interface BookingConfirmation {
   bookingId: string;
   bookingCode: string;
@@ -84,7 +77,7 @@ export interface BookingConfirmation {
     id: string;
     name: string;
     type: string;
-    roomNumber?: string | null; // ✅ NEW: Room number for provider
+    roomNumber?: string | null; 
   };
   checkIn: string;
   checkOut: string;
@@ -106,14 +99,12 @@ export interface BookingConfirmation {
   createdAt: Date;
 }
 
-// Response format chuẩn
 export interface BookingResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
 }
 
-// Booking price calculation result
 export interface BookingPriceCalculation {
   dailyPrices: Array<{
     date: string;

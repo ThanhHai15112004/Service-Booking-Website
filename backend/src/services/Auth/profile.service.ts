@@ -4,14 +4,14 @@ import { ProfileRepository } from "../../Repository/Auth/profile.repository";
 export class ProfileService {
   private repo = new ProfileRepository();
 
-  // Lấy profile
+  // Hàm lấy profile
   async getUserProfile(accountId: string) {
     const user = await this.repo.getProfile(accountId);
     if (!user) throw new Error("Không tìm thấy người dùng.");
     return user;
   }
 
-  // Cập nhật profile
+  // Hàm cập nhật profile
   async updateUserProfile(accountId: string, data: any) {
     const { full_name, phone_number } = data;
     if (!full_name || !phone_number) {
@@ -20,7 +20,7 @@ export class ProfileService {
     await this.repo.updateProfile(accountId, { full_name, phone_number });
   }
 
-  // Đổi mật khẩu
+  // Hàm đổi mật khẩu
   async changePassword(accountId: string, oldPass: string, newPass: string) {
     if (!oldPass || !newPass) throw new Error("Thiếu mật khẩu cũ hoặc mới.");
     if (newPass.length < 6)

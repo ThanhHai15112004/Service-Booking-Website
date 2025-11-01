@@ -3,7 +3,7 @@ import sequelize from "../../config/sequelize";
 import { QueryTypes } from "sequelize";
 
 export class PolicyRepository {
-  // Lấy tất cả loại chính sách
+  // Hàm lấy tất cả loại chính sách
   async getAll() {
     return await PolicyType.findAll({
       order: [['display_order', 'ASC']],
@@ -11,7 +11,7 @@ export class PolicyRepository {
     });
   }
 
-  // Lấy các chính sách đang có
+  // Hàm lấy các chính sách đang có
   async getAvailable() {
     const sql = `
       SELECT 

@@ -1,7 +1,7 @@
 import pool from "../../config/db";
 
 export class PasswordRepository {
-  // Lấy account_id theo email
+  // Hàm lấy account_id theo email
   async getAccountIdByEmail(email: string): Promise<string | null> {
     const [rows]: any = await pool.execute(
       "SELECT account_id FROM account WHERE email = ?",
@@ -10,7 +10,7 @@ export class PasswordRepository {
     return rows.length > 0 ? rows[0].account_id : null;
   }
 
-  // Cập nhật token reset và thời hạn
+  // Hàm cập nhật token reset và thời hạn
   async setResetToken(
     accountId: string,
     token: string,
@@ -24,7 +24,7 @@ export class PasswordRepository {
     );
   }
 
-  // Kiểm tra token hợp lệ
+  // Hàm kiểm tra token hợp lệ
   async isResetTokenValid(
     token: string
   ): Promise<{ account_id: string } | null> {
@@ -36,7 +36,7 @@ export class PasswordRepository {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  // Cập nhật mật khẩu mới + reset token
+  // Hàm cập nhật mật khẩu mới + reset token
   async updatePassword(accountId: string, passwordHash: string): Promise<void> {
     const conn = await (pool as any).getConnection();
     try {

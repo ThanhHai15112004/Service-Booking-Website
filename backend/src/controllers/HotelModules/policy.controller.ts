@@ -3,6 +3,7 @@ import { PolicyService } from "../../services/Hotel/policy.service";
 
 const policyService = new PolicyService();
 
+// Hàm lấy tất cả policies
 export const getAllPoliciesController = async (req: Request, res: Response) => {
   try {
     const result = await policyService.getAllPolicies();

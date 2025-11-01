@@ -3,7 +3,7 @@ import { AvailabilityService } from "../../services/Hotel/availability.service";
 
 const availabilityService = new AvailabilityService();
 
-// ✅ FLOW ĐÚNG: Kiểm tra phòng trống theo LOẠI PHÒNG (room_type_id)
+// Hàm kiểm tra phòng trống theo loại phòng (roomTypeId)
 export const checkRoomTypeAvailability = async (req: Request, res: Response) => {
   try {
     const { roomTypeId } = req.params;
@@ -36,7 +36,7 @@ export const checkRoomTypeAvailability = async (req: Request, res: Response) => 
   }
 };
 
-// ⚠️ DEPRECATED: Kiểm tra phòng trống cho một room cụ thể (legacy)
+// Hàm kiểm tra phòng trống cho một room cụ thể (legacy - deprecated)
 export const checkRoomAvailability = async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
@@ -69,7 +69,7 @@ export const checkRoomAvailability = async (req: Request, res: Response) => {
   }
 };
 
-// Kiểm tra tất cả phòng của hotel
+// Hàm kiểm tra tất cả phòng của hotel
 export const checkHotelAvailability = async (req: Request, res: Response) => {
   try {
     const { hotelId } = req.params;
@@ -101,7 +101,7 @@ export const checkHotelAvailability = async (req: Request, res: Response) => {
   }
 };
 
-// Giảm số phòng trống (sử dụng khi booking)
+// Hàm giảm số phòng trống (sử dụng khi booking)
 export const reduceAvailability = async (req: Request, res: Response) => {
   try {
     const { roomId, startDate, endDate, roomsCount } = req.body;
@@ -134,7 +134,7 @@ export const reduceAvailability = async (req: Request, res: Response) => {
   }
 };
 
-// Tăng số phòng trống (sử dụng khi hủy booking)
+// Hàm tăng số phòng trống (sử dụng khi hủy booking)
 export const increaseAvailability = async (req: Request, res: Response) => {
   try {
     const { roomId, startDate, endDate, roomsCount } = req.body;

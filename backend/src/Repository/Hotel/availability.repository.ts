@@ -5,7 +5,7 @@ import { Room } from "../../models/Hotel/room.model";
 import { RoomType } from "../../models/Hotel/roomType.model";
 
 export class AvailabilityRepository {
-  // Lấy phòng trống theo loại phòng (aggregate từ nhiều phòng)
+  // Hàm lấy phòng trống theo loại phòng (aggregate từ nhiều phòng)
   async getRoomTypeAvailability(roomTypeId: string, startDate: string, endDate: string) {
     return await RoomPriceSchedule.findAll({
       include: [
@@ -60,11 +60,8 @@ export class AvailabilityRepository {
     });
   }
 
-  // Lấy danh sách phòng còn trống (để system pick khi booking)
+  // Hàm lấy danh sách phòng còn trống (để system pick khi booking)
   async getAvailableRoomsInType(roomTypeId: string, startDate: string, endDate: string, roomsNeeded: number = 1) {
-    // ✅ Use raw SQL query to avoid Sequelize alias issues
-    // ✅ Fix: Ensure ALL days in date range have data in room_price_schedule
-    // Calculate required days (checkIn to checkOut, exclusive of checkOut)
     const sql = `
       SELECT 
         r.room_id,
@@ -79,45 +76,27 @@ export class AvailabilityRepository {
         AND rps.date >= ?
         AND rps.date < ?
       GROUP BY r.room_id, r.room_number
-      HAVING MIN(rps.available_rooms) >= ?
+      HAVING MIN(rps.available_rooms) >= 1
         AND COUNT(DISTINCT rps.date) = DATEDIFF(?, ?)
       ORDER BY r.room_number ASC
       LIMIT ?
     `;
     
-    // ✅ DATEDIFF(endDate, startDate) returns number of days between dates
-    // For checkIn=2025-11-02, checkOut=2025-11-03, we need 1 day (the check-in day)
     const results = await sequelize.query(sql, {
-      replacements: [endDate, startDate, roomTypeId, startDate, endDate, roomsNeeded, endDate, startDate, roomsNeeded],
+      replacements: [endDate, startDate, roomTypeId, startDate, endDate, endDate, startDate, roomsNeeded],
       type: QueryTypes.SELECT
     }) as any[];
     
-    console.log('📊 getAvailableRoomsInType result:', {
-      roomTypeId,
-      startDate,
-      endDate,
-      roomsNeeded,
-      requiredDays: `DATEDIFF(${endDate}, ${startDate})`,
-      foundRooms: results.length,
-      rooms: results.map((r: any) => ({
-        room_id: r.room_id,
-        minAvailable: r.minAvailable,
-        daysWithData: r.daysWithData,
-        requiredDays: r.requiredDays
-      }))
-    });
-    
-    // ✅ Convert room_id to camelCase for consistency
     return results.map((row: any) => ({
       room_id: row.room_id,
-      roomId: row.room_id, // ✅ Add camelCase alias
+      roomId: row.room_id,
       room_number: row.room_number,
-      roomNumber: row.room_number, // ✅ Add camelCase alias
+      roomNumber: row.room_number,
       minAvailable: parseInt(row.minAvailable) || 0
     }));
   }
 
-  // LEGACY: Check theo room_id cụ thể (backward compatibility)
+  // Hàm check theo room_id cụ thể (legacy - backward compatibility)
   async getRoomDailyAvailability(roomId: string, startDate: string, endDate: string) {
     return await RoomPriceSchedule.findAll({
       include: [
@@ -200,16 +179,13 @@ export class AvailabilityRepository {
     });
   }
 
-  // Giảm số phòng trống cho một phòng cụ thể (được pick tự động)
-  // ✅ CHỈ UPDATE room_price_schedule.available_rooms, KHÔNG UPDATE room.status
+  // Hàm giảm số phòng trống (chỉ update room_price_schedule.available_rooms, không update room.status)
   async reduceAvailableRooms(
     roomId: string,
     startDate: string,
     endDate: string,
     roomsCount: number = 1
   ): Promise<{ success: boolean; affectedRows: number }> {
-    // ✅ Only update room_price_schedule table, NOT room table
-    // This method does NOT modify room.status or room.updated_at
     const [affectedCount] = await RoomPriceSchedule.update(
       {
         available_rooms: sequelize.literal(`available_rooms - ${roomsCount}`)
@@ -225,19 +201,9 @@ export class AvailabilityRepository {
             [Op.gte]: roomsCount
           }
         },
-        // ✅ Explicitly disable any hooks that might update parent Room model
         hooks: false
       }
     );
-
-    console.log('✅ reduceAvailableRooms:', {
-      roomId,
-      startDate,
-      endDate,
-      roomsCount,
-      affectedRows: affectedCount,
-      note: 'Only updated room_price_schedule, NOT room.status'
-    });
 
     return {
       success: affectedCount > 0,
@@ -245,16 +211,13 @@ export class AvailabilityRepository {
     };
   }
 
-  // Tăng số phòng trống cho một phòng cụ thể (khi hủy booking)
-  // ✅ CHỈ UPDATE room_price_schedule.available_rooms, KHÔNG UPDATE room.status
+  // Hàm tăng số phòng trống (chỉ update room_price_schedule.available_rooms, không update room.status)
   async increaseAvailableRooms(
     roomId: string,
     startDate: string,
     endDate: string,
     roomsCount: number = 1
   ): Promise<{ success: boolean; affectedRows: number }> {
-    // ✅ Only update room_price_schedule table, NOT room table
-    // This method does NOT modify room.status or room.updated_at
     const [affectedCount] = await RoomPriceSchedule.update(
       {
         available_rooms: sequelize.literal(`available_rooms + ${roomsCount}`)
@@ -267,19 +230,9 @@ export class AvailabilityRepository {
             [Op.lt]: endDate
           }
         },
-        // ✅ Explicitly disable any hooks that might update parent Room model
         hooks: false
       }
     );
-
-    console.log('✅ increaseAvailableRooms:', {
-      roomId,
-      startDate,
-      endDate,
-      roomsCount,
-      affectedRows: affectedCount,
-      note: 'Only updated room_price_schedule, NOT room.status'
-    });
 
     return {
       success: affectedCount > 0,
@@ -287,7 +240,7 @@ export class AvailabilityRepository {
     };
   }
 
-  // Kiểm tra loại phòng có đủ không
+  // Hàm kiểm tra loại phòng có đủ không
   async hasEnoughRoomTypeAvailability(
     roomTypeId: string,
     startDate: string,

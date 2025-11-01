@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSearch } from '../../contexts/SearchContext';
 import {
@@ -9,7 +9,7 @@ import {
   BookingStep2
 } from '../../components/BookingPage';
 import { getHotelDetail } from '../../services/hotelService';
-import { createBooking, createTemporaryBooking, cancelBooking, checkBookingExists, CreateBookingRequest } from '../../services/bookingService';
+import { createBooking, createTemporaryBooking, cancelBooking, checkBookingExists, confirmBooking, CreateBookingRequest } from '../../services/bookingService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfile } from '../../services/profileService';
 
@@ -294,14 +294,6 @@ export default function BookingPage() {
           const selectedRoomType = availableRooms.find((r: any) => r.roomTypeId === actualRoomTypeId);
           
           if (selectedRoomType) {
-            // ✅ Debug: Log room price data
-            console.log('🏨 Room price data:', {
-              totalPrice: selectedRoomType.totalPrice,
-              avgPricePerNight: selectedRoomType.avgPricePerNight,
-              roomTypeId: selectedRoomType.roomTypeId,
-              roomName: selectedRoomType.roomName
-            });
-            
             setRoom({
               roomId: selectedRoomType.roomId || null,
               roomTypeId: selectedRoomType.roomTypeId,
@@ -349,18 +341,6 @@ export default function BookingPage() {
     };
 
     // ✅ ProtectedRoute ensures user is logged in, so we can safely fetch data
-    // ✅ Only fetch if we don't have existing valid booking in localStorage
-    const existingBookingId = localStorage.getItem('temporaryBookingId');
-    const existingExpiresAt = localStorage.getItem('temporaryBookingExpiresAt');
-    
-    // ✅ If we have valid booking, only fetch hotel/room data, don't create new booking
-    if (existingBookingId && existingExpiresAt) {
-      const expiresAtDate = new Date(existingExpiresAt);
-      if (expiresAtDate > new Date()) {
-        console.log('✅ Valid booking exists, will restore after fetchData');
-      }
-    }
-    
     fetchData();
     // ✅ Remove isCreatingTemporaryBooking from dependencies to prevent infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -370,7 +350,6 @@ export default function BookingPage() {
   useEffect(() => {
     // ✅ CRITICAL FIX: Skip if booking is already complete
     if (bookingComplete) {
-      console.log('✅ Booking already complete, skipping temporary booking creation');
       return;
     }
 
@@ -411,26 +390,17 @@ export default function BookingPage() {
             if (booking.status === 'CREATED') {
               // Booking still valid, restore from localStorage
               // ⏰ Timer NOT reset - keeps remaining time
-              const now = new Date();
-              const timeRemaining = Math.max(0, Math.floor((expiresAtDate.getTime() - now.getTime()) / 1000));
-              const minutesRemaining = Math.floor(timeRemaining / 60);
-              
               setTemporaryBookingId(existingBookingId);
               setBookingExpiresAt(expiresAtDate);
-              console.log('✅ Restored temporary booking from localStorage:', existingBookingId, 'Status:', booking.status);
-              console.log('⏰ Timer NOT reset - remaining time:', minutesRemaining, 'minutes');
-              console.log('📅 Expires at:', expiresAtDate.toLocaleString());
               return true; // ✅ Booking restored successfully
             } else {
               // Booking status changed (not CREATED), clear localStorage
-              console.log('⚠️ Booking status is not CREATED:', booking.status, '- clearing localStorage');
               localStorage.removeItem('temporaryBookingId');
               localStorage.removeItem('temporaryBookingExpiresAt');
               return false;
             }
           } else {
             // ✅ Booking doesn't exist in database (was deleted), clear localStorage
-            console.log('⚠️ Booking not found in database - clearing localStorage');
             localStorage.removeItem('temporaryBookingId');
             localStorage.removeItem('temporaryBookingExpiresAt');
             return false;
@@ -439,7 +409,6 @@ export default function BookingPage() {
           // Booking expired, clear localStorage
           localStorage.removeItem('temporaryBookingId');
           localStorage.removeItem('temporaryBookingExpiresAt');
-          console.log('⚠️ Existing booking expired, will create new one...');
           return false;
         }
       }
@@ -459,7 +428,6 @@ export default function BookingPage() {
       const hotelIdToFetch = hotel?.hotel_id || hotel?.hotelId;
       
       if (!hotelIdToFetch) {
-        console.warn('⚠️ Cannot create temporary booking - missing hotelId');
         return;
       }
       
@@ -470,23 +438,12 @@ export default function BookingPage() {
     const createTemporaryBookingAsync = async (hotelIdToFetch: string) => {
       // ✅ Prevent duplicate calls
       if (isCreatingTemporaryBookingRef.current) {
-        console.log('⏳ Already creating temporary booking, skipping...');
         return;
       }
       
       isCreatingTemporaryBookingRef.current = true;
       
       try {
-        console.log('📤 Creating new temporary booking...', {
-          hotelId: hotelIdToFetch,
-          roomTypeId: actualRoomTypeId,
-          checkIn,
-          checkOut,
-          rooms,
-          adults: guests,
-          children
-        });
-        
         const tempBookingResponse = await createTemporaryBooking({
           hotelId: hotelIdToFetch,
           roomTypeId: actualRoomTypeId!,
@@ -501,11 +458,6 @@ export default function BookingPage() {
           const bookingId = tempBookingResponse.data.bookingId;
           const expiresAt = new Date(tempBookingResponse.data.expiresAt);
           
-          // ✅ Calculate time remaining for logging
-          const now = new Date();
-          const timeRemaining = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
-          const minutesRemaining = Math.floor(timeRemaining / 60);
-          
           // ✅ Save to state
           setTemporaryBookingId(bookingId);
           setBookingExpiresAt(expiresAt);
@@ -513,17 +465,12 @@ export default function BookingPage() {
           // ✅ Save to localStorage to persist on reload
           localStorage.setItem('temporaryBookingId', bookingId);
           localStorage.setItem('temporaryBookingExpiresAt', expiresAt.toISOString());
-          
-          console.log('✅ Temporary booking created successfully:', bookingId);
-          console.log('⏰ Timer reset to 20 minutes:', minutesRemaining, 'minutes remaining');
-          console.log('📅 Expires at:', expiresAt.toLocaleString());
         } else {
-          console.error('❌ Failed to create temporary booking:', tempBookingResponse.message);
           setError(tempBookingResponse.message || 'Không thể tạo booking tạm thời');
         }
-      } catch (err: any) {
-        console.error('❌ Error creating temporary booking:', err);
-        setError('Có lỗi xảy ra khi tạo booking tạm thời');
+    } catch (err: any) {
+      console.error('Error creating temporary booking:', err);
+      setError('Có lỗi xảy ra khi tạo booking tạm thời');
       } finally {
         isCreatingTemporaryBookingRef.current = false;
       }
@@ -570,7 +517,6 @@ export default function BookingPage() {
     if (!temporaryBookingId) return;
 
     try {
-      console.log('⏰ Booking expired, canceling...');
       await cancelBooking(temporaryBookingId);
       
       // ✅ Clear localStorage
@@ -583,7 +529,7 @@ export default function BookingPage() {
       alert('Booking đã hết hạn (20 phút). Vui lòng đặt lại.');
       navigate(-1); // Go back
     } catch (error) {
-      console.error('❌ Error canceling expired booking:', error);
+      console.error('Error canceling expired booking:', error);
     }
   };
 
@@ -605,7 +551,6 @@ export default function BookingPage() {
       // ✅ KHÔNG cancel booking khi user refresh hoặc navigate
       // localStorage giữ booking, user có thể resume
       // Timer sẽ tự động cancel khi hết thời gian (20 phút)
-      console.log('ℹ️ User leaving page - booking kept in localStorage for resume');
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -626,48 +571,35 @@ export default function BookingPage() {
   };
 
   const nights = calculateNights();
-  // ✅ FIX: Calculate price from room data
-  // If room has totalPrice (for the full stay), use it directly
-  // Otherwise, calculate from avgPricePerNight * nights * rooms
-  let basePrice = 0;
-  let subtotal = 0;
   
-  // ✅ Debug: Log price calculation
-  console.log('💰 Price calculation:', {
-    roomTotalPrice: room?.totalPrice,
-    roomAvgPricePerNight: room?.avgPricePerNight,
-    hotelPricePerNight: hotel?.price_per_night,
-    nights,
-    rooms: bookingData.rooms
-  });
-  
-  if (room?.totalPrice && room.totalPrice > 0) {
-    // Room already has total price for the stay (includes all nights)
-    // totalPrice is for one room, multiply by number of rooms
-    subtotal = room.totalPrice * bookingData.rooms;
-    console.log('✅ Using room.totalPrice:', subtotal);
-  } else if (room?.avgPricePerNight && room.avgPricePerNight > 0) {
-    // Calculate from price per night
-    basePrice = room.avgPricePerNight;
-    subtotal = basePrice * nights * bookingData.rooms;
-    console.log('✅ Using room.avgPricePerNight:', subtotal);
-  } else if (hotel?.price_per_night && hotel.price_per_night > 0) {
-    // Fallback to hotel base price
-    basePrice = hotel.price_per_night;
-    subtotal = basePrice * nights * bookingData.rooms;
-    console.log('✅ Using hotel.price_per_night:', subtotal);
-  } else {
-    // If no price available, set to 0
-    subtotal = 0;
-    console.warn('⚠️ No price available - setting to 0');
-  }
-  
-  const tax = subtotal * 0.1; // 10% thuế và phí
-  const total = subtotal + tax;
-  
-  console.log('💰 Final price:', { subtotal, tax, total });
+  // ✅ Calculate price using useMemo to prevent infinite re-renders
+  const { subtotal, tax, total } = useMemo(() => {
+    let basePrice = 0;
+    let calculatedSubtotal = 0;
+    
+    if (room?.totalPrice && room.totalPrice > 0) {
+      calculatedSubtotal = room.totalPrice * bookingData.rooms;
+    } else if (room?.avgPricePerNight && room.avgPricePerNight > 0) {
+      basePrice = room.avgPricePerNight;
+      calculatedSubtotal = basePrice * nights * bookingData.rooms;
+    } else if (hotel?.price_per_night && hotel.price_per_night > 0) {
+      basePrice = hotel.price_per_night;
+      calculatedSubtotal = basePrice * nights * bookingData.rooms;
+    } else {
+      calculatedSubtotal = 0;
+    }
+    
+    const calculatedTax = calculatedSubtotal * 0.1;
+    const calculatedTotal = calculatedSubtotal + calculatedTax;
+    
+    return {
+      subtotal: calculatedSubtotal,
+      tax: calculatedTax,
+      total: calculatedTotal
+    };
+  }, [room?.totalPrice, room?.avgPricePerNight, hotel?.price_per_night, nights, bookingData.rooms]);
 
-  const handleStep1Next = () => {
+  const handleStep1Next = async () => {
     // Validate step 1
     if (!bookingData.guestFirstName && !bookingData.guestLastName && !bookingData.guestName) {
       alert('Vui lòng điền họ và tên');
@@ -677,7 +609,44 @@ export default function BookingPage() {
       alert('Vui lòng điền email');
       return;
     }
-    setCurrentStep(2);
+
+    // ✅ Kiểm tra có temporaryBookingId không
+    if (!temporaryBookingId) {
+      alert('Không tìm thấy booking tạm thời. Vui lòng tạo lại.');
+      return;
+    }
+
+    // ✅ Tạo payment khi bấm nút "KẾ TIẾP: BƯỚC CUỐI CÙNG"
+    // Map paymentMethod từ frontend sang backend
+    let confirmPaymentMethod: 'cash' | 'bank_transfer' | 'VNPAY' | 'MOMO';
+    if (bookingData.paymentMethod === 'online_payment') {
+      confirmPaymentMethod = 'VNPAY'; // Default to VNPAY for online payment
+    } else if (bookingData.paymentMethod === 'pay_at_hotel') {
+      confirmPaymentMethod = 'cash'; // Pay at hotel -> CASH
+    } else {
+      confirmPaymentMethod = 'bank_transfer'; // Bank transfer (fallback)
+    }
+
+    try {
+      setIsLoading(true);
+
+      // ✅ Gọi confirmBooking (tạo payment và cập nhật booking status)
+      const confirmResult = await confirmBooking(temporaryBookingId, confirmPaymentMethod);
+
+      if (!confirmResult.success) {
+        alert(confirmResult.message || 'Không thể tạo payment. Vui lòng thử lại.');
+        setIsLoading(false);
+        return;
+      }
+
+      // ✅ Payment đã được tạo thành công, chuyển sang step 2
+      setCurrentStep(2);
+    } catch (err: any) {
+      console.error('Error creating payment:', err);
+      alert('Có lỗi xảy ra khi tạo payment. Vui lòng thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStep2Confirm = async () => {
@@ -711,14 +680,6 @@ export default function BookingPage() {
     try {
       setIsLoading(true);
 
-      // ✅ Map payment method from frontend to backend
-      let paymentMethod: 'VNPAY' | 'MOMO' | 'CASH';
-      if (bookingData.paymentMethod === 'online_payment') {
-        paymentMethod = 'VNPAY'; // Default to VNPAY for online payment
-      } else {
-        paymentMethod = 'CASH'; // Pay at hotel -> CASH
-      }
-
       // ✅ Get hotelId - check if id is roomTypeId
       let hotelIdToUse = id;
       if (id?.startsWith('RT')) {
@@ -741,20 +702,23 @@ export default function BookingPage() {
         }
       }
 
-      // ✅ Build booking request
-      // If we have roomTypeId but no roomId, only send roomTypeId
-      // Backend will auto-select the first available room
-      
-      // ✅ CRITICAL: Always include temporaryBookingId if it exists
-      console.log('📤 Submitting booking with temporaryBookingId:', temporaryBookingId);
-      console.log('📊 Current booking state:', {
-        temporaryBookingId,
-        hasTemporaryBooking: !!temporaryBookingId,
-        hotelId: hotelIdToUse,
-        roomTypeId: actualRoomTypeId,
-        roomId: room?.roomId
-      });
-      
+      // ✅ Kiểm tra có temporaryBookingId không
+      if (!temporaryBookingId) {
+        alert('Không tìm thấy booking tạm thời. Vui lòng tạo lại.');
+        setIsLoading(false);
+        return;
+      }
+
+      // ✅ Payment đã được tạo trong handleStep1Next, giờ chỉ cần cập nhật booking info
+      // ✅ Map payment method for booking request (for updating guest info)
+      let bookingPaymentMethod: 'VNPAY' | 'MOMO' | 'CASH';
+      if (bookingData.paymentMethod === 'online_payment') {
+        bookingPaymentMethod = 'VNPAY';
+      } else {
+        bookingPaymentMethod = 'CASH';
+      }
+
+      // ✅ Build booking request (for updating guest info)
       const bookingRequest: CreateBookingRequest = {
         // ✅ CRITICAL FIX: Always include bookingId if temporaryBookingId exists
         ...(temporaryBookingId ? { bookingId: temporaryBookingId } : {}),
@@ -776,7 +740,7 @@ export default function BookingPage() {
           country: bookingData.country || 'Việt Nam'
         },
         specialRequests: bookingData.specialRequests || undefined,
-        paymentMethod: paymentMethod,
+        paymentMethod: bookingPaymentMethod,
         checkInTime: bookingData.checkInTime !== 'unknown' ? bookingData.checkInTime : undefined,
         smokingPreference: bookingData.smokingPreference || undefined,
         bedPreference: bookingData.bedPreference || undefined
@@ -794,12 +758,12 @@ export default function BookingPage() {
         return;
       }
 
-      // ✅ Call API
-      const result = await createBooking(bookingRequest);
+      // ✅ Cập nhật booking info (payment đã được tạo trong handleStep1Next)
+      const createBookingResult = await createBooking(bookingRequest);
 
-      if (result.success && result.data) {
+      if (createBookingResult.success && createBookingResult.data) {
+
         // ✅ CRITICAL FIX: Clear temporary booking state FIRST before setting bookingComplete
-        // This prevents useEffect from creating new temporary booking
         setTemporaryBookingId(null);
         setBookingExpiresAt(null);
         
@@ -810,25 +774,55 @@ export default function BookingPage() {
         // ✅ Set bookingComplete AFTER clearing state to prevent useEffect from running
         setBookingComplete(true);
         
-        console.log('✅ Booking submitted successfully - cleared temporary booking state');
-        const confirmationData = result.data;
-        
-        // ✅ Cập nhật room data với roomNumber từ booking confirmation
-        if (confirmationData?.room?.roomNumber) {
-          setRoom((prevRoom: any) => ({
-            ...prevRoom,
-            roomNumber: confirmationData.room.roomNumber
-          }));
-        }
+        // ✅ Tạo booking confirmation từ data
+        const confirmationData = {
+          bookingId: temporaryBookingId,
+          bookingCode: `BK${temporaryBookingId.slice(-8).padStart(8, '0')}`,
+          status: createBookingResult.data.status || 'CONFIRMED',
+          hotel: {
+            id: hotel?.hotel_id || '',
+            name: hotel?.name || '',
+            address: hotel?.address || '',
+            phone: hotel?.phone_number || ''
+          },
+          room: {
+            id: room?.roomId || '',
+            name: room?.roomName || '',
+            type: room?.bedType || '',
+            roomNumber: room?.roomNumber || null
+          },
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          nights: nights,
+          rooms: bookingData.rooms,
+          adults: bookingData.guests,
+          children: bookingData.children,
+          guestInfo: {
+            firstName: bookingData.guestFirstName || bookingData.guestName.split(' ').slice(1).join(' ') || '',
+            lastName: bookingData.guestLastName || bookingData.guestName.split(' ')[0] || '',
+            email: bookingData.guestEmail,
+            phone: bookingData.guestPhone || '',
+            country: bookingData.country || 'Việt Nam'
+          },
+          priceBreakdown: {
+            subtotal: subtotal,
+            taxAmount: tax,
+            discountAmount: 0,
+            totalPrice: total
+          },
+          paymentMethod: bookingData.paymentMethod === 'online_payment' ? 'VNPAY' : (bookingData.paymentMethod === 'pay_at_hotel' ? 'CASH' : 'BANK_TRANSFER'),
+          paymentStatus: 'pending',
+          specialRequests: bookingData.specialRequests,
+          createdAt: new Date()
+        };
         
         setBookingConfirmation(confirmationData);
         setCurrentStep(3);
-        // ✅ bookingComplete already set above, no need to set again
         setTimeout(() => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 100);
       } else {
-        alert(result.message || 'Đặt phòng thất bại');
+        alert(createBookingResult.message || 'Cập nhật thông tin đặt phòng thất bại');
       }
     } catch (err: any) {
       console.error('Error creating booking:', err);

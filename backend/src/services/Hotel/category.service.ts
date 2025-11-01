@@ -3,10 +3,10 @@ import { CategoryRepository } from "../../Repository/Hotel/category.repository";
 export class CategoryService {
   private repo = new CategoryRepository();
 
+  // Hàm lấy tất cả categories
   async getAllCategories() {
     try {
       const rawData = await this.repo.getAll();
-      // Format data từ snake_case sang camelCase
       const data = (rawData as any[]).map(item => ({
         categoryId: item.category_id,
         name: item.name,

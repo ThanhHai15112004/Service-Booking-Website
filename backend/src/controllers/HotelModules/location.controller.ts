@@ -3,6 +3,7 @@ import { LocationService } from "../../services/Hotel/location.service";
 
 const locationService = new LocationService();
 
+// Hàm tìm kiếm địa điểm
 export const getLocationController = async (req: Request, res: Response) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -26,6 +27,7 @@ export const getLocationController = async (req: Request, res: Response) => {
   }
 };
 
+// Hàm lấy số lượng khách sạn theo country/city
 export const getHotelCountsController = async (req: Request, res: Response) => {
   try {
     const country = String(req.query.country || "Vietnam");

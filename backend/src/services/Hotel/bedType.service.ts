@@ -3,10 +3,10 @@ import { BedTypeRepository } from "../../Repository/Hotel/bedType.repository";
 export class BedTypeService {
   private repo = new BedTypeRepository();
 
+  // Hàm lấy tất cả bed types
   async getAllBedTypes() {
     try {
       const rawData = await this.repo.getAll();
-      // Format data từ snake_case sang camelCase
       const data = (rawData as any[]).map(item => ({
         key: item.bed_type_key,
         label: item.name_vi,

@@ -565,7 +565,7 @@ INSERT INTO `hotel_policy` (`id`, `hotel_id`, `policy_key`, `value`, `created_at
 CREATE TABLE `payment` (
   `payment_id` varchar(20) NOT NULL,
   `booking_id` varchar(20) NOT NULL,
-  `method` varchar(30) DEFAULT 'CASH' CHECK (`status` in ('VNPAY','MOMO','CASH')),
+  `method` varchar(30) DEFAULT 'CASH' CHECK (`method` IN ('VNPAY','MOMO','CASH','BANK_TRANSFER')),
   `status` varchar(20) NOT NULL DEFAULT 'PENDING' CHECK (`status` in ('PENDING','SUCCESS','FAILED','REFUNDED')),
   `amount_due` decimal(14,2) NOT NULL CHECK (`amount_due` >= 0),
   `amount_paid` decimal(14,2) NOT NULL DEFAULT 0.00 CHECK (`amount_paid` >= 0),

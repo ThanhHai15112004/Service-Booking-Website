@@ -1,14 +1,12 @@
-// src/Repository/Auth/token.repository.ts
 import pool from "../../config/db";
 import { RefreshToken } from "../../models/Auth/refresh_token.model";
 
 export class TokenRepository {
-    // Lưu refresh token
+  // Hàm lưu refresh token (parse expiration time từ h, d, m formats)
   async saveRefreshToken(account_id: string, token: string): Promise<void> {
     const raw = process.env.JWT_REFRESH_EXPIRES_IN || "6h";
     
-    // ✅ Parse expiration time correctly (support h, d, m formats)
-    let hours = 6; // default
+    let hours = 6;
     if (raw.endsWith("h")) {
       hours = parseInt(raw.replace("h", ""), 10);
     } else if (raw.endsWith("d")) {
@@ -16,9 +14,8 @@ export class TokenRepository {
       hours = days * 24;
     } else if (raw.endsWith("m")) {
       const minutes = parseInt(raw.replace("m", ""), 10);
-      hours = Math.ceil(minutes / 60); // Round up to nearest hour
+      hours = Math.ceil(minutes / 60);
     } else {
-      // Try to parse as hours if no suffix
       hours = parseInt(raw, 10) || 6;
     }
 
@@ -29,7 +26,7 @@ export class TokenRepository {
     );
   }
 
-  // Kiểm tra tính hợp lệ của refresh token
+  // Hàm kiểm tra tính hợp lệ của refresh token
   async isRefreshTokenValid(token: string): Promise<boolean> {
     const [rows]: any = await pool.query(
       `SELECT 1 FROM refresh_tokens WHERE token = ? AND expires_at > NOW()`,
@@ -38,11 +35,12 @@ export class TokenRepository {
     return rows.length > 0;
   }
 
-  // Thu hồi refresh token
+  // Hàm thu hồi refresh token
   async revokeRefreshToken(token: string): Promise<void> {
     await pool.query(`DELETE FROM refresh_tokens WHERE token = ?`, [token]);
   }
 
+  // Hàm lấy refresh token
   async getRefreshToken(token: string): Promise<RefreshToken | null> {
     const [rows]: any = await pool.query(
       `SELECT * FROM refresh_tokens WHERE token = ?`,

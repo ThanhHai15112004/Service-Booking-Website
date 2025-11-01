@@ -3,6 +3,7 @@ import { BedTypeService } from "../../services/Hotel/bedType.service";
 
 const bedTypeService = new BedTypeService();
 
+// Hàm lấy tất cả bed types
 export const getAllBedTypesController = async (req: Request, res: Response) => {
   try {
     const result = await bedTypeService.getAllBedTypes();

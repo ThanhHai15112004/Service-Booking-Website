@@ -154,6 +154,41 @@ export const cancelBooking = async (bookingId: string): Promise<{
   }
 };
 
+// ✅ Confirm booking (tạo payment và cập nhật booking status)
+export const confirmBooking = async (bookingId: string, paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'VNPAY' | 'MOMO' | 'cash' | 'bank_transfer' | 'online_payment'): Promise<{
+  success: boolean;
+  data?: {
+    bookingId: string;
+    payment: any;
+    bookingStatus: string;
+  };
+  message?: string;
+}> => {
+  try {
+    console.log('📤 Confirming booking:', { bookingId, paymentMethod });
+    const res = await api.post('/api/payments/confirm', {
+      bookingId,
+      paymentMethod
+    });
+    console.log('✅ Booking confirmed:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error confirming booking:', error);
+    
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        message: 'Vui lòng đăng nhập'
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể xác nhận booking'
+    };
+  }
+};
+
 export const createBooking = async (request: CreateBookingRequest): Promise<{
   success: boolean;
   data?: BookingConfirmation;

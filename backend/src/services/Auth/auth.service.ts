@@ -17,13 +17,13 @@ export class AuthService {
       private tokenService = new TokenService()
     ) {}
 
-  // Kiểm tra email tồn tại
+  // Hàm kiểm tra email tồn tại
   async isEmailExisting(email: string): Promise<boolean> {
     const count = await this.accountRepo.countByEmail(email);
     return count > 0;
   }
 
-  // Tạo ID duy nhất cho account (chỉ gọi repository)
+  // Hàm tạo ID duy nhất cho account
   private async generateAccountId(): Promise<string> {
     const countToday = await this.accountRepo.countAccountsCreatedToday();
     const today = new Date();
@@ -32,19 +32,18 @@ export class AuthService {
     return `AC${datePart}${String(nextNum).padStart(4, "0")}`;
   }
 
-  // Sinh token xác minh
+  // Hàm sinh token xác minh
   private generateVerificationToken(): string {
     return crypto.randomBytes(32).toString("hex");
   }
 
-  // Đăng ký tài khoản mới
+  // Hàm đăng ký tài khoản mới
   async register(
     full_name: string,
     email: string,
     password: string,
     phone_number?: string
   ) {
-    // Validate đầu vào
     const validationMessage = validateRegisterInput(
       full_name,
       email,
@@ -53,23 +52,18 @@ export class AuthService {
     );
     if (validationMessage) throw new Error(validationMessage);
 
-    // Kiểm tra định dạng email
     if (!validateEmailFormat(email)) throw new Error("Email không hợp lệ.");
 
-    // Không cho phép email rác (temp mail)
     if (isDisposableEmail(email))
       throw new Error("Không được sử dụng email tạm thời.");
 
-    // Kiểm tra trùng email
     const emailExists = await this.isEmailExisting(email);
     if (emailExists) throw new Error("Email đã tồn tại.");
 
-    //  Hash mật khẩu + sinh verify token
     const password_hash = await bcrypt.hash(password, 10);
     const verify_token = this.generateVerificationToken();
     const account_id = await this.generateAccountId();
 
-    // Lưu tài khoản mới vào DB
     await this.accountRepo.create({
       account_id,
       full_name,
@@ -81,7 +75,6 @@ export class AuthService {
       verify_expires_at: new Date(Date.now() + 3 * 60 * 1000), 
     });
 
-    // Gửi email xác minh
     await this.emailService.sendVerification(email, verify_token);
 
     return {
@@ -98,7 +91,7 @@ export class AuthService {
     };
   }
 
-  // Xác thực token email
+  // Hàm xác thực token email
   async verifyEmail(token: string): Promise<boolean> {
     const user = await this.accountRepo.findByVerifyToken(token);
     if (!user) return false;
@@ -112,9 +105,8 @@ export class AuthService {
     return true;
   }
 
-  // Gửi lại email xác minh
+  // Hàm gửi lại email xác minh
   async resendVerificationEmail(email: string): Promise<boolean> {
-    // Validate email format trước
     if (!validateEmailFormat(email)) throw new Error("Email không hợp lệ.");
     if (isDisposableEmail(email))
       throw new Error("Không được sử dụng email tạm thời.");
@@ -125,7 +117,6 @@ export class AuthService {
 
     const now = new Date();
 
-    // Reset giới hạn nếu sang ngày mới
     const lastReset = user.last_resend_reset_at
       ? new Date(user.last_resend_reset_at)
       : null;
@@ -137,13 +128,11 @@ export class AuthService {
       user.resend_count = 0;
     }
 
-    // Giới hạn 5 lần / 24h
     if (user.resend_count >= 5)
       throw new Error(
         "Đã đạt giới hạn 5 lần gửi lại trong 24 giờ. Vui lòng thử lại sau."
       );
 
-    // Giới hạn 2 phút giữa 2 lần gửi
     const lastSent = user.last_verification_email_at
       ? new Date(user.last_verification_email_at)
       : null;
@@ -155,22 +144,19 @@ export class AuthService {
       throw new Error(`Vui lòng đợi ${wait} giây trước khi gửi lại email.`);
     }
 
-    // Sinh token mới và cập nhật DB
     const newToken = this.generateVerificationToken();
     await this.accountRepo.updateVerificationEmail(user.account_id, newToken);
 
-    // Gửi lại email xác minh
     await this.emailService.sendVerification(email, newToken);
 
     return true;
   }
 
-  // Xác thực email & mật khẩu
+  // Hàm xác thực email & mật khẩu
   async verifyLoginCredentials(
     email: string,
     password: string
   ): Promise<Account> {
-    // Validate email trước khi login
     if (!validateEmailFormat(email)) throw new Error("Email không hợp lệ.");
     if (isDisposableEmail(email))
       throw new Error("Không được sử dụng email tạm thời.");
@@ -190,6 +176,7 @@ export class AuthService {
     return safeAccount as Account;
   }
 
+  // Hàm đăng nhập (login)
   async login(email: string, password: string) {
     const user = await this.verifyLoginCredentials(email, password);
     const payload = {

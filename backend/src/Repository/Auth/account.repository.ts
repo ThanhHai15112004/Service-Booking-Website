@@ -2,7 +2,7 @@ import pool from "../../config/db";
 import { Account } from "../../models/Auth/account.model";
 
 export class AccountRepository {
-  // Đếm số lượng email tồn tại
+  // Hàm đếm số lượng email tồn tại
   async countByEmail(email: string): Promise<number> {
     const [rows]: any = await pool.query(
       "SELECT COUNT(*) as count FROM account WHERE email = ?",
@@ -11,7 +11,7 @@ export class AccountRepository {
     return rows[0]?.count || 0;
   }
 
-  // Tạo mới tài khoản
+  // Hàm tạo mới tài khoản
   async create(account: Partial<Account>): Promise<void> {
     const keys = Object.keys(account);
     const values = Object.values(account);
@@ -23,7 +23,7 @@ export class AccountRepository {
     await pool.query(sql, values);
   }
 
-  // Tìm tài khoản theo email
+  // Hàm tìm tài khoản theo email
   async findByEmail(email: string): Promise<Account | null> {
     const [rows]: any = await pool.query(
       "SELECT * FROM account WHERE email = ? LIMIT 1",
@@ -32,7 +32,7 @@ export class AccountRepository {
     return rows.length > 0 ? (rows[0] as Account) : null;
   }
 
-  // Tìm tài khoản bằng verify_token (và kiểm tra trạng thái)
+  // Hàm tìm tài khoản bằng verify_token
   async findByVerifyToken(token: string): Promise<Account | null> {
     const [rows]: any = await pool.query(
       `SELECT * 
@@ -46,7 +46,7 @@ export class AccountRepository {
     return rows.length > 0 ? (rows[0] as Account) : null;
   }
 
-  // Cập nhật tài khoản thành verified
+  // Hàm cập nhật tài khoản thành verified
   async markVerified(account_id: string): Promise<void> {
     await pool.query(
       `UPDATE account 
@@ -59,7 +59,7 @@ export class AccountRepository {
     );
   }
 
-  // Cập nhật token xác minh mới (resend)
+  // Hàm cập nhật token xác minh mới (resend)
   async updateVerificationEmail(
     account_id: string,
     newToken: string
@@ -76,7 +76,7 @@ export class AccountRepository {
     );
   }
 
-  // Lấy thông tin xác minh để giới hạn resend
+  // Hàm lấy thông tin xác minh để giới hạn resend
   async getVerificationStats(email: string): Promise<Account | null> {
     const [rows]: any = await pool.query(
       `SELECT account_id, full_name, is_verified, status,
@@ -89,7 +89,7 @@ export class AccountRepository {
     return rows.length > 0 ? (rows[0] as Account) : null;
   }
 
-  //  Reset lại giới hạn resend
+  // Hàm reset lại giới hạn resend
   async resetResendLimit(account_id: string): Promise<void> {
     await pool.query(
       `UPDATE account 
@@ -99,7 +99,7 @@ export class AccountRepository {
     );
   }
 
-  // Đếm số tài khoản tạo trong ngày hiện tại
+  // Hàm đếm số tài khoản tạo trong ngày hiện tại
   async countAccountsCreatedToday(): Promise<number> {
     const [rows]: any = await pool.query(
       "SELECT COUNT(*) as count FROM account WHERE DATE(created_at) = CURDATE()"
@@ -107,7 +107,7 @@ export class AccountRepository {
     return rows[0]?.count || 0;
   }
 
-  // Lấy email theo account_id
+  // Hàm lấy email theo account_id
   async getEmailByAccountId(accountId: string): Promise<string | null> {
     const [rows]: any = await pool.query(
       "SELECT email FROM account WHERE account_id = ?",
@@ -116,7 +116,7 @@ export class AccountRepository {
     return rows?.[0]?.email || null;
   }
 
-  // up date provider info khi link tài khoản Google
+  // Hàm update provider info khi link tài khoản Google
   async updateProviderInfo(
     accountId: string,
     provider: string,
@@ -129,7 +129,7 @@ export class AccountRepository {
     );
   }
 
-  // Tìm tài khoản theo account_id
+  // Hàm tìm tài khoản theo account_id
   async findById(account_id: string): Promise<Account | null> {
     const [rows]: any = await pool.query(
         "SELECT * FROM account WHERE account_id = ? LIMIT 1",

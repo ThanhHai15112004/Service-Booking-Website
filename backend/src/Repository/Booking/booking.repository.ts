@@ -8,21 +8,21 @@ import {
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export class BookingRepository {
-  // Generate booking ID
+  // Hàm generate booking ID
   generateBookingId(): string {
     const timestamp = Date.now().toString();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `BK${timestamp.slice(-9)}${random}`;
   }
 
-  // Generate booking detail ID
+  // Hàm generate booking detail ID
   generateBookingDetailId(): string {
     const timestamp = Date.now().toString();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `BD${timestamp.slice(-9)}${random}`;
   }
 
-  // Generate booking code cho khách hàng
+  // Hàm generate booking code cho khách hàng
   generateBookingCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -32,7 +32,7 @@ export class BookingRepository {
     return `AGD-${code}`;
   }
 
-  // Lấy thông tin hotel
+  // Hàm lấy thông tin hotel
   async getHotelById(hotelId: string) {
     const sql = `
       SELECT 
@@ -56,7 +56,7 @@ export class BookingRepository {
     }
   }
 
-  // Lấy thông tin room
+  // Hàm lấy thông tin room
   async getRoomById(roomId: string) {
     const sql = `
       SELECT 
@@ -83,7 +83,7 @@ export class BookingRepository {
     }
   }
 
-  // Tính giá booking từ room_price_schedule
+  // Hàm tính giá booking từ room_price_schedule
   async calculateBookingPrice(
     roomId: string,
     checkIn: string,
@@ -119,17 +119,10 @@ export class BookingRepository {
         finalPrice: Number(row.finalPrice)
       }));
 
-      // Tính subtotal (chưa nhân với số phòng)
       const subtotalPerRoom = dailyPrices.reduce((sum: number, day: any) => sum + day.finalPrice, 0);
       const subtotal = subtotalPerRoom * roomsCount;
-
-      // Tính thuế (10% VAT)
       const taxAmount = subtotal * 0.1;
-
-      // Discount amount (có thể bổ sung logic discount code sau)
       const discountAmount = 0;
-
-      // Total amount
       const totalAmount = subtotal + taxAmount - discountAmount;
 
       return {
@@ -145,7 +138,7 @@ export class BookingRepository {
     }
   }
 
-  // Tạo booking record
+  // Hàm tạo booking record
   async createBooking(booking: Omit<Booking, 'created_at' | 'updated_at'>): Promise<boolean> {
     const sql = `
       INSERT INTO booking (
@@ -181,7 +174,7 @@ export class BookingRepository {
     }
   }
 
-  // Tạo booking detail record
+  // Hàm tạo booking detail record
   async createBookingDetail(detail: BookingDetail): Promise<boolean> {
     const sql = `
       INSERT INTO booking_detail (
@@ -217,7 +210,7 @@ export class BookingRepository {
     }
   }
 
-  // Lấy booking by ID
+  // Hàm lấy booking by ID
   async getBookingById(bookingId: string): Promise<any | null> {
     const sql = `
       SELECT
@@ -250,7 +243,26 @@ export class BookingRepository {
     }
   }
 
-  // Cancel booking
+  // Hàm lấy tất cả booking details của một booking
+  async getBookingDetailsByBookingId(bookingId: string): Promise<BookingDetail[]> {
+    const sql = `
+      SELECT
+        bd.*
+      FROM booking_detail bd
+      WHERE bd.booking_id = ?
+      ORDER BY bd.booking_detail_id ASC
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.query(sql, [bookingId]);
+      return rows as BookingDetail[];
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Hàm cancel booking
   async cancelBooking(bookingId: string): Promise<boolean> {
     const sql = `
       UPDATE booking
@@ -267,7 +279,7 @@ export class BookingRepository {
     }
   }
 
-  // ✅ Update booking status and info
+  // Hàm update booking status and info
   async updateBooking(bookingId: string, updates: {
     status?: BookingStatus;
     special_requests?: string | null;
@@ -331,7 +343,70 @@ export class BookingRepository {
     }
   }
 
-  // ✅ Update booking detail (dates, price, etc.)
+  // Hàm update booking detail theo booking_detail_id
+  async updateBookingDetailById(bookingDetailId: string, updates: {
+    checkin_date?: string;
+    checkout_date?: string;
+    guests_count?: number;
+    price_per_night?: number;
+    nights_count?: number;
+    total_price?: number;
+  }): Promise<boolean> {
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.checkin_date !== undefined) {
+      updateFields.push('checkin_date = ?');
+      values.push(updates.checkin_date);
+    }
+
+    if (updates.checkout_date !== undefined) {
+      updateFields.push('checkout_date = ?');
+      values.push(updates.checkout_date);
+    }
+
+    if (updates.guests_count !== undefined) {
+      updateFields.push('guests_count = ?');
+      values.push(updates.guests_count);
+    }
+
+    if (updates.price_per_night !== undefined) {
+      updateFields.push('price_per_night = ?');
+      values.push(updates.price_per_night);
+    }
+
+    if (updates.nights_count !== undefined) {
+      updateFields.push('nights_count = ?');
+      values.push(updates.nights_count);
+    }
+
+    if (updates.total_price !== undefined) {
+      updateFields.push('total_price = ?');
+      values.push(updates.total_price);
+    }
+
+    if (updateFields.length === 0) {
+      return true;
+    }
+
+    values.push(bookingDetailId);
+
+    const sql = `
+      UPDATE booking_detail
+      SET ${updateFields.join(', ')}
+      WHERE booking_detail_id = ?
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [result] = await conn.query(sql, values);
+      return (result as ResultSetHeader).affectedRows > 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Hàm update booking detail (dates, price, etc.) - cập nhật tất cả details của một booking
   async updateBookingDetail(bookingId: string, updates: {
     checkin_date?: string;
     checkout_date?: string;
@@ -394,7 +469,7 @@ export class BookingRepository {
     }
   }
 
-  // Lấy bookings của user
+  // Hàm lấy bookings của user
   async getBookingsByAccountId(accountId: string): Promise<any[]> {
     const sql = `
       SELECT

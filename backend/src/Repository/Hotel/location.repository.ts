@@ -4,9 +4,8 @@ import { QueryTypes, Op } from "sequelize";
 import { removeVietnameseTones } from "../../utils/stringHelper";
 
 export class LocationRepository {
-  // Tìm kiếm địa điểm (hỗ trợ tìm cả có dấu và không dấu)
+  // Hàm tìm kiếm địa điểm (hỗ trợ tìm cả có dấu và không dấu)
   async search(q: string, limit: number) {
-    // Normalize query để tìm được cả "da nang" và "đà nẵng"
     const normalizedQuery = removeVietnameseTones(q);
 
     const sql = `
@@ -43,7 +42,7 @@ export class LocationRepository {
     });
   }
 
-  // Lấy địa điểm nổi bật
+  // Hàm lấy địa điểm nổi bật
   async getHotLocations(limit: number) {
     const whereCondition = { is_hot: 1 };
 
@@ -55,7 +54,7 @@ export class LocationRepository {
     });
   }
 
-  // Đếm số khách sạn theo quốc gia
+  // Hàm đếm số khách sạn theo quốc gia
   async countHotelsByCountry(country: string): Promise<number> {
     const sql = `
       SELECT COUNT(DISTINCT h.hotel_id) as total
@@ -73,7 +72,7 @@ export class LocationRepository {
     return result?.total || 0;
   }
 
-  // Đếm số khách sạn theo thành phố
+  // Hàm đếm số khách sạn theo thành phố
   async countHotelsByCity(city: string, country?: string): Promise<number> {
     let sql = `
       SELECT COUNT(DISTINCT h.hotel_id) as total
@@ -96,7 +95,7 @@ export class LocationRepository {
     return result?.total || 0;
   }
 
-  // Lấy số lượng khách sạn cho breadcrumb
+  // Hàm lấy số lượng khách sạn cho breadcrumb
   async getHotelCounts(country: string, city?: string): Promise<{
     countryCount: number;
     cityCount: number;
