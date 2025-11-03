@@ -147,6 +147,22 @@ export const getFeaturedHotels = async (params?: {
   }
 };
 
+// Get hotel reviews
+export const getHotelReviews = async (hotelId: string, limit: number = 100, offset: number = 0) => {
+  try {
+    const res = await api.get(`/api/hotels/${hotelId}/reviews`, {
+      params: { limit, offset }
+    });
+    return res.data;
+  } catch (error: any) {
+    console.error('Error getting hotel reviews:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Không thể lấy danh sách đánh giá."
+    };
+  }
+};
+
 export const getHotelDetail = async (hotelId: string, params: {
   checkIn: string;
   checkOut: string;
@@ -158,10 +174,20 @@ export const getHotelDetail = async (hotelId: string, params: {
   try {
     console.log('🔍 getHotelDetail called:', { hotelId, params });
     
+    // Normalize dates to YYYY-MM-DD format
+    const normalizeDate = (dateStr: string): string => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
     const res = await api.get(`/api/hotels/${hotelId}`, {
       params: {
-        checkIn: params.checkIn,
-        checkOut: params.checkOut,
+        checkIn: normalizeDate(params.checkIn),
+        checkOut: normalizeDate(params.checkOut),
         stayType: params.stayType || 'overnight', // ✅ Gửi stayType
         adults: params.adults || 2,
         children: params.children || 0,

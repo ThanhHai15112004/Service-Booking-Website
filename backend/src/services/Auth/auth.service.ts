@@ -193,7 +193,6 @@ export class AuthService {
       user: {
         account_id: user.account_id,
         full_name: user.full_name,
-        username: user.username,
         email: user.email,
         phone_number: user.phone_number,
         role: user.role,

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 03, 2025 lúc 11:12 AM
+-- Thời gian đã tạo: Th10 03, 2025 lúc 07:24 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -47,17 +47,74 @@ CREATE TABLE `account` (
   `reset_expires_at` datetime DEFAULT NULL,
   `resend_count` int(11) DEFAULT 0,
   `last_resend_reset_at` datetime DEFAULT NULL,
-  `last_verification_email_at` datetime DEFAULT NULL
+  `last_verification_email_at` datetime DEFAULT NULL,
+  `package_id` varchar(20) DEFAULT 'PKG001' COMMENT 'Gói tài khoản hiện tại'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `account`
 --
 
-INSERT INTO `account` (`account_id`, `full_name`, `email`, `password_hash`, `phone_number`, `status`, `role`, `created_at`, `updated_at`, `is_verified`, `provider`, `provider_id`, `avatar_url`, `verify_token`, `verify_expires_at`, `reset_token`, `reset_expires_at`, `resend_count`, `last_resend_reset_at`, `last_verification_email_at`) VALUES
-('AC202510170002', 'Phan Thanh Hải', 'phanthanhhai151104@gmail.com', '', '0123456789', 'ACTIVE', 'USER', '2025-10-17 22:16:34', '2025-11-01 13:59:09', 1, 'GOOGLE', '112247884444270419636', 'https://lh3.googleusercontent.com/a/ACg8ocJkTdvdmNo1Wo5LF82heAfwQoPdVj6Y5qEs7Zb3cb7-6aNCQ7Y=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL),
-('AC202510170003', 'Thanh Hải Phan', 'thanhhai81004@gmail.com', '$2b$10$YNlgtODlRUF5BHttdtBujudEzeEgFs5h1GbpedurOteQADlMpBTlO', '0123456789', 'ACTIVE', 'USER', '2025-10-17 22:16:41', '2025-11-01 13:59:26', 1, 'GOOGLE', '107882645059152305358', 'https://lh3.googleusercontent.com/a/ACg8ocLOfe8iVmQVpBs9tBlgMhuT_VjCJoyvp9iIf5LWnwZ8NHievHU=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL),
-('AC202510170004', 'Thanh Hải Phan', 'thanhhailop11a6@gmail.com', '', '0123456789', 'ACTIVE', 'USER', '2025-10-17 21:57:17', '2025-11-01 13:59:28', 1, 'GOOGLE', '111644191343221764040', 'https://lh3.googleusercontent.com/a/ACg8ocKNLZ2rEaUk0uB0q8PTMXl5ccsU2xCoD78O2NUMBN4iec6s7LE=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL);
+INSERT INTO `account` (`account_id`, `full_name`, `email`, `password_hash`, `phone_number`, `status`, `role`, `created_at`, `updated_at`, `is_verified`, `provider`, `provider_id`, `avatar_url`, `verify_token`, `verify_expires_at`, `reset_token`, `reset_expires_at`, `resend_count`, `last_resend_reset_at`, `last_verification_email_at`, `package_id`) VALUES
+('AC202510170002', 'Phan Thanh Hải', 'phanthanhhai151104@gmail.com', '', '0123456789', 'ACTIVE', 'USER', '2025-10-17 22:16:34', '2025-11-01 13:59:09', 1, 'GOOGLE', '112247884444270419636', 'https://lh3.googleusercontent.com/a/ACg8ocJkTdvdmNo1Wo5LF82heAfwQoPdVj6Y5qEs7Zb3cb7-6aNCQ7Y=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL, 'PKG001'),
+('AC202510170003', 'Thanh Hải Phan', 'thanhhai81004@gmail.com', '$2b$10$YNlgtODlRUF5BHttdtBujudEzeEgFs5h1GbpedurOteQADlMpBTlO', '0123456780', 'ACTIVE', 'USER', '2025-10-17 22:16:41', '2025-11-04 01:23:12', 1, 'GOOGLE', '107882645059152305358', 'https://lh3.googleusercontent.com/a/ACg8ocLOfe8iVmQVpBs9tBlgMhuT_VjCJoyvp9iIf5LWnwZ8NHievHU=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL, 'PKG001'),
+('AC202510170004', 'Thanh Hải Phan', 'thanhhailop11a6@gmail.com', '', '0123456789', 'ACTIVE', 'USER', '2025-10-17 21:57:17', '2025-11-01 13:59:28', 1, 'GOOGLE', '111644191343221764040', 'https://lh3.googleusercontent.com/a/ACg8ocKNLZ2rEaUk0uB0q8PTMXl5ccsU2xCoD78O2NUMBN4iec6s7LE=s96-c', NULL, NULL, NULL, NULL, 0, NULL, NULL, 'PKG001');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `account_package`
+--
+
+CREATE TABLE `account_package` (
+  `package_id` varchar(20) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `display_name` varchar(100) NOT NULL,
+  `price_monthly` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `price_yearly` decimal(10,2) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `features` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `discount_percent` decimal(5,2) DEFAULT 0.00,
+  `cashback_percent` decimal(5,2) DEFAULT 0.00,
+  `priority_booking` tinyint(1) DEFAULT 0,
+  `free_cancellation_hours` int(11) DEFAULT NULL,
+  `vip_room_upgrade` tinyint(1) DEFAULT 0,
+  `welcome_voucher` decimal(10,2) DEFAULT 0.00,
+  `special_offers` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE' CHECK (`status` in ('ACTIVE','INACTIVE','DISABLED')),
+  `sort_order` int(11) DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `account_package`
+--
+
+INSERT INTO `account_package` (`package_id`, `name`, `display_name`, `price_monthly`, `price_yearly`, `description`, `features`, `discount_percent`, `cashback_percent`, `priority_booking`, `free_cancellation_hours`, `vip_room_upgrade`, `welcome_voucher`, `special_offers`, `status`, `sort_order`, `created_at`, `updated_at`) VALUES
+('PKG001', 'BASIC', 'Basic', 0.00, 0.00, 'Gói cơ bản miễn phí với các tính năng đặt phòng cơ bản', '[\"Đặt phòng nhanh\", \"Tìm kiếm khách sạn\", \"Xem đánh giá\"]', 0.00, 0.00, 0, NULL, 0, 0.00, NULL, 'ACTIVE', 1, '2025-11-04 00:39:24', '2025-11-04 00:39:24'),
+('PKG002', 'STANDARD', 'Standard', 199000.00, 1990000.00, 'Gói tiêu chuẩn với nhiều ưu đãi và hỗ trợ tốt hơn', '[\"Đặt phòng nhanh\", \"Ưu đãi 5%\", \"Hỗ trợ 24/7\", \"Hoàn tiền 1%\", \"Hủy miễn phí trước 48h\"]', 5.00, 1.00, 0, 48, 0, 0.00, '[\"Flash sale đặc biệt\"]', 'ACTIVE', 2, '2025-11-04 00:39:24', '2025-11-04 00:39:24'),
+('PKG003', 'PREMIUM', 'Premium', 499000.00, 4990000.00, 'Gói cao cấp với nhiều ưu đãi độc quyền và tính năng đặc biệt', '[\"Đặt phòng nhanh\", \"Ưu đãi 15%\", \"Hỗ trợ 24/7\", \"Hoàn tiền 3%\", \"Ưu tiên đặt phòng\", \"Hủy miễn phí trước 24h\", \"Voucher 100k\"]', 15.00, 3.00, 1, 24, 0, 100000.00, '[\"Flash sale\", \"Ưu đãi sớm\"]', 'ACTIVE', 3, '2025-11-04 00:39:24', '2025-11-04 00:39:24'),
+('PKG004', 'VIP', 'VIP', 999000.00, 9990000.00, 'Gói VIP với tất cả tính năng cao cấp nhất', '[\"Đặt phòng nhanh\", \"Ưu đãi 30%\", \"Hỗ trợ 24/7 VIP\", \"Hoàn tiền 5%\", \"Ưu tiên đặt phòng\", \"Hủy miễn phí không giới hạn\", \"VIP room upgrade\", \"Voucher 500k\"]', 30.00, 5.00, 1, NULL, 1, 500000.00, '[\"Early bird\", \"Ưu đãi độc quyền\", \"Quà tặng đặc biệt\"]', 'ACTIVE', 4, '2025-11-04 00:39:24', '2025-11-04 00:39:24');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `account_subscription`
+--
+
+CREATE TABLE `account_subscription` (
+  `subscription_id` varchar(20) NOT NULL,
+  `account_id` varchar(20) NOT NULL,
+  `package_id` varchar(20) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE' CHECK (`status` in ('ACTIVE','CANCELLED','EXPIRED','SUSPENDED')),
+  `start_date` date NOT NULL,
+  `end_date` date DEFAULT NULL,
+  `payment_method` varchar(30) DEFAULT NULL,
+  `auto_renew` tinyint(1) DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -111,12 +168,11 @@ CREATE TABLE `booking` (
 --
 
 INSERT INTO `booking` (`booking_id`, `account_id`, `hotel_id`, `status`, `subtotal`, `tax_amount`, `discount_amount`, `total_amount`, `special_requests`, `created_at`, `updated_at`) VALUES
-('BK134135945076', 'AC202510170003', 'H003', 'CONFIRMED', 1472500.00, 147250.00, 0.00, 1619750.00, NULL, '2025-11-03 08:42:15', '2025-11-03 08:44:17'),
-('BK986948938972', 'AC202510170003', 'H001', 'CONFIRMED', 820000.00, 82000.00, 0.00, 902000.00, NULL, '2025-11-01 15:49:08', '2025-11-01 15:49:46'),
-('BK991118464022', 'AC202510170003', 'H001', 'CONFIRMED', 1476000.00, 147600.00, 0.00, 1623600.00, NULL, '2025-11-01 16:58:38', '2025-11-01 17:02:38'),
-('BK991493157488', 'AC202510170003', 'H001', 'CONFIRMED', 820000.00, 82000.00, 0.00, 902000.00, NULL, '2025-11-01 17:04:53', '2025-11-01 17:05:50'),
-('BK991586894287', 'AC202510170003', 'H001', 'CONFIRMED', 1640000.00, 164000.00, 0.00, 1804000.00, NULL, '2025-11-01 17:06:26', '2025-11-01 17:06:38'),
-('BK995014929398', 'AC202510170003', 'H001', 'CONFIRMED', 738000.00, 73800.00, 0.00, 811800.00, NULL, '2025-11-01 18:03:34', '2025-11-01 18:05:51');
+('BK171548383705', 'AC202510170003', 'H003', 'CANCELLED', 1550000.00, 155000.00, 0.00, 1705000.00, NULL, '2025-11-03 19:05:48', '2025-11-03 19:07:47'),
+('BK172225929859', 'AC202510170003', 'H003', 'CANCELLED', 1550000.00, 155000.00, 0.00, 1705000.00, NULL, '2025-11-03 19:17:05', '2025-11-03 19:19:04'),
+('BK172631036379', 'AC202510170003', 'H003', 'CANCELLED', 1550000.00, 155000.00, 0.00, 1705000.00, NULL, '2025-11-03 19:23:51', '2025-11-03 19:25:50'),
+('BK172881105808', 'AC202510170003', 'H003', 'CANCELLED', 1395000.00, 139500.00, 0.00, 1534500.00, NULL, '2025-11-03 19:28:01', '2025-11-03 19:30:00'),
+('BK173929582505', 'AC202510170003', 'H004', 'CONFIRMED', 4845000.00, 484500.00, 0.00, 5329500.00, NULL, '2025-11-03 19:45:29', '2025-11-03 19:45:34');
 
 -- --------------------------------------------------------
 
@@ -141,14 +197,11 @@ CREATE TABLE `booking_detail` (
 --
 
 INSERT INTO `booking_detail` (`booking_detail_id`, `booking_id`, `room_id`, `checkin_date`, `checkout_date`, `guests_count`, `price_per_night`, `nights_count`, `total_price`) VALUES
-('BD134135947743', 'BK134135945076', 'R005', '2025-11-07', '2025-11-08', 3, 1472500.00, 1, 1472500.00),
-('BD986948939574', 'BK986948938972', 'R001', '2025-11-01', '2025-11-02', 2, 820000.00, 1, 820000.00),
-('BD991118465760', 'BK991118464022', 'R001', '2025-11-02', '2025-11-03', 5, 738000.00, 1, 738000.00),
-('BD991118467807', 'BK991118464022', 'R002', '2025-11-02', '2025-11-03', 5, 738000.00, 1, 738000.00),
-('BD991493161515', 'BK991493157488', 'R001', '2025-11-03', '2025-11-04', 2, 820000.00, 1, 820000.00),
-('BD991586897226', 'BK991586894287', 'R001', '2025-11-04', '2025-11-05', 3, 820000.00, 1, 820000.00),
-('BD991586899646', 'BK991586894287', 'R002', '2025-11-04', '2025-11-05', 2, 820000.00, 1, 820000.00),
-('BD995014930454', 'BK995014929398', 'R001', '2025-11-05', '2025-11-06', 2, 738000.00, 1, 738000.00);
+('BD171548386117', 'BK171548383705', 'R005', '2025-11-06', '2025-11-06', 2, 1550000.00, 1, 1550000.00),
+('BD172225931771', 'BK172225929859', 'R005', '2025-11-06', '2025-11-06', 2, 1550000.00, 1, 1550000.00),
+('BD172631042405', 'BK172631036379', 'R005', '2025-11-04', '2025-11-04', 2, 1550000.00, 1, 1550000.00),
+('BD172881111194', 'BK172881105808', 'R005', '2025-11-05', '2025-11-05', 2, 1395000.00, 1, 1395000.00),
+('BD173929586418', 'BK173929582505', 'R006', '2025-11-04', '2025-11-06', 2, 2422500.00, 2, 4845000.00);
 
 -- --------------------------------------------------------
 
@@ -605,8 +658,37 @@ CREATE TABLE `payment` (
 --
 
 INSERT INTO `payment` (`payment_id`, `booking_id`, `method`, `status`, `amount_due`, `amount_paid`, `created_at`, `updated_at`) VALUES
-('PM134144781482', 'BK134135945076', 'CASH', 'SUCCESS', 1619750.00, 1619750.00, '2025-11-03 08:42:24', '2025-11-03 08:44:17'),
-('PM995028122250', 'BK995014929398', 'CASH', 'SUCCESS', 811800.00, 811800.00, '2025-11-01 18:03:48', '2025-11-01 18:05:51');
+('PM171557088989', 'BK171548383705', 'CASH', 'FAILED', 1705000.00, 0.00, '2025-11-03 19:05:57', '2025-11-03 19:07:47'),
+('PM172229750675', 'BK172225929859', 'CASH', 'FAILED', 1705000.00, 0.00, '2025-11-03 19:17:09', '2025-11-03 19:19:04'),
+('PM172883625870', 'BK172881105808', 'CASH', 'FAILED', 1534500.00, 0.00, '2025-11-03 19:28:03', '2025-11-03 19:30:00'),
+('PM173932289521', 'BK173929582505', 'CASH', 'SUCCESS', 5329500.00, 5329500.00, '2025-11-03 19:45:32', '2025-11-03 19:45:34');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `payment_card`
+--
+
+CREATE TABLE `payment_card` (
+  `card_id` varchar(20) NOT NULL,
+  `account_id` varchar(20) NOT NULL,
+  `card_type` varchar(20) NOT NULL COMMENT 'VISA, MASTERCARD, AMEX, JCB, etc.',
+  `last_four_digits` varchar(4) NOT NULL COMMENT '4 số cuối của thẻ',
+  `cardholder_name` varchar(255) NOT NULL COMMENT 'Tên chủ thẻ',
+  `expiry_month` tinyint(2) NOT NULL COMMENT 'Tháng hết hạn (1-12)',
+  `expiry_year` smallint(4) NOT NULL COMMENT 'Năm hết hạn (YYYY)',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Thẻ mặc định',
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE, EXPIRED, DELETED',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `payment_card`
+--
+
+INSERT INTO `payment_card` (`card_id`, `account_id`, `card_type`, `last_four_digits`, `cardholder_name`, `expiry_month`, `expiry_year`, `is_default`, `status`, `created_at`, `updated_at`) VALUES
+('CD193786985904', 'AC202510170003', 'VISA', '3456', 'THANH HAI', 11, 2030, 0, 'ACTIVE', '2025-11-04 01:16:26', '2025-11-04 01:16:26');
 
 -- --------------------------------------------------------
 
@@ -678,6 +760,24 @@ INSERT INTO `refresh_tokens` (`id`, `account_id`, `token`, `expires_at`, `create
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `review`
+--
+
+CREATE TABLE `review` (
+  `review_id` varchar(20) NOT NULL,
+  `account_id` varchar(20) NOT NULL,
+  `hotel_id` varchar(20) NOT NULL,
+  `booking_id` varchar(20) DEFAULT NULL COMMENT 'Liên kết với booking (nếu có)',
+  `rating` tinyint(1) NOT NULL CHECK (`rating` between 1 and 5),
+  `comment` text DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE' CHECK (`status` in ('ACTIVE','HIDDEN','DELETED')),
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `room`
 --
 
@@ -701,7 +801,7 @@ INSERT INTO `room` (`room_id`, `room_type_id`, `room_number`, `capacity`, `image
 ('R001', 'RT001', '101', 3, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/576703459.jpg?k=4bc75a8ddab0204e5dd9a57069afcf31e29e5e38f622b67f916878ed555169be&o=', 800000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-10-31 16:37:45'),
 ('R002', 'RT001', '102', 3, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/576526483.jpg?k=e7352d5c0cc2f34b0a19b5ad760cc2c8a8ac0fc59a398b3047c26b15fa338f6b&o=', 950000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
 ('R003', 'RT002', '201', 4, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/349614965.jpg?k=8c9c9ea468ed7ae098f853df79536f99a77f7bfdfed84ac352fd7b96365446fc&o=', 1800000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-10-31 16:37:49'),
-('R004', 'RT002', '202', 4, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/349614817.jpg?k=a14fa8850eab7dfac8b1cb64e8c5ae60d23be8bd01b30f194ac9b74aa57efec4&o=', 2000000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
+('R004', 'RT002', '202', 4, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/349614817.jpg?k=a14fa8850eab7dfac8b1cb64e8c5ae60d23be8bd01b30f194ac9b74aa57efec4&o=', 1800000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-11-03 19:24:44'),
 ('R005', 'RT003', '301', 3, 'https://lh3.googleusercontent.com/p/AF1QipORkI-MSORzrexdvvlSEUv93xE-cd83W2zDTpc=s1360-w1360-h1020-rw', 1500000.00, 'ACTIVE', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
 ('R006', 'RT004', '501', 3, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/123456791.jpg', 2500000.00, 'ACTIVE', '2025-10-27 15:52:19', '2025-10-31 16:37:53');
 
@@ -966,8 +1066,8 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S105', 'R006', '2025-11-01', 2550000.00, 0.00, 1, 1, 1, '2025-10-27 15:52:19'),
 ('S106', 'R006', '2025-11-02', 2550000.00, 10.00, 1, 1, 1, '2025-10-27 15:52:19'),
 ('S107', 'R006', '2025-11-03', 2550000.00, 0.00, 1, 1, 1, '2025-10-27 15:52:19'),
-('S108', 'R006', '2025-11-04', 2550000.00, 0.00, 1, 1, 1, '2025-10-27 15:52:19'),
-('S109', 'R006', '2025-11-05', 2550000.00, 10.00, 1, 1, 1, '2025-10-27 15:52:19'),
+('S108', 'R006', '2025-11-04', 2550000.00, 0.00, 0, 1, 1, '2025-10-27 15:52:19'),
+('S109', 'R006', '2025-11-05', 2550000.00, 10.00, 0, 1, 1, '2025-10-27 15:52:19'),
 ('S110', 'R006', '2025-11-06', 2550000.00, 0.00, 1, 1, 1, '2025-10-27 15:52:19'),
 ('S111', 'R006', '2025-11-07', 2550000.00, 5.00, 1, 1, 1, '2025-10-27 15:52:19'),
 ('S112', 'R006', '2025-11-08', 2550000.00, 0.00, 1, 1, 1, '2025-10-27 15:52:19'),
@@ -1038,6 +1138,55 @@ INSERT INTO `room_type` (`room_type_id`, `hotel_id`, `name`, `description`, `bed
 ('RT003', 'H003', 'Executive Suite', 'Phòng suite sang trọng có view sông Sài Gòn.', 'King', 45.00, 'https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0c/0f/b8/d6/premier-riverview-room.jpg?w=1000&h=-1&s=1', '2025-10-20 15:09:17', '2025-10-20 15:09:17'),
 ('RT004', 'H004', 'Deluxe King Room', 'Phòng Deluxe với giường King size', 'King', 32.00, 'https://cf.bstatic.com/xdata/images/hotel/max1024x768/123456790.jpg', '2025-10-27 15:52:19', '2025-10-27 15:52:19');
 
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `user_address`
+--
+
+CREATE TABLE `user_address` (
+  `address_id` varchar(20) NOT NULL,
+  `account_id` varchar(20) NOT NULL,
+  `name` varchar(255) NOT NULL COMMENT 'Tên người nhận',
+  `phone` varchar(20) NOT NULL,
+  `address` varchar(500) NOT NULL COMMENT 'Địa chỉ chi tiết',
+  `city` varchar(100) NOT NULL,
+  `district` varchar(100) DEFAULT NULL COMMENT 'Quận/Huyện',
+  `street_name` varchar(255) DEFAULT NULL COMMENT 'Tên đường',
+  `house_number` varchar(50) DEFAULT NULL COMMENT 'Số nhà',
+  `country` varchar(50) NOT NULL DEFAULT 'VN',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Địa chỉ mặc định',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `user_address`
+--
+
+INSERT INTO `user_address` (`address_id`, `account_id`, `name`, `phone`, `address`, `city`, `district`, `street_name`, `house_number`, `country`, `is_default`, `created_at`, `updated_at`) VALUES
+('AD193856373448', 'AC202510170003', 'Thanh Hai', '0123456789', '12, Hồng Lạc, Tân Bình, Hồ Chí Minh, VN', 'Hồ Chí Minh', 'Tân Bình', 'Hồng Lạc', '12', 'VN', 1, '2025-11-04 01:17:36', '2025-11-04 01:19:43'),
+('AD193912407694', 'AC202510170003', 'Hai Phan', '0123456789', '12, Thoại Ngọc Hầu, Tân Phú, Hồ Chí Minh, VN', 'Hồ Chí Minh', 'Tân Phú', 'Thoại Ngọc Hầu', '12', 'VN', 0, '2025-11-04 01:18:32', '2025-11-04 01:19:43');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `user_settings`
+--
+
+CREATE TABLE `user_settings` (
+  `settings_id` varchar(20) NOT NULL,
+  `account_id` varchar(20) NOT NULL,
+  `language` varchar(10) NOT NULL DEFAULT 'vi' COMMENT 'Ngôn ngữ: vi, en',
+  `timezone` varchar(50) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
+  `currency` varchar(10) NOT NULL DEFAULT 'VND' COMMENT 'Đơn vị tiền tệ',
+  `two_factor_auth` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Bật xác thực 2 bước',
+  `email_notifications` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON: {promotions: bool, bookingConfirmations: bool, postTripReviews: bool}' CHECK (json_valid(`email_notifications`)),
+  `sms_notifications` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON: {promotions: bool, bookingConfirmations: bool, postTripReviews: bool}' CHECK (json_valid(`sms_notifications`)),
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 --
 -- Chỉ mục cho các bảng đã đổ
 --
@@ -1046,7 +1195,27 @@ INSERT INTO `room_type` (`room_type_id`, `hotel_id`, `name`, `description`, `bed
 -- Chỉ mục cho bảng `account`
 --
 ALTER TABLE `account`
-  ADD PRIMARY KEY (`account_id`);
+  ADD PRIMARY KEY (`account_id`),
+  ADD KEY `idx_account_package` (`package_id`);
+
+--
+-- Chỉ mục cho bảng `account_package`
+--
+ALTER TABLE `account_package`
+  ADD PRIMARY KEY (`package_id`),
+  ADD UNIQUE KEY `unique_package_name` (`name`),
+  ADD KEY `idx_package_status` (`status`),
+  ADD KEY `idx_package_sort` (`sort_order`);
+
+--
+-- Chỉ mục cho bảng `account_subscription`
+--
+ALTER TABLE `account_subscription`
+  ADD PRIMARY KEY (`subscription_id`),
+  ADD KEY `idx_subscription_account` (`account_id`),
+  ADD KEY `idx_subscription_package` (`package_id`),
+  ADD KEY `idx_subscription_status` (`status`),
+  ADD KEY `idx_subscription_dates` (`start_date`,`end_date`);
 
 --
 -- Chỉ mục cho bảng `bed_type_metadata`
@@ -1163,6 +1332,15 @@ ALTER TABLE `payment`
   ADD KEY `idx_booking_id` (`booking_id`);
 
 --
+-- Chỉ mục cho bảng `payment_card`
+--
+ALTER TABLE `payment_card`
+  ADD PRIMARY KEY (`card_id`),
+  ADD KEY `idx_payment_card_account` (`account_id`),
+  ADD KEY `idx_payment_card_default` (`account_id`,`is_default`),
+  ADD KEY `idx_payment_card_status` (`status`);
+
+--
 -- Chỉ mục cho bảng `policy_type`
 --
 ALTER TABLE `policy_type`
@@ -1174,6 +1352,17 @@ ALTER TABLE `policy_type`
 ALTER TABLE `refresh_tokens`
   ADD PRIMARY KEY (`id`),
   ADD KEY `account_id` (`account_id`);
+
+--
+-- Chỉ mục cho bảng `review`
+--
+ALTER TABLE `review`
+  ADD PRIMARY KEY (`review_id`),
+  ADD UNIQUE KEY `unique_booking_review` (`booking_id`) COMMENT 'Mỗi booking chỉ có 1 review',
+  ADD KEY `idx_review_account` (`account_id`),
+  ADD KEY `idx_review_hotel` (`hotel_id`),
+  ADD KEY `idx_review_booking` (`booking_id`),
+  ADD KEY `idx_review_status` (`status`);
 
 --
 -- Chỉ mục cho bảng `room`
@@ -1226,6 +1415,21 @@ ALTER TABLE `room_type`
   ADD KEY `FK_roomtype_hotel` (`hotel_id`);
 
 --
+-- Chỉ mục cho bảng `user_address`
+--
+ALTER TABLE `user_address`
+  ADD PRIMARY KEY (`address_id`),
+  ADD KEY `idx_user_address_account` (`account_id`),
+  ADD KEY `idx_user_address_default` (`account_id`,`is_default`);
+
+--
+-- Chỉ mục cho bảng `user_settings`
+--
+ALTER TABLE `user_settings`
+  ADD PRIMARY KEY (`settings_id`),
+  ADD UNIQUE KEY `unique_user_settings` (`account_id`);
+
+--
 -- AUTO_INCREMENT cho các bảng đã đổ
 --
 
@@ -1250,6 +1454,19 @@ ALTER TABLE `room_policy`
 --
 -- Các ràng buộc cho các bảng đã đổ
 --
+
+--
+-- Các ràng buộc cho bảng `account`
+--
+ALTER TABLE `account`
+  ADD CONSTRAINT `FK_account_package` FOREIGN KEY (`package_id`) REFERENCES `account_package` (`package_id`);
+
+--
+-- Các ràng buộc cho bảng `account_subscription`
+--
+ALTER TABLE `account_subscription`
+  ADD CONSTRAINT `FK_subscription_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `FK_subscription_package` FOREIGN KEY (`package_id`) REFERENCES `account_package` (`package_id`);
 
 --
 -- Các ràng buộc cho bảng `booking`
@@ -1313,10 +1530,24 @@ ALTER TABLE `payment`
   ADD CONSTRAINT `payment_ibfk_1` FOREIGN KEY (`booking_id`) REFERENCES `booking` (`booking_id`);
 
 --
+-- Các ràng buộc cho bảng `payment_card`
+--
+ALTER TABLE `payment_card`
+  ADD CONSTRAINT `FK_payment_card_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE;
+
+--
 -- Các ràng buộc cho bảng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
   ADD CONSTRAINT `refresh_tokens_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `review`
+--
+ALTER TABLE `review`
+  ADD CONSTRAINT `FK_review_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `FK_review_booking` FOREIGN KEY (`booking_id`) REFERENCES `booking` (`booking_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `FK_review_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotel` (`hotel_id`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `room`
@@ -1355,6 +1586,18 @@ ALTER TABLE `room_price_schedule`
 --
 ALTER TABLE `room_type`
   ADD CONSTRAINT `FK_roomtype_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotel` (`hotel_id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `user_address`
+--
+ALTER TABLE `user_address`
+  ADD CONSTRAINT `FK_user_address_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `user_settings`
+--
+ALTER TABLE `user_settings`
+  ADD CONSTRAINT `FK_user_settings_account` FOREIGN KEY (`account_id`) REFERENCES `account` (`account_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

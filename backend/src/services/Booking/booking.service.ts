@@ -13,6 +13,10 @@ import {
 import { BookingValidator } from "../../utils/booking.validator";
 import { calculateNights } from "../../helpers/date.helper";
 import { BOOKING_EXPIRATION_MINUTES } from "../../config/booking.constants";
+import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
+import { Facility } from "../../models/Hotel/facility.model";
+import { Room } from "../../models/Hotel/room.model";
+import { Op } from "sequelize";
 
 // Helper để normalize date format thành YYYY-MM-DD
 const normalizeDate = (date: Date | string): string => {
@@ -974,9 +978,68 @@ export class BookingService {
         };
       }
 
+      // Lấy room amenities nếu có room_type_id
+      let roomAmenities: any[] = [];
+      if (booking.room_type_id) {
+        try {
+          // Lấy tất cả rooms thuộc room_type_id này
+          const rooms = await Room.findAll({
+            where: {
+              room_type_id: booking.room_type_id,
+              status: 'ACTIVE'
+            },
+            attributes: ['room_id'],
+            limit: 1 // Chỉ cần 1 room để lấy amenities (vì amenities giống nhau cho cùng room_type)
+          });
+
+          if (rooms.length > 0) {
+            const roomIds = rooms.map(r => r.room_id);
+            
+            // Lấy amenities từ room_amenity table
+            const amenities = await RoomAmenity.findAll({
+              include: [
+                {
+                  model: Facility,
+                  as: 'facility',
+                  attributes: ['facility_id', 'name', 'icon'],
+                  required: true
+                }
+              ],
+              where: {
+                room_id: { [Op.in]: roomIds }
+              },
+              attributes: [],
+              raw: false
+            });
+
+            // Transform để loại bỏ duplicate và format đúng
+            const facilityMap = new Map<string, any>();
+            amenities.forEach((item: any) => {
+              const facility = item.facility;
+              if (facility && !facilityMap.has(facility.facility_id)) {
+                facilityMap.set(facility.facility_id, {
+                  facilityId: facility.facility_id,
+                  name: facility.name,
+                  icon: facility.icon
+                });
+              }
+            });
+
+            roomAmenities = Array.from(facilityMap.values());
+          }
+        } catch (amenityError: any) {
+          console.error("[BookingService] Error loading room amenities:", amenityError.message);
+          // Không block nếu không load được amenities
+        }
+      }
+
+      // Attach room amenities vào booking data
       return {
         success: true,
-        data: booking
+        data: {
+          ...booking,
+          room_amenities: roomAmenities
+        }
       };
     } catch (error: any) {
       console.error("[BookingService] getBookingById error:", error.message || error);

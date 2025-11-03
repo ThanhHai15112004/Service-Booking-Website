@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import { getBookingById, cancelBooking } from '../../services/bookingService';
 import { getHotelDetail } from '../../services/hotelService';
+import api from '../../api/axiosClient';
 import {
   ArrowLeft,
   Calendar,
@@ -21,8 +22,9 @@ import {
   FileText,
   Wallet,
   Star,
-  Wifi,
-  Coffee
+  Coffee,
+  Tag,
+  Home
 } from 'lucide-react';
 
 function BookingDetailPage() {
@@ -30,6 +32,7 @@ function BookingDetailPage() {
   const navigate = useNavigate();
   const [booking, setBooking] = useState<any>(null);
   const [hotelDetails, setHotelDetails] = useState<any>(null);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -52,7 +55,24 @@ function BookingDetailPage() {
       const bookingResponse = await getBookingById(bookingId);
 
       if (bookingResponse.success && bookingResponse.data) {
+        console.log('📦 Booking data:', bookingResponse.data);
         setBooking(bookingResponse.data);
+        
+        // Load payment info nếu cần (fallback nếu booking không có payment_method)
+        if (!bookingResponse.data.payment_method) {
+          try {
+            const paymentResponse = await api.get(`/api/payments/booking/${bookingId}`);
+            console.log('💳 Payment data:', paymentResponse.data);
+            if (paymentResponse.data.success && paymentResponse.data.data) {
+              setPaymentInfo(paymentResponse.data.data);
+            }
+          } catch (paymentErr) {
+            console.error('Error loading payment info:', paymentErr);
+            // Không block nếu không load được payment info
+          }
+        } else {
+          console.log('✅ Payment method from booking:', bookingResponse.data.payment_method);
+        }
         
         // Load hotel details với images, facilities, amenities
         if (bookingResponse.data.hotel_id) {
@@ -171,6 +191,13 @@ function BookingDetailPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatTime = (timeStr: string, defaultTime: string = '14:00') => {
+    if (!timeStr || timeStr === 'unknown') return defaultTime;
+    // Nếu timeStr đã là format HH:mm thì giữ nguyên
+    if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr;
+    return defaultTime;
   };
 
   const formatCurrency = (amount: number) => {
@@ -368,15 +395,7 @@ function BookingDetailPage() {
                         </div>
                       </div>
                     )}
-                    {hotelDetails?.hotel?.description && (
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">Mô tả</p>
-                          <p className="font-medium text-gray-900 text-sm leading-relaxed">{hotelDetails.hotel.description}</p>
-                        </div>
-                      </div>
-                    )}
+                    
                   </div>
 
                   {/* Hotel Facilities */}
@@ -472,43 +491,62 @@ function BookingDetailPage() {
                   </div>
 
                   {/* Room Amenities */}
-                  {hotelDetails?.availableRooms && hotelDetails.availableRooms.length > 0 && (
-                    (() => {
-                      const bookedRoom = hotelDetails.availableRooms.find((room: any) => 
-                        room.roomId === booking.room_id || room.room_id === booking.room_id
+                  {(() => {
+                    // Ưu tiên lấy từ booking.room_amenities (từ backend API)
+                    let roomAmenities: any[] = booking.room_amenities || [];
+                    
+                    // Fallback: Tìm từ hotelDetails nếu booking không có
+                    if (roomAmenities.length === 0 && hotelDetails?.availableRooms && hotelDetails.availableRooms.length > 0 && booking.room_type_id) {
+                      // Tìm room type theo room_type_id
+                      const roomType = hotelDetails.availableRooms.find((roomType: any) => 
+                        roomType.roomTypeId === booking.room_type_id ||
+                        roomType.room_type_id === booking.room_type_id
                       );
-                      const roomAmenities = bookedRoom?.facilities || bookedRoom?.amenities || [];
                       
-                      return roomAmenities.length > 0 ? (
-                        <div className="border-t border-gray-200 pt-4">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <Wifi className="w-5 h-5 text-blue-600" />
-                            Tiện nghi phòng
-                          </h3>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {roomAmenities.map((amenity: any, idx: number) => (
+                      // Lấy facilities từ room type
+                      if (roomType?.facilities && Array.isArray(roomType.facilities) && roomType.facilities.length > 0) {
+                        roomAmenities = roomType.facilities;
+                      }
+                    }
+                    
+                    // Hiển thị nếu có tiện nghi - style giống như tiện nghi khách sạn
+                    return roomAmenities.length > 0 ? (
+                      <div className="border-t border-gray-200 pt-4 mt-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Coffee className="w-5 h-5 text-blue-600" />
+                          Tiện nghi phòng
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {roomAmenities.map((amenity: any, idx: number) => {
+                            // Backend trả về facility object với structure: { facilityId, name, icon }
+                            // Hoặc có thể là nested: { facility: { name, icon } }
+                            const facility = amenity.facility || amenity;
+                            const facilityName = facility?.name || amenity?.name || amenity;
+                            const facilityIcon = facility?.icon || amenity?.icon;
+                            
+                            return (
                               <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                                {amenity.facility?.icon ? (
+                                {facilityIcon ? (
                                   <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                    {amenity.facility.icon.length <= 3 ? (
-                                      <span className="text-base">{amenity.facility.icon}</span>
+                                    {facilityIcon.length <= 3 ? (
+                                      <span className="text-base">{facilityIcon}</span>
                                     ) : (
-                                      <img src={amenity.facility.icon} alt={amenity.facility.name} className="w-5 h-5" />
+                                      <img src={facilityIcon} alt={facilityName} className="w-5 h-5" />
                                     )}
                                   </div>
                                 ) : (
-                                  <Wifi className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                  <Coffee className="w-5 h-5 text-blue-600 flex-shrink-0" />
                                 )}
                                 <span className="text-sm font-medium text-gray-900">
-                                  {amenity.facility?.name || amenity.name || amenity}
+                                  {facilityName}
                                 </span>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
-                      ) : null;
-                    })()
-                  )}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
 
@@ -519,37 +557,130 @@ function BookingDetailPage() {
                   Chi tiết đặt phòng
                 </h2>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Basic Info Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Số khách */}
+                    {booking.guests_count && (
+                      <div className="flex items-start gap-3">
+                        <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Số khách</p>
+                          <p className="font-medium text-gray-900">{booking.guests_count} người</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mã đặt chỗ */}
+                    {(booking.booking_code || booking.booking_id) && (
+                      <div className="flex items-start gap-3">
+                        <Tag className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Mã đặt chỗ</p>
+                          <p className="font-medium text-gray-900 font-mono">
+                            {booking.booking_code || `BK${booking.booking_id?.slice(-8)?.padStart(8, '0')}`}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Loại phòng */}
+                    {booking.room_type_name && (
+                      <div className="flex items-start gap-3">
+                        <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Loại phòng</p>
+                          <p className="font-medium text-gray-900">{booking.room_type_name}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Số lượng phòng */}
                     <div className="flex items-start gap-3">
-                      <Calendar className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <Home className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm text-gray-500 mb-1">Ngày nhận phòng</p>
-                        <p className="font-medium text-gray-900">{formatDate(booking.checkin_date)}</p>
+                        <p className="text-sm text-gray-500 mb-1">Số lượng phòng</p>
+                        <p className="font-medium text-gray-900">1 phòng</p>
                       </div>
                     </div>
+
+                    {/* Ngày đặt */}
+                    {booking.created_at && (
+                      <div className="flex items-start gap-3">
+                        <Calendar className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Ngày đặt</p>
+                          <p className="font-medium text-gray-900">
+                            {new Date(booking.created_at).toLocaleDateString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Số đêm */}
+                    {!isDayUse && booking.nights_count && booking.nights_count > 0 && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Thời gian lưu trú</p>
+                          <p className="font-medium text-gray-900">{booking.nights_count} đêm</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-200 my-4"></div>
+
+                  {/* Check-in Information */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
                     <div className="flex items-start gap-3">
-                      <Calendar className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Ngày trả phòng</p>
-                        <p className="font-medium text-gray-900">
-                          {formatDate(booking.checkout_date)}
-                          {!isDayUse && booking.nights_count > 0 && (
-                            <span className="text-gray-500 ml-2">({booking.nights_count} đêm)</span>
-                          )}
+                      <div className="bg-blue-600 rounded-full p-2 mt-0.5">
+                        <Clock className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-blue-900 mb-1">Check-in</p>
+                        <p className="font-bold text-lg text-gray-900 mb-1">
+                          {formatDate(booking.checkin_date)}
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          Lúc <span className="font-semibold text-blue-700">
+                            {hotelDetails?.hotel?.checkin_time 
+                              ? formatTime(hotelDetails.hotel.checkin_time, '14:00')
+                              : isDayUse ? '12:00' : '14:00'}
+                          </span>
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {booking.guests_count && (
+                  {/* Check-out Information */}
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-100">
                     <div className="flex items-start gap-3">
-                      <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Số khách</p>
-                        <p className="font-medium text-gray-900">{booking.guests_count} người</p>
+                      <div className="bg-green-600 rounded-full p-2 mt-0.5">
+                        <Clock className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-900 mb-1">Check-out</p>
+                        <p className="font-bold text-lg text-gray-900 mb-1">
+                          {formatDate(booking.checkout_date)}
+                          {!isDayUse && booking.nights_count > 0 && (
+                            <span className="text-gray-600 ml-2 text-base font-normal">({booking.nights_count} đêm)</span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          Lúc <span className="font-semibold text-green-700">
+                            {hotelDetails?.hotel?.checkout_time 
+                              ? formatTime(hotelDetails.hotel.checkout_time, '12:00')
+                              : isDayUse ? '18:00' : '12:00'}
+                          </span>
+                        </p>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -559,33 +690,147 @@ function BookingDetailPage() {
                   <Wallet className="w-6 h-6 text-blue-600" />
                   Chi tiết thanh toán
                 </h2>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Giá phòng</span>
-                    <span className="font-medium text-gray-900">
-                      {formatCurrency(booking.subtotal || booking.total_amount)}
-                    </span>
+                <div className="space-y-4">
+                  {/* Payment Method & Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-gray-200">
+                    {/* Payment Method */}
+                    <div className="flex items-start gap-3">
+                      <CreditCard className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Phương thức thanh toán</p>
+                        <p className="font-medium text-gray-900">
+                          {(paymentInfo?.method || booking.payment_method) === 'VNPAY' ? 'VNPay' :
+                           (paymentInfo?.method || booking.payment_method) === 'MOMO' ? 'MoMo' :
+                           (paymentInfo?.method || booking.payment_method) === 'CASH' ? 'Tiền mặt' :
+                           (paymentInfo?.method || booking.payment_method) ? 
+                             String(paymentInfo?.method || booking.payment_method) : 'Chưa chọn'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Payment Status */}
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                        booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                          ? 'text-green-600'
+                          : booking.status === 'CANCELLED'
+                          ? 'text-red-600'
+                          : 'text-yellow-600'
+                      }`} />
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Trạng thái thanh toán</p>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
+                          booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-800'
+                            : booking.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                            ? 'Đã thanh toán'
+                            : booking.status === 'CANCELLED'
+                            ? 'Đã hủy'
+                            : booking.status === 'CREATED'
+                            ? 'Chờ thanh toán'
+                            : 'Chưa thanh toán'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  {booking.tax_amount && booking.tax_amount > 0 && (
+
+                  {/* Price Breakdown */}
+                  <div className="space-y-3">
+                    {/* Giá gốc (nếu có discount) */}
+                    {booking.discount_amount && booking.discount_amount > 0 && booking.subtotal && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Giá gốc</span>
+                        <span className="font-medium text-gray-500 line-through text-sm">
+                          {formatCurrency(booking.subtotal + booking.discount_amount)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Giá phòng */}
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Thuế & phí</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(booking.tax_amount)}</span>
-                    </div>
-                  )}
-                  {booking.discount_amount && booking.discount_amount > 0 && (
-                    <div className="flex justify-between items-center text-green-600">
-                      <span>Giảm giá</span>
-                      <span className="font-medium">-{formatCurrency(booking.discount_amount)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-3 mt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold text-gray-900">Tổng cộng</span>
-                      <span className="text-2xl font-bold text-blue-600">
-                        {formatCurrency(booking.total_amount)}
+                      <span className="text-gray-600">Giá phòng</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(booking.subtotal || booking.total_amount)}
                       </span>
                     </div>
+
+                    {/* Thuế & phí */}
+                    {booking.tax_amount && booking.tax_amount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Thuế & phí</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(booking.tax_amount)}</span>
+                      </div>
+                    )}
+
+                    {/* Giảm giá */}
+                    {booking.discount_amount && booking.discount_amount > 0 && (
+                      <>
+                        <div className="flex justify-between items-center text-green-600">
+                          <span className="flex items-center gap-2">
+                            <Tag className="w-4 h-4" />
+                            Giảm giá
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                              Khuyến mãi
+                            </span>
+                          </span>
+                          <span className="font-medium">-{formatCurrency(booking.discount_amount)}</span>
+                        </div>
+                        {/* Thông tin khuyến mãi */}
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <Tag className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs font-semibold text-green-900 mb-1">Chương trình khuyến mãi</p>
+                              <p className="text-xs text-green-700">
+                                Bạn đã tiết kiệm {formatCurrency(booking.discount_amount)} từ chương trình khuyến mãi của chúng tôi
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Tổng cộng */}
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900">Tổng cộng</span>
+                        <div className="text-right">
+                          {booking.discount_amount && booking.discount_amount > 0 && booking.subtotal && (
+                            <p className="text-sm text-gray-500 line-through mb-1">
+                              {formatCurrency((booking.subtotal + booking.discount_amount) + (booking.tax_amount || 0))}
+                            </p>
+                          )}
+                          <span className="text-2xl font-bold text-blue-600">
+                            {formatCurrency(booking.total_amount)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Payment Date */}
+                  {booking.updated_at && (booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          Thanh toán lúc: <span className="font-medium text-gray-900">
+                            {new Date(booking.updated_at).toLocaleString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

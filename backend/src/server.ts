@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import path from "path";
 import { initRoutes } from "./routes/index.route";
 import "./config/db"; // Keep MySQL pool for raw queries
 import sequelize, { testConnection } from "./config/sequelize"; // ✅ Add Sequelize
@@ -19,7 +20,10 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(cookieParser());  
+app.use(cookieParser());
+
+// Serve static files từ thư mục uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));  
 
 initRoutes(app);
 

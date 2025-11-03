@@ -11,6 +11,7 @@ import ForgotPasswordPage from "../pages/Auth/ForgotPasswordPage";
 import ProfilePage from "../pages/Profile/ProfilePage";
 import MyBookingsPage from "../pages/Profile/MyBookingsPage";
 import BookingDetailPage from "../pages/Profile/BookingDetailPage";
+import InvoiceDetailPage from "../pages/Profile/InvoiceDetailPage";
 import WishlistPage from "../pages/Profile/WishlistPage";
 import UnauthorizedPage from "../pages/Error/UnauthorizedPage";
 import AccountSuspendedPage from "../pages/Error/AccountSuspendedPage";
@@ -51,6 +52,11 @@ function AppRoutes() {
       <Route path="/booking-detail/:bookingId" element={
         <ProtectedRoute>
           <BookingDetailPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/invoice/:bookingId" element={
+        <ProtectedRoute>
+          <InvoiceDetailPage />
         </ProtectedRoute>
       } />
       <Route path="/favorites" element={

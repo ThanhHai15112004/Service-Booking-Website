@@ -276,9 +276,25 @@ export interface Review {
   userName: string;
   userAvatar?: string;
   rating: number;
+  locationRating?: number;
+  facilitiesRating?: number;
+  serviceRating?: number;
+  cleanlinessRating?: number;
+  valueRating?: number;
+  title?: string;
   comment: string;
   createdAt: string;
   helpful?: number;
+  bookingInfo?: {
+    adults: number;
+    children: number;
+    checkin_date: string;
+    checkout_date: string;
+    nights_count: number;
+    room_type_name?: string;
+    bed_type?: string;
+    guests_count: number;
+  } | null;
 }
 
 // ============================================================================

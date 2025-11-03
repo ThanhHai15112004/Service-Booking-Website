@@ -90,12 +90,35 @@ export class HotelService {
         return { success: false, message: "Hotel ID is required" };
       }
 
-      const checkIn = params.checkIn || params.checkin;
-      const checkOut = params.checkOut || params.checkout;
+      let checkIn = params.checkIn || params.checkin;
+      let checkOut = params.checkOut || params.checkout;
       const stayType = params.stayType || 'overnight'; // ✅ Thêm stayType
       const rooms = parseInt(params.rooms) || 1;
       const adults = parseInt(params.adults) || 2;
       const children = parseInt(params.children) || 0;
+
+      // Normalize date format from ISO string to YYYY-MM-DD
+      const normalizeDate = (dateStr: string): string => {
+        if (!dateStr) return '';
+        // Nếu đã là YYYY-MM-DD thì giữ nguyên
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return dateStr;
+        }
+        // Nếu là ISO string, convert về YYYY-MM-DD
+        try {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) return dateStr;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } catch {
+          return dateStr;
+        }
+      };
+
+      checkIn = normalizeDate(checkIn);
+      checkOut = normalizeDate(checkOut);
 
       if (!checkIn || !checkOut) {
         return { success: false, message: "Check-in and check-out dates are required" };

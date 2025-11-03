@@ -7,9 +7,18 @@ const profileService = new ProfileService();
 export const getProfile = async (req: Request, res: Response) => {
   try {
     const accountId = res.locals.accountId;
+    
+    if (!accountId) {
+      return res.status(401).json({
+        success: false,
+        message: "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại."
+      });
+    }
+    
     const user = await profileService.getUserProfile(accountId);
     res.json({ success: true, data: user });
   } catch (err: any) {
+    console.error('[ProfileController] Error in getProfile:', err);
     res.status(500).json({
       success: false,
       message: err.message || "Lỗi server khi lấy thông tin người dùng.",

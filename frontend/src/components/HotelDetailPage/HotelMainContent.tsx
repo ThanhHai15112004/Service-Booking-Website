@@ -314,6 +314,7 @@ export default function HotelMainContent({
         {/* Đánh giá chi tiết */}
         <section className="mb-8">
           <HotelReviewsDetailed
+            hotelId={hotel?.hotelId || ''}
             hotelName={hotel?.name || 'Khách sạn'}
             overallRating={hotel?.avgRating}
             reviewsCount={hotel?.reviewCount}

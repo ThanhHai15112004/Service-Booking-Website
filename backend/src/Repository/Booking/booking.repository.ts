@@ -269,12 +269,21 @@ export class BookingRepository {
         rt.room_type_id,
         rt.bed_type,
         rt.area as room_area,
+        p.method as payment_method,
+        p.status as payment_status,
+        p.amount_paid,
         CONCAT('BK', LPAD(b.booking_id, 8, '0')) as booking_code
       FROM booking b
       JOIN hotel h ON h.hotel_id = b.hotel_id
       LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
       LEFT JOIN room r ON r.room_id = bd.room_id
       LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
+      LEFT JOIN payment p ON p.booking_id = b.booking_id
+        AND p.created_at = (
+          SELECT MAX(p2.created_at)
+          FROM payment p2
+          WHERE p2.booking_id = b.booking_id
+        )
       WHERE b.booking_id = ?
       LIMIT 1
     `;

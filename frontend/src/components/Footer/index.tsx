@@ -1,4 +1,5 @@
-import { Hotel, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import logo from '../../assets/imgs/logos/logo1.png';
 
 export default function Footer() {
   return (
@@ -7,8 +8,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Hotel className="w-8 h-8 text-black" />
-              <span className="text-2xl font-bold text-black">BookStay</span>
+              <img 
+                src={logo} 
+                alt="Book Homestay" 
+                className="h-20 w-40"
+              />
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Nền tảng đặt phòng khách sạn hàng đầu Việt Nam. Tìm kiếm và đặt phòng dễ dàng với giá tốt nhất.

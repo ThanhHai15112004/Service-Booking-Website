@@ -1,7 +1,7 @@
 export interface Account {
   account_id: string;
   full_name: string;
-  username: string;
+  username?: string; // Optional - không có trong database
   email: string;
   password_hash: string;
   phone_number?: string | null;

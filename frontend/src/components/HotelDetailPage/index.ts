@@ -11,6 +11,8 @@ export { default as RoomFilters } from './RoomFilters';
 export { default as RoomList } from './RoomList';
 export { default as HotelSearchUpdateBar } from './HotelSearchUpdateBar';
 export { default as HotelReviews } from './HotelReviews';
+export { default as HotelReviewsDetailed } from './HotelReviewsDetailed';
+export { default as WriteReviewForm } from './WriteReviewForm';
 export { default as HotelLocation } from './HotelLocation';
 export { default as HotelSlider } from './HotelSlider';
 export { default as HotelLocationMap } from './HotelLocationMap';

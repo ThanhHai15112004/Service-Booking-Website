@@ -9,22 +9,51 @@ export class ProfileService {
     const user = await this.repo.getProfile(accountId);
     if (!user) throw new Error("Không tìm thấy người dùng.");
     
-    // Lấy booking statistics
-    const statistics = await this.repo.getBookingStatistics(accountId);
+    // Lấy booking statistics (có error handling)
+    let statistics;
+    try {
+      statistics = await this.repo.getBookingStatistics(accountId);
+    } catch (err: any) {
+      console.error('[ProfileService] Error getting statistics:', err.message);
+      statistics = {
+        total_bookings: 0,
+        created_count: 0,
+        paid_count: 0,
+        confirmed_count: 0,
+        completed_count: 0,
+        cancelled_count: 0,
+        total_spent: 0,
+        last_booking_date: null
+      };
+    }
+    
+    // Lấy recent activity (có error handling)
+    let recentActivity;
+    try {
+      recentActivity = await this.repo.getRecentActivity(accountId, 5);
+    } catch (err: any) {
+      console.error('[ProfileService] Error getting recent activity:', err.message);
+      recentActivity = [];
+    }
     
     return {
       ...user,
-      statistics
+      statistics,
+      recentActivity
     };
   }
 
   // Hàm cập nhật profile
   async updateUserProfile(accountId: string, data: any) {
-    const { full_name, phone_number } = data;
+    const { full_name, phone_number, avatar_url } = data;
     if (!full_name || !phone_number) {
       throw new Error("Thiếu thông tin cần cập nhật.");
     }
-    await this.repo.updateProfile(accountId, { full_name, phone_number });
+    const updateData: any = { full_name, phone_number };
+    if (avatar_url) {
+      updateData.avatar_url = avatar_url;
+    }
+    await this.repo.updateProfile(accountId, updateData);
   }
 
   // Hàm đổi mật khẩu

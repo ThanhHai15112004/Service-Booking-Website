@@ -215,7 +215,6 @@ export const googleLoginController = async (req: Request, res: Response) => {
         user: {
           account_id: user.account_id,
           full_name: user.full_name,
-          username: user.username,
           email: user.email,
           avatar_url: user.avatar_url,
           provider: user.provider,

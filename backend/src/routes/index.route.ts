@@ -14,6 +14,13 @@ import roomRoutes from "./Hotel/room.route";
 import bookingRoutes from "./Booking/booking.route";
 import paymentRoutes from "./Payment/payment.route";
 
+import addressRoutes from "./Profile/address.route";
+import reviewRoutes from "./Profile/review.route";
+import settingsRoutes from "./Profile/settings.route";
+import paymentCardRoutes from "./Payment/paymentCard.route";
+import uploadRoutes from "./Upload/upload.route";
+import invoiceRoutes from "./Invoice/invoice.route";
+
 export function initRoutes(app: Express): void {
   //Auth
   app.use("/api/auth", authRoutes);
@@ -34,4 +41,18 @@ export function initRoutes(app: Express): void {
 
   //Payment
   app.use("/api/payments", paymentRoutes);
+
+  //Profile
+  app.use("/api/profile/addresses", addressRoutes);
+  app.use("/api/profile/reviews", reviewRoutes);
+  app.use("/api/profile/settings", settingsRoutes);
+
+  //Payment Cards
+  app.use("/api/profile/cards", paymentCardRoutes);
+
+  //Upload
+  app.use("/api/upload", uploadRoutes);
+
+  //Invoice
+  app.use("/api/invoices", invoiceRoutes);
 }
