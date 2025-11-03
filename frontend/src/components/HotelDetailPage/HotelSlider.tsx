@@ -8,6 +8,7 @@ interface HotelSliderProps {
   currentHotelId: string;
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   guests: number;
   rooms: number;
   children: number;
@@ -35,6 +36,7 @@ export default function HotelSlider({
   currentHotelId,
   checkIn,
   checkOut,
+  stayType, // ✅ Get stayType
   guests,
   rooms,
   children
@@ -54,11 +56,25 @@ export default function HotelSlider({
 
       try {
         setIsLoading(true);
+        
+        // 🔍 DEBUG: Log params before calling API
+        console.log('🏨 HotelSlider calling getSimilarHotelsInCity:', {
+          city,
+          excludeHotelId: currentHotelId,
+          checkIn,
+          checkOut,
+          stayType, // Check if this is undefined
+          guests,
+          rooms,
+          children
+        });
+        
         const result = await getSimilarHotelsInCity({
           city,
           excludeHotelId: currentHotelId,
           checkIn,
           checkOut,
+          stayType, // ✅ Pass stayType
           guests,
           rooms,
           children,
@@ -76,7 +92,7 @@ export default function HotelSlider({
     };
 
     loadSimilarHotels();
-  }, [city, currentHotelId, checkIn, checkOut, guests, rooms, children]);
+  }, [city, currentHotelId, checkIn, checkOut, stayType, guests, rooms, children]); // ✅ Add stayType to dependencies
 
   // ✅ Format price
   const formatPrice = (price?: number) => {

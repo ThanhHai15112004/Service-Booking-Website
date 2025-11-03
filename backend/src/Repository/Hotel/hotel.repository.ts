@@ -711,6 +711,15 @@ export class HotelSearchRepository {
   ): Promise<any[]> {
     try {
       const nights = this.calculateNights(checkIn, checkOut);
+      
+      // ✅ FIX: Với dayuse (checkIn = checkOut), query đúng 1 ngày
+      const isDayuse = checkIn === checkOut;
+      const dateCondition = isDayuse 
+        ? { [Op.eq]: checkIn }  // Dayuse: chỉ tìm đúng ngày đó
+        : {                      // Overnight: tìm range
+            [Op.gte]: checkIn,
+            [Op.lt]: checkOut
+          };
 
       const schedules = await RoomPriceSchedule.findAll({
         include: [
@@ -737,10 +746,7 @@ export class HotelSearchRepository {
           }
         ],
         where: {
-          date: {
-            [Op.gte]: checkIn,
-            [Op.lt]: checkOut
-          },
+          date: dateCondition, // ✅ Sử dụng điều kiện đã điều chỉnh
           available_rooms: {
             [Op.gt]: 0
           }
@@ -855,7 +861,9 @@ export class HotelSearchRepository {
         };
         const dailyAvailability: DayAvailability[] = Array.from(roomType.dailyAvailabilityByDate.values());
         
-        if (dailyAvailability.length < nights) {
+        // ✅ FIX: Với dayuse, nights = 0, nên cần ít nhất 1 ngày data
+        const requiredDays = Math.max(nights, 1);
+        if (dailyAvailability.length < requiredDays) {
           continue;
         }
         

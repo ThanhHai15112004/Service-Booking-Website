@@ -5,12 +5,40 @@ export class ProfileRepository {
   // Hàm lấy thông tin user
   async getProfile(accountId: string): Promise<Partial<Account> | null> {
     const [rows]: any = await pool.query(
-      `SELECT account_id, full_name, email, phone_number, status, role, is_verified, avatar_url, created_at, updated_at
+      `SELECT account_id, username, full_name, email, phone_number, status, role, is_verified, avatar_url, provider, created_at, updated_at
        FROM account
        WHERE account_id = ?`,
       [accountId]
     );
     return rows.length > 0 ? rows[0] : null;
+  }
+
+  // Hàm lấy booking statistics của user
+  async getBookingStatistics(accountId: string): Promise<any> {
+    const [rows]: any = await pool.query(
+      `SELECT 
+        COUNT(*) as total_bookings,
+        SUM(CASE WHEN status = 'CREATED' THEN 1 ELSE 0 END) as created_count,
+        SUM(CASE WHEN status = 'PAID' THEN 1 ELSE 0 END) as paid_count,
+        SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) as confirmed_count,
+        SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_count,
+        SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled_count,
+        SUM(total_amount) as total_spent,
+        MAX(created_at) as last_booking_date
+       FROM booking
+       WHERE account_id = ?`,
+      [accountId]
+    );
+    return rows.length > 0 ? rows[0] : {
+      total_bookings: 0,
+      created_count: 0,
+      paid_count: 0,
+      confirmed_count: 0,
+      completed_count: 0,
+      cancelled_count: 0,
+      total_spent: 0,
+      last_booking_date: null
+    };
   }
 
   // Hàm cập nhật thông tin user

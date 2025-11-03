@@ -21,6 +21,7 @@ export interface UseHotelDetailReturn {
   // Search params
   checkIn: string;
   checkOut: string;
+  stayType: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   guests: number;
   rooms: number;
   children: number;
@@ -62,6 +63,7 @@ export function useHotelDetail(): UseHotelDetailReturn {
   // ✅ FIX: Đọc trực tiếp từ URL params (không dùng useState để nó tự động update khi URL thay đổi)
   const checkIn = searchParams.get('checkIn') || contextSearchParams.checkIn || '';
   const checkOut = searchParams.get('checkOut') || contextSearchParams.checkOut || '';
+  const stayType = (searchParams.get('stayType') as 'overnight' | 'dayuse') || 'overnight'; // ✅ Thêm stayType
   const guests = parseInt(searchParams.get('guests') || contextSearchParams.adults?.toString() || '2');
   const rooms = parseInt(searchParams.get('rooms') || contextSearchParams.rooms?.toString() || '1');
   const children = parseInt(searchParams.get('children') || contextSearchParams.children?.toString() || '0');
@@ -107,11 +109,12 @@ export function useHotelDetail(): UseHotelDetailReturn {
         setIsLoading(true);
         setError(null);
 
-        console.log('🏨 Fetching hotel details:', { id, checkIn, checkOut, guests, rooms, children });
+        console.log('🏨 Fetching hotel details:', { id, checkIn, checkOut, stayType, guests, rooms, children });
 
         const response = await getHotelDetail(id, {
           checkIn,
           checkOut,
+          stayType, // ✅ Thêm stayType
           adults: guests,
           rooms,
           children
@@ -187,7 +190,7 @@ export function useHotelDetail(): UseHotelDetailReturn {
     };
 
     fetchHotelDetails();
-  }, [id, checkIn, checkOut, guests, rooms, children]);
+  }, [id, checkIn, checkOut, stayType, guests, rooms, children]); // ✅ Thêm stayType vào dependencies
 
   // Build images array from hotel data
   const images = Array.isArray(hotel?.images) && hotel.images.length > 0
@@ -207,6 +210,7 @@ export function useHotelDetail(): UseHotelDetailReturn {
     availableRooms,
     checkIn,
     checkOut,
+    stayType, // ✅ Export stayType
     guests,
     rooms,
     children,

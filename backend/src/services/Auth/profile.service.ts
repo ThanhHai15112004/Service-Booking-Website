@@ -8,7 +8,14 @@ export class ProfileService {
   async getUserProfile(accountId: string) {
     const user = await this.repo.getProfile(accountId);
     if (!user) throw new Error("Không tìm thấy người dùng.");
-    return user;
+    
+    // Lấy booking statistics
+    const statistics = await this.repo.getBookingStatistics(accountId);
+    
+    return {
+      ...user,
+      statistics
+    };
   }
 
   // Hàm cập nhật profile

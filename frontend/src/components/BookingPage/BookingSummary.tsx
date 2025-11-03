@@ -43,6 +43,10 @@ interface BookingSummaryProps {
   room?: Room | null;
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse';
+  hotelCheckInTime?: string;  // e.g., '14:00:00'
+  hotelCheckOutTime?: string; // e.g., '12:00:00'
+  checkInTime?: string;       // optional selected time (dayuse)
   guests: number;
   rooms?: number;
   children?: number;
@@ -58,6 +62,10 @@ export default function BookingSummary({
   room,
   checkIn,
   checkOut,
+  stayType = 'overnight',
+  hotelCheckInTime,
+  hotelCheckOutTime,
+  checkInTime,
   guests,
   rooms = 1,
   children = 0,
@@ -89,14 +97,27 @@ export default function BookingSummary({
   const roomFeatures = room?.facilities || [];
   const discountPercent = 0; // TODO: Calculate from original price
 
+  const formatTime = (t?: string, fallback?: string) => {
+    if (!t) return fallback || '';
+    return t.slice(0,5); // HH:mm from 'HH:MM:SS'
+  };
+
   return (
     <div className="space-y-4">
-      {/* Check-in/Check-out Dates */}
+      {/* Check-in/Check-out Dates with time */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-600 mb-1">Nhận phòng</p>
-            <p className="text-sm font-medium text-black">{formatDate(checkIn)}</p>
+            <p className="text-sm font-medium text-black">
+              {formatDate(checkIn)}
+              {` `}
+              <span className="text-gray-600">
+                {stayType === 'dayuse'
+                  ? (checkInTime && checkInTime !== 'unknown' ? formatTime(checkInTime, '12:00') : '12:00')
+                  : formatTime(hotelCheckInTime, '14:00')}
+              </span>
+            </p>
           </div>
           <div className="text-blue-600">
             →
@@ -104,7 +125,13 @@ export default function BookingSummary({
           <div className="text-right">
             <p className="text-xs text-gray-600 mb-1">Trả phòng</p>
             <p className="text-sm font-medium text-black">
-              {formatDate(checkOut)} {nights} đêm
+              {formatDate(checkOut)}{' '}
+              <span className="text-gray-600">
+                {stayType === 'dayuse'
+                  ? formatTime(undefined, '18:00')
+                  : formatTime(hotelCheckOutTime, '12:00')}
+              </span>
+              {stayType === 'overnight' && ` ${nights} đêm`}
             </p>
           </div>
         </div>
@@ -234,7 +261,9 @@ export default function BookingSummary({
                   <span className="text-xs text-gray-700">Miễn phí hủy</span>
                 </div>
               )}
-              {roomFeatures.length > 0 ? (
+              {room?.facilities === undefined ? (
+                <p className="text-xs text-gray-500">Đang tải thông tin tiện nghi...</p>
+              ) : roomFeatures.length > 0 ? (
                 <>
                   {roomFeatures.slice(0, 5).map((facility, index) => (
                     <div key={facility.facilityId || index} className="flex items-center gap-2">
@@ -251,7 +280,7 @@ export default function BookingSummary({
                   )}
                 </>
               ) : (
-                <p className="text-xs text-gray-500">Đang tải thông tin tiện nghi...</p>
+                <p className="text-xs text-gray-500">Không có tiện nghi được hiển thị</p>
               )}
             </div>
           </div>

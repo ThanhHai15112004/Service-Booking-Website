@@ -9,6 +9,9 @@ import RegisterPage from "../pages/Auth/RegisterPage";
 import VerifyEmailPage from "../pages/Auth/VerifyEmailPage";
 import ForgotPasswordPage from "../pages/Auth/ForgotPasswordPage";
 import ProfilePage from "../pages/Profile/ProfilePage";
+import MyBookingsPage from "../pages/Profile/MyBookingsPage";
+import BookingDetailPage from "../pages/Profile/BookingDetailPage";
+import WishlistPage from "../pages/Profile/WishlistPage";
 import UnauthorizedPage from "../pages/Error/UnauthorizedPage";
 import AccountSuspendedPage from "../pages/Error/AccountSuspendedPage";
 import ProtectedRoute from "../components/ProtectedRoute";
@@ -42,22 +45,17 @@ function AppRoutes() {
       } />
       <Route path="/bookings" element={
         <ProtectedRoute>
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Đơn đặt chỗ</h1>
-              <p className="text-gray-600">Tính năng đang được phát triển...</p>
-            </div>
-          </div>
+          <MyBookingsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/booking-detail/:bookingId" element={
+        <ProtectedRoute>
+          <BookingDetailPage />
         </ProtectedRoute>
       } />
       <Route path="/favorites" element={
         <ProtectedRoute>
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Danh sách yêu thích</h1>
-              <p className="text-gray-600">Tính năng đang được phát triển...</p>
-            </div>
-          </div>
+          <WishlistPage />
         </ProtectedRoute>
       } />
       

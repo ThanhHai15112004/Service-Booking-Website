@@ -96,12 +96,24 @@ export class HotelSearchValidator {
   }
 
   private static validateDayuse(params: any): ValidationResult {
-    const { date, rooms, adults } = params;
+    // ✅ Accept both 'date' OR 'checkin' for dayuse
+    const { date, checkin, checkout, rooms, adults } = params;
+    
+    // Use 'date' if provided, otherwise use 'checkin'
+    const dayuseDate = date || checkin;
 
-    if (!date) {
+    if (!dayuseDate) {
       return {
         valid: false,
-        message: "date là bắt buộc cho dayuse",
+        message: "date hoặc checkin là bắt buộc cho dayuse",
+      };
+    }
+
+    // ✅ If both checkin and checkout provided, validate they are the same
+    if (checkin && checkout && checkin !== checkout) {
+      return {
+        valid: false,
+        message: "Dayuse yêu cầu checkin và checkout phải cùng ngày",
       };
     }
 
@@ -119,7 +131,7 @@ export class HotelSearchValidator {
       };
     }
 
-    const dateObj = new Date(date);
+    const dateObj = new Date(dayuseDate);
     if (isNaN(dateObj.getTime())) {
       return {
         valid: false,
@@ -141,12 +153,17 @@ export class HotelSearchValidator {
 
   // ✅ FIX: Thêm bed_types và policies
   private static sanitizeParams(params: any): HotelSearchParams {
+    // ✅ For dayuse, if 'date' not provided but 'checkin' is, use checkin as date
+    const dayuseDate = params.stayType === 'dayuse' 
+      ? (params.date || params.checkin) 
+      : params.date;
+
     return {
       stayType: params.stayType,
       q: this.sanitizeString(params.q, 100),
       checkin: params.checkin,
       checkout: params.checkout,
-      date: params.date,
+      date: dayuseDate, // ✅ Use checkin as date for dayuse if date not provided
       rooms: this.toPositiveInt(params.rooms, 1),
       adults: this.toPositiveInt(params.adults, 1),
       children: this.toPositiveInt(params.children, 0),

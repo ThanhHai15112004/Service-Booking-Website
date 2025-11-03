@@ -92,6 +92,7 @@ export class HotelService {
 
       const checkIn = params.checkIn || params.checkin;
       const checkOut = params.checkOut || params.checkout;
+      const stayType = params.stayType || 'overnight'; // ✅ Thêm stayType
       const rooms = parseInt(params.rooms) || 1;
       const adults = parseInt(params.adults) || 2;
       const children = parseInt(params.children) || 0;
@@ -109,8 +110,16 @@ export class HotelService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      if (checkinDate >= checkoutDate) {
-        return { success: false, message: "Check-out must be after check-in" };
+      // ✅ FIX: Cho phép checkIn = checkOut với dayuse
+      if (stayType === 'overnight') {
+        if (checkinDate >= checkoutDate) {
+          return { success: false, message: "Check-out must be after check-in" };
+        }
+      } else if (stayType === 'dayuse') {
+        // Dayuse: checkIn phải bằng checkOut
+        if (checkinDate.getTime() !== checkoutDate.getTime()) {
+          return { success: false, message: "Dayuse: Check-in and check-out must be the same day" };
+        }
       }
 
       if (checkinDate < today) {

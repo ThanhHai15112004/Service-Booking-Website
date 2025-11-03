@@ -12,6 +12,17 @@ import {
 } from "../../models/Booking/booking.model";
 import { BookingValidator } from "../../utils/booking.validator";
 import { calculateNights } from "../../helpers/date.helper";
+import { BOOKING_EXPIRATION_MINUTES } from "../../config/booking.constants";
+
+// Helper để normalize date format thành YYYY-MM-DD
+const normalizeDate = (date: Date | string): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export class BookingService {
   private bookingRepo = new BookingRepository();
@@ -24,6 +35,22 @@ export class BookingService {
     accountId: string
   ): Promise<BookingResponse<{ bookingId: string; bookingCode: string; expiresAt: Date }>> {
     try {
+      // ✅ Idempotency: nếu user đã có booking CREATED còn hiệu lực, trả về booking đó
+      const existingTmp = await this.bookingRepo.getActiveTemporaryBookingByAccount(accountId);
+      if (existingTmp) {
+        const expiresAt = new Date(existingTmp.created_at);
+        expiresAt.setMinutes(expiresAt.getMinutes() + BOOKING_EXPIRATION_MINUTES);
+        return {
+          success: true,
+          data: {
+            bookingId: existingTmp.booking_id,
+            bookingCode: existingTmp.booking_code || this.bookingRepo.generateBookingCode(),
+            expiresAt
+          },
+          message: "Booking tạm thời vẫn còn hiệu lực, tiếp tục giữ chỗ."
+        };
+      }
+
       // Validate basic info
       if (!request.hotelId || !request.roomTypeId || !request.checkIn || !request.checkOut) {
         return { 
@@ -127,9 +154,9 @@ export class BookingService {
       const bookingId = this.bookingRepo.generateBookingId();
       const bookingCode = this.bookingRepo.generateBookingCode();
       
-      // Expires in 20 minutes
+      // ✅ Expires in BOOKING_EXPIRATION_MINUTES minutes
       const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 20);
+      expiresAt.setMinutes(expiresAt.getMinutes() + BOOKING_EXPIRATION_MINUTES);
 
       const booking: Omit<Booking, 'created_at' | 'updated_at'> = {
         booking_id: bookingId,
@@ -229,7 +256,7 @@ export class BookingService {
           bookingCode,
           expiresAt
         },
-        message: "Booking tạm thời đã được tạo. Bạn có 20 phút để hoàn tất đặt phòng."
+          message: `Booking tạm thời đã được tạo. Bạn có ${BOOKING_EXPIRATION_MINUTES} phút để hoàn tất đặt phòng.`
       };
 
     } catch (error: any) {
@@ -246,6 +273,10 @@ export class BookingService {
     request: CreateBookingRequest,
     accountId: string
   ): Promise<BookingResponse<BookingConfirmation>> {
+    // ✅ Declare outside try for cleanup in catch
+    let bookingId: string | undefined;
+    let selectedRoomIds: string[] = [];
+    
     try {
       // Step 1: Validate request
       const validation = BookingValidator.validateCreateBookingRequest(request);
@@ -291,9 +322,11 @@ export class BookingService {
         bookingId = request.bookingId;
         bookingCode = existingBooking.booking_code || this.bookingRepo.generateBookingCode();
       } else {
-        console.error("[BookingService] Missing bookingId - creating new booking (should not happen)");
-        bookingId = this.bookingRepo.generateBookingId();
-        bookingCode = this.bookingRepo.generateBookingCode();
+        // ✅ Bắt buộc có bookingId, tránh tạo booking trùng khi reload hoặc confirm lại
+        return {
+          success: false,
+          message: "Thiếu bookingId. Vui lòng tạo lại booking tạm thời và thử lại."
+        };
       }
 
       // Step 2: Verify hotel exists and is active
@@ -306,7 +339,7 @@ export class BookingService {
       }
 
       // Logic xử lý phòng cho existing booking hoặc booking mới
-      let selectedRoomIds: string[] = [];
+      selectedRoomIds = [];
       
       if (existingBooking) {
         // Lấy tất cả booking_details của booking tạm thời
@@ -427,16 +460,32 @@ export class BookingService {
       // Kiểm tra availability và lock phòng
       if (existingBooking) {
         // Nếu dates thay đổi, cần release lock cũ và lock dates mới cho tất cả phòng
-        const datesChanged = existingBooking.checkin_date !== request.checkIn || 
-                             existingBooking.checkout_date !== request.checkOut;
+        const formatDate = (d: any) => {
+          if (!d) return '';
+          if (typeof d === 'string') return d.slice(0, 10);
+          // MySQL driver may return Date objects in local timezone; avoid UTC shift
+          try {
+            const dateObj = d instanceof Date ? d : new Date(d);
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          } catch {
+            return String(d).slice(0, 10);
+          }
+        };
+        const existingCheckIn = formatDate(existingBooking.checkin_date);
+        const existingCheckOut = formatDate(existingBooking.checkout_date);
+        const datesChanged = existingCheckIn !== request.checkIn || 
+                             existingCheckOut !== request.checkOut;
 
         if (datesChanged) {
           // Release lock cho dates cũ (tất cả phòng)
           for (const roomId of selectedRoomIds) {
             await this.availabilityRepo.increaseAvailableRooms(
               roomId,
-              existingBooking.checkin_date,
-              existingBooking.checkout_date,
+              existingCheckIn,
+              existingCheckOut,
               1
             );
           }
@@ -455,8 +504,8 @@ export class BookingService {
               for (const lockedRoomId of selectedRoomIds) {
                 await this.availabilityRepo.reduceAvailableRooms(
                   lockedRoomId,
-                  existingBooking.checkin_date,
-                  existingBooking.checkout_date,
+                  existingCheckIn,
+                  existingCheckOut,
                   1
                 );
               }
@@ -490,8 +539,8 @@ export class BookingService {
               for (const lockedRoomId of selectedRoomIds) {
                 await this.availabilityRepo.reduceAvailableRooms(
                   lockedRoomId,
-                  existingBooking.checkin_date,
-                  existingBooking.checkout_date,
+                  existingCheckIn,
+                  existingCheckOut,
                   1
                 );
               }
@@ -825,6 +874,83 @@ export class BookingService {
 
     } catch (error: any) {
       console.error("[BookingService] createBooking error:", error.message || error);
+      
+      // ✅ CRITICAL: Unlock rooms on any exception if we locked them
+      // Try to unlock rooms if bookingId exists (booking was created but something failed after)
+      if (bookingId) {
+        try {
+          const booking = await this.bookingRepo.getBookingById(bookingId);
+          if (booking && (booking.status === 'CREATED' || booking.status === 'PAID')) {
+            // Get room IDs from booking details
+            const bookingDetails = await this.bookingRepo.getBookingDetailsByBookingId(bookingId);
+            const roomIdsToUnlock = bookingDetails.length > 0 
+              ? bookingDetails.map(d => d.room_id)
+              : selectedRoomIds;
+            
+            // Cancel booking to clean up
+            await this.bookingRepo.cancelBooking(bookingId);
+            
+            // Unlock all rooms that were locked
+            if (roomIdsToUnlock.length > 0) {
+              console.log(`[BookingService] createBooking error: Unlocking ${roomIdsToUnlock.length} rooms for booking ${bookingId}`);
+              for (const roomId of roomIdsToUnlock) {
+                try {
+                  // ✅ Normalize date format
+                  const checkInDate = bookingDetails[0]?.checkin_date 
+                    ? normalizeDate(bookingDetails[0].checkin_date) 
+                    : request.checkIn;
+                  const checkOutDate = bookingDetails[0]?.checkout_date 
+                    ? normalizeDate(bookingDetails[0].checkout_date) 
+                    : request.checkOut;
+                  
+                  const unlockResult = await this.availabilityRepo.increaseAvailableRooms(
+                    roomId,
+                    checkInDate,
+                    checkOutDate,
+                    1
+                  );
+                  
+                  if (unlockResult.success && unlockResult.affectedRows > 0) {
+                    console.log(`✅ [BookingService] createBooking error: Unlocked room ${roomId}, affectedRows: ${unlockResult.affectedRows}`);
+                  } else {
+                    console.error(`⚠️ [BookingService] createBooking error: Failed to unlock room ${roomId}, affectedRows: ${unlockResult.affectedRows}`);
+                  }
+                } catch (unlockError: any) {
+                  console.error(`❌ [BookingService] createBooking error: Error unlocking room ${roomId}:`, unlockError.message);
+                }
+              }
+            }
+          }
+        } catch (unlockError: any) {
+          console.error("[BookingService] Failed to unlock rooms on error:", unlockError.message);
+        }
+      } else if (selectedRoomIds.length > 0) {
+        // ✅ If no bookingId but we locked rooms, unlock them
+        console.log(`[BookingService] createBooking error: Unlocking ${selectedRoomIds.length} rooms (no bookingId)`);
+        try {
+          for (const roomId of selectedRoomIds) {
+            try {
+              const unlockResult = await this.availabilityRepo.increaseAvailableRooms(
+                roomId,
+                request.checkIn,
+                request.checkOut,
+                1
+              );
+              
+              if (unlockResult.success && unlockResult.affectedRows > 0) {
+                console.log(`✅ [BookingService] createBooking error: Unlocked room ${roomId}, affectedRows: ${unlockResult.affectedRows}`);
+              } else {
+                console.error(`⚠️ [BookingService] createBooking error: Failed to unlock room ${roomId}, affectedRows: ${unlockResult.affectedRows}`);
+              }
+            } catch (unlockError: any) {
+              console.error(`❌ [BookingService] createBooking error: Error unlocking room ${roomId}:`, unlockError.message);
+            }
+          }
+        } catch (unlockError: any) {
+          console.error("[BookingService] Failed to unlock rooms on error:", unlockError.message);
+        }
+      }
+      
       return {
         success: false,
         message: error.message || "Lỗi khi tạo booking"
@@ -939,13 +1065,29 @@ export class BookingService {
 
       // Release phòng - tăng lại availability cho tất cả phòng
       const bookingDetails = await this.bookingRepo.getBookingDetailsByBookingId(bookingId);
+      console.log(`[BookingService] cancelBooking: Unlocking rooms for booking ${bookingId}, found ${bookingDetails.length} details`);
+      
       for (const detail of bookingDetails) {
-        await this.availabilityRepo.increaseAvailableRooms(
-          detail.room_id,
-          detail.checkin_date,
-          detail.checkout_date,
-          1
-        );
+        try {
+          // ✅ Normalize date format để đảm bảo đúng format YYYY-MM-DD
+          const checkInDate = normalizeDate(detail.checkin_date);
+          const checkOutDate = normalizeDate(detail.checkout_date);
+          
+          const unlockResult = await this.availabilityRepo.increaseAvailableRooms(
+            detail.room_id,
+            checkInDate,
+            checkOutDate,
+            1
+          );
+          
+          if (unlockResult.success && unlockResult.affectedRows > 0) {
+            console.log(`✅ [BookingService] Unlocked room ${detail.room_id} for dates ${checkInDate} to ${checkOutDate}, affectedRows: ${unlockResult.affectedRows}`);
+          } else {
+            console.error(`⚠️ [BookingService] Failed to unlock room ${detail.room_id} for dates ${checkInDate} to ${checkOutDate}. affectedRows: ${unlockResult.affectedRows}. Check if room_price_schedule record exists!`);
+          }
+        } catch (unlockError: any) {
+          console.error(`❌ [BookingService] Error unlocking room ${detail.room_id}:`, unlockError.message);
+        }
       }
 
       return {

@@ -360,7 +360,7 @@ export default function BookingStep2({
         <label className="flex items-start gap-3 cursor-pointer">
           <input type="checkbox" className="mt-1" />
           <p className="text-xs text-gray-600">
-            Tôi đồng ý nhận thông tin cập nhật và chương trình khuyến mại về Agoda và các chi nhánh hoặc đối tác kinh doanh của Agoda thông qua nhiều kênh, bao gồm WhatsApp. Có thể ngừng nhận thông tin bất cứ lúc nào. Đọc thêm trong{' '}
+            Tôi đồng ý nhận thông tin cập nhật và chương trình khuyến mại về HomeStay và các chi nhánh hoặc đối tác kinh doanh của HomeStay thông qua nhiều kênh, bao gồm WhatsApp. Có thể ngừng nhận thông tin bất cứ lúc nào. Đọc thêm trong{' '}
             <a href="#" className="text-blue-600 hover:underline">Chính sách Quyền riêng tư</a>.
           </p>
         </label>
@@ -371,7 +371,7 @@ export default function BookingStep2({
         <p className="text-xs text-gray-600 mb-4">
           Thực hiện bước tiếp theo đồng nghĩa với việc quý khách chấp nhận tuân theo{' '}
           <a href="#" className="text-blue-600 hover:underline">Điều khoản Sử dụng</a> và{' '}
-          <a href="#" className="text-blue-600 hover:underline">Chính sách Quyền riêng tư</a> của Agoda.
+          <a href="#" className="text-blue-600 hover:underline">Chính sách Quyền riêng tư</a> của HomeStay.
         </p>
       </div>
 

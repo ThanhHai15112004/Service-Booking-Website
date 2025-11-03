@@ -15,7 +15,8 @@ export interface CreateTemporaryBookingRequest {
   hotelId: string;
   roomTypeId: string;        
   checkIn: string;          
-  checkOut: string;     
+  checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   rooms: number;           
   adults: number;
   children?: number;
@@ -27,7 +28,8 @@ export interface CreateBookingRequest {
   roomId?: string;          
   roomTypeId?: string;       
   checkIn: string;          
-  checkOut: string;         
+  checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   rooms: number;            
   adults: number;
   children?: number;

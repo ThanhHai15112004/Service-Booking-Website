@@ -7,6 +7,14 @@ import { RoomType } from "../../models/Hotel/roomType.model";
 export class AvailabilityRepository {
   // Hàm lấy phòng trống theo loại phòng (aggregate từ nhiều phòng)
   async getRoomTypeAvailability(roomTypeId: string, startDate: string, endDate: string) {
+    // ✅ Auto-detect dayuse: if startDate === endDate, it's dayuse
+    const isDayuse = startDate === endDate;
+    
+    // ✅ Build date condition based on stay type
+    const dateCondition = isDayuse
+      ? { [Op.eq]: startDate } // Dayuse: date = startDate
+      : { [Op.gte]: startDate, [Op.lt]: endDate }; // Overnight: date >= startDate AND date < endDate
+
     return await RoomPriceSchedule.findAll({
       include: [
         {
@@ -44,10 +52,7 @@ export class AvailabilityRepository {
         [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('room.room_id'))), 'totalRooms']
       ],
       where: {
-        date: {
-          [Op.gte]: startDate,
-          [Op.lt]: endDate
-        }
+        date: dateCondition // ✅ Use dynamic date condition
       },
       group: [
         sequelize.col('room.roomType.room_type_id'),
@@ -62,42 +67,87 @@ export class AvailabilityRepository {
 
   // Hàm lấy danh sách phòng còn trống (để system pick khi booking)
   async getAvailableRoomsInType(roomTypeId: string, startDate: string, endDate: string, roomsNeeded: number = 1) {
-    const sql = `
-      SELECT 
-        r.room_id,
-        r.room_number,
-        MIN(rps.available_rooms) as minAvailable,
-        COUNT(DISTINCT rps.date) as daysWithData,
-        DATEDIFF(?, ?) as requiredDays
-      FROM room r
-      INNER JOIN room_price_schedule rps ON rps.room_id = r.room_id
-      WHERE r.room_type_id = ?
-        AND r.status = 'ACTIVE'
-        AND rps.date >= ?
-        AND rps.date < ?
-      GROUP BY r.room_id, r.room_number
-      HAVING MIN(rps.available_rooms) >= 1
-        AND COUNT(DISTINCT rps.date) = DATEDIFF(?, ?)
-      ORDER BY r.room_number ASC
-      LIMIT ?
-    `;
+    // ✅ Auto-detect dayuse
+    const isDayuse = startDate === endDate;
     
-    const results = await sequelize.query(sql, {
-      replacements: [endDate, startDate, roomTypeId, startDate, endDate, endDate, startDate, roomsNeeded],
-      type: QueryTypes.SELECT
-    }) as any[];
-    
-    return results.map((row: any) => ({
-      room_id: row.room_id,
-      roomId: row.room_id,
-      room_number: row.room_number,
-      roomNumber: row.room_number,
-      minAvailable: parseInt(row.minAvailable) || 0
-    }));
+    if (isDayuse) {
+      // ✅ Dayuse: simplified query with literal values
+      const sql = `
+        SELECT 
+          r.room_id,
+          r.room_number,
+          MIN(rps.available_rooms) as minAvailable,
+          COUNT(DISTINCT rps.date) as daysWithData,
+          1 as requiredDays
+        FROM room r
+        INNER JOIN room_price_schedule rps ON rps.room_id = r.room_id
+        WHERE r.room_type_id = ?
+          AND r.status = 'ACTIVE'
+          AND rps.date = ?
+        GROUP BY r.room_id, r.room_number
+        HAVING MIN(rps.available_rooms) >= 1
+          AND COUNT(DISTINCT rps.date) = 1
+        ORDER BY r.room_number ASC
+        LIMIT ?
+      `;
+      
+      const results = await sequelize.query(sql, {
+        replacements: [roomTypeId, startDate, roomsNeeded],
+        type: QueryTypes.SELECT
+      }) as any[];
+      
+      return results.map((row: any) => ({
+        room_id: row.room_id,
+        roomId: row.room_id,
+        room_number: row.room_number,
+        roomNumber: row.room_number,
+        minAvailable: parseInt(row.minAvailable) || 0
+      }));
+    } else {
+      // ✅ Overnight: original query with date range
+      const sql = `
+        SELECT 
+          r.room_id,
+          r.room_number,
+          MIN(rps.available_rooms) as minAvailable,
+          COUNT(DISTINCT rps.date) as daysWithData,
+          DATEDIFF(?, ?) as requiredDays
+        FROM room r
+        INNER JOIN room_price_schedule rps ON rps.room_id = r.room_id
+        WHERE r.room_type_id = ?
+          AND r.status = 'ACTIVE'
+          AND rps.date >= ?
+          AND rps.date < ?
+        GROUP BY r.room_id, r.room_number
+        HAVING MIN(rps.available_rooms) >= 1
+          AND COUNT(DISTINCT rps.date) = DATEDIFF(?, ?)
+        ORDER BY r.room_number ASC
+        LIMIT ?
+      `;
+      
+      const results = await sequelize.query(sql, {
+        replacements: [endDate, startDate, roomTypeId, startDate, endDate, endDate, startDate, roomsNeeded],
+        type: QueryTypes.SELECT
+      }) as any[];
+      
+      return results.map((row: any) => ({
+        room_id: row.room_id,
+        roomId: row.room_id,
+        room_number: row.room_number,
+        roomNumber: row.room_number,
+        minAvailable: parseInt(row.minAvailable) || 0
+      }));
+    }
   }
 
   // Hàm check theo room_id cụ thể (legacy - backward compatibility)
   async getRoomDailyAvailability(roomId: string, startDate: string, endDate: string) {
+    // ✅ Handle dayuse vs overnight
+    const isDayuse = startDate === endDate;
+    const dateCondition = isDayuse
+      ? { [Op.eq]: startDate }
+      : { [Op.gte]: startDate, [Op.lt]: endDate };
+
     return await RoomPriceSchedule.findAll({
       include: [
         {
@@ -131,10 +181,7 @@ export class AvailabilityRepository {
       ],
       where: {
         room_id: roomId,
-        date: {
-          [Op.gte]: startDate,
-          [Op.lt]: endDate
-        }
+        date: dateCondition
       },
       order: [['date', 'ASC']],
       raw: true,
@@ -186,6 +233,12 @@ export class AvailabilityRepository {
     endDate: string,
     roomsCount: number = 1
   ): Promise<{ success: boolean; affectedRows: number }> {
+    // ✅ Auto-detect dayuse
+    const isDayuse = startDate === endDate;
+    const dateCondition = isDayuse
+      ? { [Op.eq]: startDate }
+      : { [Op.gte]: startDate, [Op.lt]: endDate };
+    
     const [affectedCount] = await RoomPriceSchedule.update(
       {
         available_rooms: sequelize.literal(`available_rooms - ${roomsCount}`)
@@ -193,10 +246,7 @@ export class AvailabilityRepository {
       {
         where: {
           room_id: roomId,
-          date: {
-            [Op.gte]: startDate,
-            [Op.lt]: endDate
-          },
+          date: dateCondition, // ✅ Use dynamic date condition
           available_rooms: {
             [Op.gte]: roomsCount
           }
@@ -218,6 +268,12 @@ export class AvailabilityRepository {
     endDate: string,
     roomsCount: number = 1
   ): Promise<{ success: boolean; affectedRows: number }> {
+    // ✅ Auto-detect dayuse
+    const isDayuse = startDate === endDate;
+    const dateCondition = isDayuse
+      ? { [Op.eq]: startDate }
+      : { [Op.gte]: startDate, [Op.lt]: endDate };
+      
     const [affectedCount] = await RoomPriceSchedule.update(
       {
         available_rooms: sequelize.literal(`available_rooms + ${roomsCount}`)
@@ -225,10 +281,7 @@ export class AvailabilityRepository {
       {
         where: {
           room_id: roomId,
-          date: {
-            [Op.gte]: startDate,
-            [Op.lt]: endDate
-          }
+          date: dateCondition, // ✅ Use dynamic date condition
         },
         hooks: false
       }

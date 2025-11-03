@@ -47,7 +47,8 @@ export class BookingValidator {
   }
 
   // Validate date format and logic
-  static validateDates(checkIn: string, checkOut: string): ValidationResult<{ checkIn: Date; checkOut: Date }> {
+  // Validate dates
+  static validateDates(checkIn: string, checkOut: string, stayType?: 'overnight' | 'dayuse'): ValidationResult<{ checkIn: Date; checkOut: Date }> {
     // Check format YYYY-MM-DD
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(checkIn)) {
@@ -75,15 +76,25 @@ export class BookingValidator {
       return { valid: false, message: "Check-in date không được là ngày quá khứ" };
     }
 
-    // Check-out phải sau check-in
-    if (checkOutDate <= checkInDate) {
-      return { valid: false, message: "Check-out date phải sau check-in date" };
-    }
+    // ✅ FIX: Với dayuse, cho phép checkIn = checkOut
+    const isDayuse = stayType === 'dayuse' || checkIn === checkOut;
+    
+    if (isDayuse) {
+      // Dayuse: checkIn phải bằng checkOut
+      if (checkInDate.getTime() !== checkOutDate.getTime()) {
+        return { valid: false, message: "Dayuse: Check-in và check-out phải cùng ngày" };
+      }
+    } else {
+      // Overnight: Check-out phải sau check-in
+      if (checkOutDate <= checkInDate) {
+        return { valid: false, message: "Check-out date phải sau check-in date" };
+      }
 
-    // Không cho phép đặt quá 30 ngày
-    const daysDiff = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 30) {
-      return { valid: false, message: "Không thể đặt phòng quá 30 ngày" };
+      // Không cho phép đặt quá 30 ngày
+      const daysDiff = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 30) {
+        return { valid: false, message: "Không thể đặt phòng quá 30 ngày" };
+      }
     }
 
     return {
@@ -233,7 +244,7 @@ export class BookingValidator {
     }
 
     // Validate dates
-    const datesValidation = this.validateDates(request.checkIn, request.checkOut);
+    const datesValidation = this.validateDates(request.checkIn, request.checkOut, request.stayType);
     if (!datesValidation.valid) {
       return { valid: false, message: datesValidation.message };
     }

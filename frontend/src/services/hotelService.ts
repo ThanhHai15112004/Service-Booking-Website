@@ -150,6 +150,7 @@ export const getFeaturedHotels = async (params?: {
 export const getHotelDetail = async (hotelId: string, params: {
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   adults?: number;
   children?: number;
   rooms?: number;
@@ -161,6 +162,7 @@ export const getHotelDetail = async (hotelId: string, params: {
       params: {
         checkIn: params.checkIn,
         checkOut: params.checkOut,
+        stayType: params.stayType || 'overnight', // ✅ Gửi stayType
         adults: params.adults || 2,
         children: params.children || 0,
         rooms: params.rooms || 1
@@ -229,12 +231,17 @@ export const getSimilarHotelsInCity = async (params: {
   excludeHotelId: string;
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType param
   guests: number;
   rooms: number;
   children: number;
   limit?: number;
 }) => {
   try {
+    // ✅ Auto-detect stayType nếu không được cung cấp
+    const isDayuse = params.checkIn === params.checkOut;
+    const detectedStayType = params.stayType || (isDayuse ? 'dayuse' : 'overnight');
+    
     const beParams: any = {
       q: params.city,
       adults: params.guests,
@@ -242,7 +249,7 @@ export const getSimilarHotelsInCity = async (params: {
       children: params.children,
       checkin: params.checkIn,
       checkout: params.checkOut,
-      stayType: 'overnight', // ✅ Required by backend validator
+      stayType: detectedStayType, // ✅ Use detected or provided stayType
       limit: params.limit || 12,
     };
 

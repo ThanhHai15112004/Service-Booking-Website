@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
+import { BOOKING_EXPIRATION_MINUTES } from '../../config/booking.constants';
 
 interface BookingHeaderProps {
   currentStep?: number;
@@ -8,9 +9,14 @@ interface BookingHeaderProps {
 
 export default function BookingHeader({ 
   currentStep = 1, 
-  countdownSeconds = 1200 // 20 phút
+  countdownSeconds = BOOKING_EXPIRATION_MINUTES * 60 // Match với backend constant
 }: BookingHeaderProps) {
   const [timeLeft, setTimeLeft] = useState(countdownSeconds);
+
+  // ✅ Sync with prop when countdownSeconds changes
+  useEffect(() => {
+    setTimeLeft(countdownSeconds);
+  }, [countdownSeconds]);
 
   useEffect(() => {
     const timer = setInterval(() => {

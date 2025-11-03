@@ -20,18 +20,19 @@ import { HotelDetail, HotelHighlight, Room, RoomFiltersState, FilterCounts } fro
 import { getFacilities, getPolicies, Facility, Policy } from '../../services/filterService';
 
 interface HotelMainContentProps {
-  hotel: HotelDetail | null;
+  hotel: HotelDetail;
   highlights: HotelHighlight[];
   availableRooms: Room[];
   checkIn: string;
   checkOut: string;
-  guests: number;        // Thêm số khách
-  rooms: number;         // Thêm số phòng
-  children?: number;     // ✅ Thêm children prop
-  hotelImages?: string[]; // Ảnh khách sạn
+  stayType: 'overnight' | 'dayuse'; // ✅ Add stayType
+  guests: number;
+  rooms: number;
+  children: number;
+  hotelImages: string[]; // ✅ Fix type to string[]
   roomFilters: RoomFiltersState;
   onRoomFiltersChange: (filters: RoomFiltersState) => void;
-  onSelectRoom?: (room: Room, paymentMethod: 'payNow' | 'payLater') => void;
+  onSelectRoom: (room: Room, paymentMethod: "payNow" | "payLater") => void;
 }
 
 export default function HotelMainContent({ 
@@ -40,6 +41,7 @@ export default function HotelMainContent({
   availableRooms,
   checkIn,
   checkOut,
+  stayType, // ✅ Add stayType destructuring
   guests,
   rooms,
   children = 0,
@@ -345,6 +347,7 @@ export default function HotelMainContent({
               currentHotelId={hotel.hotelId}
               checkIn={checkIn}
               checkOut={checkOut}
+              stayType={stayType} // ✅ Pass stayType to HotelSlider
               guests={guests}
               rooms={rooms}
               children={children}

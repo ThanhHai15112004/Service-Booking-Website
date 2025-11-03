@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSearch } from '../../contexts/SearchContext';
+import { BOOKING_EXPIRATION_MINUTES } from '../../config/booking.constants';
 import {
   BookingSummary,
   BookingSuccess,
+  BookingFailure,
   BookingHeader,
   BookingStep1,
   BookingStep2
 } from '../../components/BookingPage';
 import { getHotelDetail } from '../../services/hotelService';
-import { createBooking, createTemporaryBooking, cancelBooking, checkBookingExists, confirmBooking, CreateBookingRequest } from '../../services/bookingService';
+import { createBooking, createTemporaryBooking, cancelBooking, checkBookingExists, confirmBooking, CreateBookingRequest, getBookingById } from '../../services/bookingService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfile } from '../../services/profileService';
 
@@ -28,6 +30,7 @@ export default function BookingPage() {
   // Get search params from URL or SearchContext
   const checkIn = searchParams.get('checkIn') || contextSearchParams.checkIn;
   const checkOut = searchParams.get('checkOut') || contextSearchParams.checkOut;
+  const stayType = (searchParams.get('stayType') as 'overnight' | 'dayuse') || 'overnight'; // ✅ Get stayType
   const guests = parseInt(searchParams.get('guests') || contextSearchParams.adults.toString() || '2');
   const rooms = parseInt(searchParams.get('rooms') || contextSearchParams.rooms.toString() || '1');
   const children = parseInt(searchParams.get('children') || contextSearchParams.children.toString() || '0');
@@ -64,6 +67,9 @@ export default function BookingPage() {
 
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingConfirmation, setBookingConfirmation] = useState<any>(null);
+  const [bookingFailed, setBookingFailed] = useState(false);
+  const [bookingFailureMessage, setBookingFailureMessage] = useState<string>('');
+  const [failedBookingId, setFailedBookingId] = useState<string | null>(null);
   
   // ✅ Temporary booking state (CREATED status)
   // ✅ Restore from localStorage on mount to persist on reload
@@ -89,11 +95,19 @@ export default function BookingPage() {
       const remaining = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
       return remaining;
     }
-    return 20 * 60; // Default 20 minutes
+    return BOOKING_EXPIRATION_MINUTES * 60; // Default (match với backend constant)
   });
   
   // ✅ Flag to prevent duplicate API calls (useRef to avoid infinite loop)
   const isCreatingTemporaryBookingRef = useRef(false);
+
+  // ✅ Rehydrated booking totals from backend (prevents price = 0 on reload)
+  const [rehydratedTotals, setRehydratedTotals] = useState<{
+    subtotal: number;
+    tax: number;
+    total: number;
+    nights: number;
+  } | null>(null);
 
   // ✅ Auto-fill guest information from account if user is logged in
   // Fetch full profile from API to get phone_number from database
@@ -261,6 +275,7 @@ export default function BookingPage() {
           const response = await getHotelDetail(hotelIdToFetch, {
             checkIn,
             checkOut,
+            stayType, // ✅ Pass stayType to API
             adults: guests,
             rooms,
             children
@@ -285,6 +300,7 @@ export default function BookingPage() {
           const hotelDetailResponse = await getHotelDetail(hotelIdToFetch || actualHotelId || '', {
             checkIn,
             checkOut,
+            stayType, // ✅ Pass stayType here too
             adults: guests,
             rooms,
             children
@@ -388,11 +404,24 @@ export default function BookingPage() {
             
             // ✅ Validate booking status - only restore if status is CREATED
             if (booking.status === 'CREATED') {
-              // Booking still valid, restore from localStorage
-              // ⏰ Timer NOT reset - keeps remaining time
-              setTemporaryBookingId(existingBookingId);
-              setBookingExpiresAt(expiresAtDate);
-              return true; // ✅ Booking restored successfully
+              // ✅ Calculate expiresAt from backend created_at (BOOKING_EXPIRATION_MINUTES from creation)
+              // This ensures we use the correct expiration time even if localStorage has old value
+              const createdDate = new Date(booking.created_at);
+              const recalculatedExpiresAt = new Date(createdDate.getTime() + BOOKING_EXPIRATION_MINUTES * 60 * 1000);
+              
+              // ✅ Only restore if booking hasn't expired yet
+              if (recalculatedExpiresAt > now) {
+                setTemporaryBookingId(existingBookingId);
+                setBookingExpiresAt(recalculatedExpiresAt);
+                // ✅ Update localStorage with correct expiresAt
+                localStorage.setItem('temporaryBookingExpiresAt', recalculatedExpiresAt.toISOString());
+                return true; // ✅ Booking restored successfully
+              } else {
+                // ✅ Booking expired according to backend, clear localStorage
+                localStorage.removeItem('temporaryBookingId');
+                localStorage.removeItem('temporaryBookingExpiresAt');
+                return false;
+              }
             } else {
               // Booking status changed (not CREATED), clear localStorage
               localStorage.removeItem('temporaryBookingId');
@@ -449,6 +478,7 @@ export default function BookingPage() {
           roomTypeId: actualRoomTypeId!,
           checkIn: checkIn,
           checkOut: checkOut,
+          stayType: stayType, // ✅ Pass stayType
           rooms: rooms,
           adults: guests,
           children: children || undefined
@@ -481,6 +511,33 @@ export default function BookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualRoomTypeId, checkIn, checkOut, rooms, guests, children, hotel, room, bookingComplete]);
 
+  // ✅ Rehydrate booking summary from backend when we have a temporaryBookingId (Step 2 reload safe)
+  useEffect(() => {
+    const rehydrate = async () => {
+      if (!temporaryBookingId) return;
+      const res = await getBookingById(temporaryBookingId);
+      if (res.success && res.data) {
+        const b = res.data;
+        // Prefer backend totals
+        const subtotalNum = Number(b.subtotal || 0);
+        const taxNum = Number(b.tax_amount || 0);
+        const totalNum = Number(b.total_amount || subtotalNum + taxNum);
+        const nightsNum = Number(b.nights_count || 0);
+        setRehydratedTotals({ subtotal: subtotalNum, tax: taxNum, total: totalNum, nights: nightsNum });
+        // Sync dates if missing
+        if (!bookingData.checkIn || !bookingData.checkOut) {
+          setBookingData(prev => ({
+            ...prev,
+            checkIn: (b.checkin_date || prev.checkIn),
+            checkOut: (b.checkout_date || prev.checkOut)
+          }));
+        }
+      }
+    };
+    rehydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [temporaryBookingId]);
+
   // ✅ Sync timeRemaining when bookingExpiresAt changes (e.g., restored from localStorage)
   useEffect(() => {
     if (bookingExpiresAt && !bookingComplete) {
@@ -491,7 +548,7 @@ export default function BookingPage() {
     }
   }, [bookingExpiresAt, bookingComplete]);
 
-  // ✅ 20-minute countdown timer
+  // ✅ 2-minute countdown timer (sync với backend constant)
   useEffect(() => {
     if (!temporaryBookingId || !bookingExpiresAt || bookingComplete) return;
 
@@ -520,16 +577,29 @@ export default function BookingPage() {
       await cancelBooking(temporaryBookingId);
       
       // ✅ Clear localStorage
+      const expiredBookingId = temporaryBookingId; // Save before clearing
       localStorage.removeItem('temporaryBookingId');
       localStorage.removeItem('temporaryBookingExpiresAt');
       
       setTemporaryBookingId(null);
       setBookingExpiresAt(null);
       
-      alert('Booking đã hết hạn (20 phút). Vui lòng đặt lại.');
-      navigate(-1); // Go back
+      // ✅ Show booking failure page instead of alert
+      setFailedBookingId(expiredBookingId);
+      setBookingFailed(true);
+      setBookingFailureMessage('Booking đã hết hạn do quá thời gian giữ chỗ. Vui lòng đặt lại.');
     } catch (error) {
       console.error('Error canceling expired booking:', error);
+      // ✅ Still show failure page even if cancel fails
+      const expiredBookingId = temporaryBookingId; // Save before potential state changes
+      setFailedBookingId(expiredBookingId);
+      setBookingFailed(true);
+      setBookingFailureMessage('Booking đã hết hạn do quá thời gian giữ chỗ. Vui lòng đặt lại.');
+      // Clear state even if cancel API fails
+      setTemporaryBookingId(null);
+      setBookingExpiresAt(null);
+      localStorage.removeItem('temporaryBookingId');
+      localStorage.removeItem('temporaryBookingExpiresAt');
     }
   };
 
@@ -542,7 +612,7 @@ export default function BookingPage() {
   // 
   // ✅ SOLUTION: KHÔNG cancel trong beforeunload
   // - localStorage giữ booking để user có thể resume
-  // - Timer frontend tự động cancel khi hết 20 phút
+  // - Timer frontend tự động cancel khi hết thời gian (2 phút)
   // - Backend có thể có cron job để cleanup expired bookings
   useEffect(() => {
     if (!temporaryBookingId || bookingComplete) return;
@@ -550,7 +620,7 @@ export default function BookingPage() {
     const handleBeforeUnload = () => {
       // ✅ KHÔNG cancel booking khi user refresh hoặc navigate
       // localStorage giữ booking, user có thể resume
-      // Timer sẽ tự động cancel khi hết thời gian (20 phút)
+      // Timer sẽ tự động cancel khi hết thời gian (2 phút)
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -570,10 +640,18 @@ export default function BookingPage() {
     return nights > 0 ? nights : 0;
   };
 
-  const nights = calculateNights();
+  const nights = rehydratedTotals?.nights ?? calculateNights();
   
   // ✅ Calculate price using useMemo to prevent infinite re-renders
   const { subtotal, tax, total } = useMemo(() => {
+    // Prefer backend values if available
+    if (rehydratedTotals) {
+      return {
+        subtotal: rehydratedTotals.subtotal,
+        tax: rehydratedTotals.tax,
+        total: rehydratedTotals.total
+      };
+    }
     let basePrice = 0;
     let calculatedSubtotal = 0;
     
@@ -597,7 +675,7 @@ export default function BookingPage() {
       tax: calculatedTax,
       total: calculatedTotal
     };
-  }, [room?.totalPrice, room?.avgPricePerNight, hotel?.price_per_night, nights, bookingData.rooms]);
+  }, [rehydratedTotals, room?.totalPrice, room?.avgPricePerNight, hotel?.price_per_night, nights, bookingData.rooms]);
 
   const handleStep1Next = async () => {
     // Validate step 1
@@ -729,6 +807,7 @@ export default function BookingPage() {
         ...(actualRoomTypeId && actualRoomTypeId.startsWith('RT') ? { roomTypeId: actualRoomTypeId } : {}),
         checkIn: bookingData.checkIn,
         checkOut: bookingData.checkOut,
+        stayType: stayType, // ✅ Pass stayType
         rooms: bookingData.rooms,
         adults: bookingData.guests,
         children: bookingData.children || undefined,
@@ -822,11 +901,17 @@ export default function BookingPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 100);
       } else {
-        alert(createBookingResult.message || 'Cập nhật thông tin đặt phòng thất bại');
+        // ✅ Show failure page instead of alert
+        setFailedBookingId(temporaryBookingId);
+        setBookingFailed(true);
+        setBookingFailureMessage(createBookingResult.message || 'Cập nhật thông tin đặt phòng thất bại');
       }
     } catch (err: any) {
       console.error('Error creating booking:', err);
-      alert(err.message || 'Có lỗi xảy ra khi đặt phòng. Vui lòng thử lại.');
+      // ✅ Show failure page instead of alert
+      setFailedBookingId(temporaryBookingId);
+      setBookingFailed(true);
+      setBookingFailureMessage(err.message || 'Có lỗi xảy ra khi đặt phòng. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -860,6 +945,31 @@ export default function BookingPage() {
           >
             Quay về trang chủ
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 3: Failure
+  if (bookingFailed) {
+    return (
+      <div className="min-h-screen bg-white">
+        <BookingHeader currentStep={2} countdownSeconds={0} />
+        <div className="bg-gray-50 min-h-screen py-12">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BookingFailure
+              hotel={hotel}
+              errorMessage={bookingFailureMessage}
+              bookingId={failedBookingId || undefined}
+              checkIn={bookingData.checkIn}
+              checkOut={bookingData.checkOut}
+              roomName={room?.name || room?.room_type_name}
+              guests={bookingData.guests}
+              rooms={bookingData.rooms}
+              stayType={stayType}
+              onGoHome={() => navigate('/')}
+            />
+          </div>
         </div>
       </div>
     );
@@ -960,6 +1070,10 @@ export default function BookingPage() {
                   room={room}
                   checkIn={bookingData.checkIn}
                   checkOut={bookingData.checkOut}
+                  stayType={stayType}
+                  hotelCheckInTime={(hotel as any).checkin_time}
+                  hotelCheckOutTime={(hotel as any).checkout_time}
+                  checkInTime={bookingData.checkInTime}
                   guests={bookingData.guests}
                   rooms={bookingData.rooms}
                   children={bookingData.children}

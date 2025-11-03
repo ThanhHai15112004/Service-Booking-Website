@@ -22,6 +22,7 @@ export default function HotelDetailPage() {
     availableRooms,
     checkIn,
     checkOut,
+    stayType, // ✅ Get stayType from hook
     guests,
     rooms,
     children,
@@ -94,6 +95,7 @@ export default function HotelDetailPage() {
           availableRooms={availableRooms}
           checkIn={checkIn}
           checkOut={checkOut}
+          stayType={stayType} // ✅ Pass stayType
           guests={guests}
           rooms={rooms}
           children={children}
@@ -119,6 +121,7 @@ export default function HotelDetailPage() {
             const bookingParams = new URLSearchParams();
             bookingParams.set('checkIn', checkIn || '');
             bookingParams.set('checkOut', checkOut || '');
+            bookingParams.set('stayType', stayType || 'overnight'); // ✅ Pass stayType to booking page
             bookingParams.set('guests', guests.toString());
             bookingParams.set('rooms', rooms.toString());
             bookingParams.set('children', children.toString());

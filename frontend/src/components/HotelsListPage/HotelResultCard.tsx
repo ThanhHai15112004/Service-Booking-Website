@@ -63,7 +63,7 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
     const rooms = searchParams.get('rooms');
     const guests = searchParams.get('guests');
     const children = searchParams.get('children');
-    const stayType = searchParams.get('stayType');
+    const stayType = searchParams.get('stayType'); // ✅ Thêm stayType
 
     const queryParams = new URLSearchParams();
     if (destination) queryParams.set('destination', destination);
@@ -72,7 +72,7 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
     if (rooms) queryParams.set('rooms', rooms);
     if (guests) queryParams.set('guests', guests);
     if (children) queryParams.set('children', children);
-    if (stayType) queryParams.set('stayType', stayType);
+    if (stayType) queryParams.set('stayType', stayType); // ✅ Pass stayType
 
     const query = queryParams.toString();
     return `/hotel/${hotel.hotelId}${query ? `?${query}` : ''}`;

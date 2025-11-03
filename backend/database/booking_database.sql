@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 03, 2025 lúc 02:35 AM
+-- Thời gian đã tạo: Th10 03, 2025 lúc 11:12 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -111,6 +111,7 @@ CREATE TABLE `booking` (
 --
 
 INSERT INTO `booking` (`booking_id`, `account_id`, `hotel_id`, `status`, `subtotal`, `tax_amount`, `discount_amount`, `total_amount`, `special_requests`, `created_at`, `updated_at`) VALUES
+('BK134135945076', 'AC202510170003', 'H003', 'CONFIRMED', 1472500.00, 147250.00, 0.00, 1619750.00, NULL, '2025-11-03 08:42:15', '2025-11-03 08:44:17'),
 ('BK986948938972', 'AC202510170003', 'H001', 'CONFIRMED', 820000.00, 82000.00, 0.00, 902000.00, NULL, '2025-11-01 15:49:08', '2025-11-01 15:49:46'),
 ('BK991118464022', 'AC202510170003', 'H001', 'CONFIRMED', 1476000.00, 147600.00, 0.00, 1623600.00, NULL, '2025-11-01 16:58:38', '2025-11-01 17:02:38'),
 ('BK991493157488', 'AC202510170003', 'H001', 'CONFIRMED', 820000.00, 82000.00, 0.00, 902000.00, NULL, '2025-11-01 17:04:53', '2025-11-01 17:05:50'),
@@ -128,18 +129,19 @@ CREATE TABLE `booking_detail` (
   `booking_id` varchar(20) NOT NULL,
   `room_id` varchar(20) NOT NULL,
   `checkin_date` date NOT NULL,
-  `checkout_date` date NOT NULL CHECK (`checkout_date` > `checkin_date`),
+  `checkout_date` date NOT NULL CHECK (`checkout_date` >= `checkin_date`),
   `guests_count` smallint(6) NOT NULL CHECK (`guests_count` > 0),
   `price_per_night` decimal(12,2) NOT NULL CHECK (`price_per_night` >= 0),
   `nights_count` int(11) NOT NULL,
   `total_price` decimal(18,2) NOT NULL DEFAULT 0.00
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ;
 
 --
 -- Đang đổ dữ liệu cho bảng `booking_detail`
 --
 
 INSERT INTO `booking_detail` (`booking_detail_id`, `booking_id`, `room_id`, `checkin_date`, `checkout_date`, `guests_count`, `price_per_night`, `nights_count`, `total_price`) VALUES
+('BD134135947743', 'BK134135945076', 'R005', '2025-11-07', '2025-11-08', 3, 1472500.00, 1, 1472500.00),
 ('BD986948939574', 'BK986948938972', 'R001', '2025-11-01', '2025-11-02', 2, 820000.00, 1, 820000.00),
 ('BD991118465760', 'BK991118464022', 'R001', '2025-11-02', '2025-11-03', 5, 738000.00, 1, 738000.00),
 ('BD991118467807', 'BK991118464022', 'R002', '2025-11-02', '2025-11-03', 5, 738000.00, 1, 738000.00),
@@ -530,15 +532,15 @@ INSERT INTO `hotel_location` (`location_id`, `country`, `city`, `district`, `war
 ('LOC_DN_01', 'Vietnam', 'Đà Nẵng', 'Sơn Trà', 'Phường An Hải Bắc', 'Cầu Rồng', 16.061393, 108.225670, 0.80, 'Biểu tượng du lịch Đà Nẵng', '2025-10-17 11:51:05', 1),
 ('LOC_DN_02', 'Vietnam', 'Đà Nẵng', 'Ngũ Hành Sơn', 'Phường Mỹ An', 'Bãi biển Mỹ Khê', 16.049274, 108.249744, 4.00, 'Khu nghỉ dưỡng ven biển cao cấp', '2025-10-17 11:51:05', 1),
 ('LOC_DN_03', 'Vietnam', 'Đà Nẵng', 'Hải Châu', 'Phường Thạch Thang', 'Cầu Sông Hàn', 16.073827, 108.223419, 1.20, 'Trung tâm thành phố Đà Nẵng', '2025-10-17 11:51:05', 1),
-('LOC_DN_04', 'Vietnam', 'Đà Nẵng', NULL, NULL, NULL, 16.067800, 108.230000, 3.20, 'Thành phố du lịch ven biển', '2025-10-20 15:09:17', 1),
+('LOC_DN_04', 'Vietnam', 'Đà Nẵng', NULL, 'Võ Nguyên Giáp', '99', 16.067800, 108.230000, 3.20, 'Thành phố du lịch ven biển', '2025-10-20 15:09:17', 1),
 ('LOC_HCM_01', 'Vietnam', 'Hồ Chí Minh', 'Quận 1', 'Phường Bến Nghé', 'Nhà Thờ Đức Bà', 10.779783, 106.699018, 0.50, 'Trung tâm du lịch và tài chính của thành phố', '2025-10-17 11:51:05', 1),
 ('LOC_HCM_02', 'Vietnam', 'Hồ Chí Minh', 'Quận 1', 'Phường Bến Thành', 'Chợ Bến Thành', 10.772105, 106.698423, 0.40, 'Khu chợ và khách sạn du lịch nổi tiếng', '2025-10-17 11:51:05', 1),
 ('LOC_HCM_03', 'Vietnam', 'Hồ Chí Minh', 'Quận 3', 'Phường Võ Thị Sáu', 'Công viên Lê Văn Tám', 10.787211, 106.696539, 2.00, 'Khu vực dân cư và văn phòng', '2025-10-17 11:51:05', 1),
 ('LOC_HCM_04', 'Vietnam', 'Hồ Chí Minh', 'Quận 5', 'Phường 11', 'Chợ Lớn', 10.756547, 106.663778, 5.50, 'Khu vực người Hoa, nhiều nhà hàng và khách sạn', '2025-10-17 11:51:05', 1),
 ('LOC_HCM_05', 'Vietnam', 'Hồ Chí Minh', 'Quận 7', 'Phường Tân Phong', 'Phú Mỹ Hưng', 10.734253, 106.721085, 7.50, 'Khu đô thị cao cấp', '2025-10-17 11:51:05', 1),
-('LOC_HCM_06', 'Vietnam', 'Hồ Chí Minh', NULL, NULL, NULL, 10.776000, 106.700000, 0.50, 'Trung tâm kinh tế lớn nhất Việt Nam', '2025-10-20 15:09:17', 1),
-('LOC_HN_01', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', 'Phường Hàng Trống', 'Hồ Hoàn Kiếm', 21.028511, 105.854088, 0.30, 'Trung tâm du lịch nổi tiếng của Hà Nội', '2025-10-17 11:51:05', 1),
-('LOC_HN_02', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', 'Phường Tràng Tiền', '15 Ngô Quyền', 21.037268, 105.834438, 1.50, 'Khu vực hành chính và di tích lịch sử', '2025-10-17 11:51:05', 1),
+('LOC_HCM_06', 'Vietnam', 'Hồ Chí Minh', 'Quận 1', 'Nguyễn Huệ', '45', 10.776000, 106.700000, 0.50, 'Trung tâm kinh tế lớn nhất Việt Nam', '2025-10-20 15:09:17', 1),
+('LOC_HN_01', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', 'Hàng Bạc', '12', 21.028511, 105.854088, 0.30, 'Trung tâm du lịch nổi tiếng của Hà Nội', '2025-10-17 11:51:05', 1),
+('LOC_HN_02', 'Vietnam', 'Hà Nội', 'Hoàn Kiếm', ' Ngô Quyền', '15', 21.037268, 105.834438, 1.50, 'Khu vực hành chính và di tích lịch sử', '2025-10-17 11:51:05', 1),
 ('LOC_HN_03', 'Vietnam', 'Hà Nội', 'Cầu Giấy', 'Phường Dịch Vọng', 'Công viên Cầu Giấy', 21.033781, 105.789489, 6.00, 'Khu vực nhiều khách sạn và trung tâm thương mại', '2025-10-17 11:51:05', 1),
 ('LOC_HN_04', 'Vietnam', 'Hà Nội', 'Tây Hồ', 'Phường Quảng An', 'Hồ Tây', 21.068217, 105.818871, 5.00, 'Khu du lịch và nghỉ dưỡng ven hồ', '2025-10-17 11:51:05', 1),
 ('LOC_HN_05', 'Vietnam', 'Hà Nội', NULL, NULL, NULL, 21.009802, 105.822830, 4.00, 'Khu trung tâm mua sắm và giao thông lớn', '2025-10-17 11:51:05', 1),
@@ -603,6 +605,7 @@ CREATE TABLE `payment` (
 --
 
 INSERT INTO `payment` (`payment_id`, `booking_id`, `method`, `status`, `amount_due`, `amount_paid`, `created_at`, `updated_at`) VALUES
+('PM134144781482', 'BK134135945076', 'CASH', 'SUCCESS', 1619750.00, 1619750.00, '2025-11-03 08:42:24', '2025-11-03 08:44:17'),
 ('PM995028122250', 'BK995014929398', 'CASH', 'SUCCESS', 811800.00, 811800.00, '2025-11-01 18:03:48', '2025-11-01 18:05:51');
 
 -- --------------------------------------------------------
@@ -883,11 +886,11 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S020', 'R001', '2025-10-29', 800000.00, 10.00, 1, 1, 1, '2025-10-24 11:33:13'),
 ('S021', 'R001', '2025-10-30', 800000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
 ('S022', 'R001', '2025-10-31', 800000.00, 5.00, 1, 1, 1, '2025-10-24 11:33:13'),
-('S023', 'R001', '2025-11-01', 820000.00, 0.00, 0, 1, 1, '2025-10-24 11:33:13'),
-('S024', 'R001', '2025-11-02', 820000.00, 10.00, 0, 1, 1, '2025-10-24 11:33:13'),
-('S025', 'R001', '2025-11-03', 820000.00, 0.00, 0, 1, 1, '2025-10-24 11:33:13'),
-('S026', 'R001', '2025-11-04', 820000.00, 0.00, 0, 1, 1, '2025-10-24 11:33:13'),
-('S027', 'R001', '2025-11-05', 820000.00, 10.00, 0, 1, 1, '2025-10-24 11:33:13'),
+('S023', 'R001', '2025-11-01', 820000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
+('S024', 'R001', '2025-11-02', 820000.00, 10.00, 1, 1, 1, '2025-10-24 11:33:13'),
+('S025', 'R001', '2025-11-03', 820000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
+('S026', 'R001', '2025-11-04', 820000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
+('S027', 'R001', '2025-11-05', 820000.00, 10.00, 1, 1, 1, '2025-10-24 11:33:13'),
 ('S028', 'R001', '2025-11-06', 820000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
 ('S029', 'R001', '2025-11-07', 820000.00, 5.00, 1, 1, 1, '2025-10-24 11:33:13'),
 ('S030', 'R001', '2025-11-08', 820000.00, 0.00, 1, 1, 1, '2025-10-24 11:33:13'),
@@ -910,9 +913,9 @@ INSERT INTO `room_price_schedule` (`schedule_id`, `room_id`, `date`, `base_price
 ('S048', 'R002', '2025-10-30', 950000.00, 0.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S049', 'R002', '2025-10-31', 950000.00, 5.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S050', 'R002', '2025-11-01', 970000.00, 0.00, 1, 1, 1, '2025-10-24 11:34:05'),
-('S051', 'R002', '2025-11-02', 970000.00, 5.00, 0, 1, 1, '2025-10-24 11:34:05'),
+('S051', 'R002', '2025-11-02', 970000.00, 5.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S052', 'R002', '2025-11-03', 970000.00, 0.00, 1, 1, 1, '2025-10-24 11:34:05'),
-('S053', 'R002', '2025-11-04', 970000.00, 0.00, 0, 1, 1, '2025-10-24 11:34:05'),
+('S053', 'R002', '2025-11-04', 970000.00, 0.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S054', 'R002', '2025-11-05', 970000.00, 5.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S055', 'R002', '2025-11-06', 970000.00, 0.00, 1, 1, 1, '2025-10-24 11:34:05'),
 ('S056', 'R002', '2025-11-07', 970000.00, 5.00, 1, 1, 1, '2025-10-24 11:34:05'),
@@ -1353,3 +1356,7 @@ ALTER TABLE `room_price_schedule`
 ALTER TABLE `room_type`
   ADD CONSTRAINT `FK_roomtype_hotel` FOREIGN KEY (`hotel_id`) REFERENCES `hotel` (`hotel_id`) ON DELETE CASCADE;
 COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

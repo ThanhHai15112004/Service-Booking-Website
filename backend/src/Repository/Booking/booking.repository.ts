@@ -6,6 +6,7 @@ import {
   BookingStatus
 } from "../../models/Booking/booking.model";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import { BOOKING_EXPIRATION_MINUTES } from "../../config/booking.constants";
 
 export class BookingRepository {
   // Hàm generate booking ID
@@ -20,6 +21,30 @@ export class BookingRepository {
     const timestamp = Date.now().toString();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `BD${timestamp.slice(-9)}${random}`;
+  }
+
+  // Lấy booking CREATED còn hiệu lực (< BOOKING_EXPIRATION_MINUTES phút) theo account
+  async getActiveTemporaryBookingByAccount(accountId: string): Promise<any | null> {
+    const sql = `
+      SELECT b.*, MIN(bd.checkin_date) AS checkin_date, MAX(bd.checkout_date) AS checkout_date
+      FROM booking b
+      LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
+      WHERE b.account_id = ?
+        AND b.status IN ('CREATED','PAID')
+        AND TIMESTAMPDIFF(MINUTE, b.created_at, NOW()) <= ?
+      GROUP BY b.booking_id
+      ORDER BY b.created_at DESC
+      LIMIT 1
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.query(sql, [accountId, BOOKING_EXPIRATION_MINUTES]);
+      const list = rows as RowDataPacket[];
+      return list.length > 0 ? list[0] : null;
+    } finally {
+      conn.release();
+    }
   }
 
   // Hàm generate booking code cho khách hàng
@@ -90,6 +115,14 @@ export class BookingRepository {
     checkOut: string,
     roomsCount: number
   ): Promise<BookingPriceCalculation | null> {
+    // ✅ Auto-detect dayuse
+    const isDayuse = checkIn === checkOut;
+    
+    // ✅ Build SQL query based on stay type
+    const dateCondition = isDayuse
+      ? 'AND CAST(rps.date AS DATE) = ?'
+      : 'AND CAST(rps.date AS DATE) >= ? AND CAST(rps.date AS DATE) < ?';
+    
     const sql = `
       SELECT
         DATE_FORMAT(rps.date, '%Y-%m-%d') as date,
@@ -98,14 +131,18 @@ export class BookingRepository {
         (rps.base_price * (1 - rps.discount_percent / 100)) as finalPrice
       FROM room_price_schedule rps
       WHERE rps.room_id = ?
-        AND CAST(rps.date AS DATE) >= ?
-        AND CAST(rps.date AS DATE) < ?
+        ${dateCondition}
       ORDER BY rps.date ASC
     `;
 
     const conn = await pool.getConnection();
     try {
-      const [rows] = await conn.query(sql, [roomId, checkIn, checkOut]);
+      // ✅ Build query params based on stay type
+      const queryParams = isDayuse
+        ? [roomId, checkIn]
+        : [roomId, checkIn, checkOut];
+        
+      const [rows] = await conn.query(sql, queryParams);
       const priceData = rows as RowDataPacket[];
       
       if (priceData.length === 0) {
@@ -218,12 +255,20 @@ export class BookingRepository {
         h.name as hotel_name,
         h.address as hotel_address,
         h.phone_number as hotel_phone,
+        h.email as hotel_email,
+        h.main_image as hotel_main_image,
         bd.room_id,
         bd.checkin_date,
         bd.checkout_date,
         bd.guests_count,
         bd.nights_count,
+        r.room_number,
+        r.capacity as room_capacity,
+        r.image_url as room_image_url,
         rt.name as room_type_name,
+        rt.room_type_id,
+        rt.bed_type,
+        rt.area as room_area,
         CONCAT('BK', LPAD(b.booking_id, 8, '0')) as booking_code
       FROM booking b
       JOIN hotel h ON h.hotel_id = b.hotel_id
@@ -231,6 +276,7 @@ export class BookingRepository {
       LEFT JOIN room r ON r.room_id = bd.room_id
       LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
       WHERE b.booking_id = ?
+      LIMIT 1
     `;
 
     const conn = await pool.getConnection();

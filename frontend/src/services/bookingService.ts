@@ -6,6 +6,7 @@ export interface CreateTemporaryBookingRequest {
   roomTypeId: string;
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   rooms: number;
   adults: number;
   children?: number;
@@ -18,6 +19,7 @@ export interface CreateBookingRequest {
   roomTypeId?: string; // ✅ Backend supports auto-selecting room if roomTypeId is provided
   checkIn: string;
   checkOut: string;
+  stayType?: 'overnight' | 'dayuse'; // ✅ Thêm stayType
   rooms: number;
   adults: number;
   children?: number;
@@ -96,6 +98,8 @@ export const createTemporaryBooking = async (request: CreateTemporaryBookingRequ
     return res.data;
   } catch (error: any) {
     console.error('❌ Error creating temporary booking:', error);
+    console.error('❌ Error response:', error.response?.data); // ✅ Log backend error message
+    console.error('❌ Error message:', error.response?.data?.message); // ✅ Log specific message
     
     if (error.response?.status === 401) {
       return {
@@ -133,6 +137,41 @@ export const checkBookingExists = async (bookingId: string): Promise<{
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Không thể kiểm tra booking'
+    };
+  }
+};
+
+// ✅ Lấy danh sách bookings của user
+export const getMyBookings = async (): Promise<{
+  success: boolean;
+  data?: any[];
+  message?: string;
+}> => {
+  try {
+    const res = await api.get('/api/bookings/my-bookings');
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error getting my bookings:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể lấy danh sách đơn đặt chỗ'
+    };
+  }
+};
+
+// ✅ Get booking details (rehydrate Step 2 summary)
+export const getBookingById = async (bookingId: string): Promise<{
+  success: boolean;
+  data?: any;
+  message?: string;
+}> => {
+  try {
+    const res = await api.get(`/api/bookings/${bookingId}`);
+    return res.data;
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Không thể lấy thông tin booking'
     };
   }
 };
