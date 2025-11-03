@@ -45,3 +45,21 @@ export const getHotelCountsController = async (req: Request, res: Response) => {
     });
   }
 };
+
+// Hàm lấy danh sách điểm đến phổ biến với số lượng khách sạn
+export const getPopularDestinationsController = async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(String(req.query.limit || "6"), 10);
+
+    const result = await locationService.getPopularDestinations(limit);
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error("[LocationController] getPopularDestinations error:", error.message || error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy điểm đến phổ biến.",
+      items: []
+    });
+  }
+};

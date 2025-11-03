@@ -49,3 +49,30 @@ export const formatLocationDetail = (location: Location): string => {
     .filter(Boolean)
     .join(' • ');
 };
+
+// Lấy danh sách điểm đến phổ biến với số lượng khách sạn
+export const getPopularDestinations = async (limit: number = 6) => {
+  try {
+    const res = await api.get('/api/locations/popular', {
+      params: { limit }
+    });
+    
+    if (res.data.success && res.data.items) {
+      return {
+        success: true,
+        items: res.data.items
+      };
+    }
+    
+    return {
+      success: false,
+      items: []
+    };
+  } catch (error) {
+    console.error('❌ Lỗi lấy điểm đến phổ biến:', error);
+    return {
+      success: false,
+      items: []
+    };
+  }
+};

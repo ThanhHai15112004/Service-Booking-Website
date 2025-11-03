@@ -49,6 +49,104 @@ export const searchHotels = async (params: {
   }
 };
 
+// Lấy danh sách khách sạn nổi bật cho homepage
+export const getFeaturedHotels = async (params?: {
+  limit?: number;
+  minRating?: number;
+  minStars?: number;
+}) => {
+  try {
+    // Tạo default dates (ngày mai và ngày kia) để có thể lấy được giá
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const queryParams: any = {
+      stayType: 'overnight', // ✅ REQUIRED by backend
+      checkin: formatDate(tomorrow),
+      checkout: formatDate(dayAfter),
+      adults: 2,
+      rooms: 1,
+      children: 0,
+      limit: params?.limit || 6,
+      sort: 'rating_desc', // Sắp xếp theo rating cao nhất
+    };
+
+    if (params?.minStars) queryParams.star_min = params.minStars;
+
+    const res = await api.get("/api/hotels/search", { params: queryParams });
+    
+    console.log('✅ getFeaturedHotels response:', res.data);
+    
+    if (res.data.success && res.data.data?.hotels) {
+      // Map response từ backend sang format Hotel của frontend
+      const hotels = res.data.data.hotels.map((hotel: any) => {
+        // hotel.address từ backend có thể đã chứa đầy đủ address
+        // Nếu có sẵn và đủ dài, dùng luôn. Nếu không thì build từ location
+        let fullAddress = '';
+        
+        if (hotel.address && hotel.address.length > 5 && hotel.address !== 'NULL') {
+          // Address đã đầy đủ từ backend, dùng luôn
+          fullAddress = hotel.address;
+        } else {
+          // Build address từ location data
+          const addressParts = [];
+          
+          if (hotel.address && hotel.address !== 'NULL') {
+            addressParts.push(hotel.address);
+          } else if (hotel.location?.areaName && /^\d/.test(hotel.location.areaName)) {
+            addressParts.push(hotel.location.areaName);
+          }
+          
+          if (hotel.location?.district) {
+            addressParts.push(hotel.location.district);
+          }
+          
+          if (hotel.location?.city) {
+            addressParts.push(hotel.location.city);
+          }
+          
+          fullAddress = addressParts.filter(Boolean).join(', ');
+        }
+        
+        return {
+          id: hotel.hotelId,
+          name: hotel.name,
+          description: hotel.description || '',
+          address: fullAddress || 'Địa chỉ đang cập nhật',
+          city: hotel.location?.city || '',
+          country: 'Việt Nam',
+          star_rating: hotel.starRating || 0,
+          main_image: hotel.mainImage || '',
+          price_per_night: hotel.bestOffer?.avgPricePerNight || 0,
+          rating: hotel.avgRating || 0,
+          reviews_count: hotel.reviewCount || 0,
+          amenities: hotel.facilities || [],
+          highlights: hotel.highlights || []
+        };
+      });
+
+      return {
+        success: true,
+        data: {
+          hotels,
+          pagination: res.data.data.pagination
+        }
+      };
+    }
+    
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching featured hotels:', error);
+    return { success: false, message: "Không thể tải khách sạn nổi bật." };
+  }
+};
+
 export const getHotelDetail = async (hotelId: string, params: {
   checkIn: string;
   checkOut: string;

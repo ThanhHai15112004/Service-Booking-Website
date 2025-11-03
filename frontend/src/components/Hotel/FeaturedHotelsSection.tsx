@@ -6,13 +6,22 @@ interface FeaturedHotelsSectionProps {
   hotels: Hotel[];
   title?: string;
   subtitle?: string;
+  onViewAllClick?: () => void;
 }
 
 export default function FeaturedHotelsSection({ 
   hotels, 
   title = "Khách sạn nổi bật",
-  subtitle = "Những lựa chọn được đánh giá cao nhất từ khách hàng"
+  subtitle = "Những lựa chọn được đánh giá cao nhất từ khách hàng",
+  onViewAllClick
 }: FeaturedHotelsSectionProps) {
+  const handleViewAllClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onViewAllClick) {
+      onViewAllClick();
+    }
+  };
+
   return (
     <div className="py-12 md:py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -32,13 +41,13 @@ export default function FeaturedHotelsSection({
         </div>
 
         <div className="text-center mt-8 md:mt-12">
-          <a
-            href="/hotels/search"
+          <button
+            onClick={handleViewAllClick}
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-lg transition-colors font-semibold text-sm md:text-base shadow-md hover:shadow-lg"
           >
             <span>Xem tất cả khách sạn</span>
             <ArrowRight className="w-4 md:w-5 h-4 md:h-5" />
-          </a>
+          </button>
         </div>
       </div>
     </div>

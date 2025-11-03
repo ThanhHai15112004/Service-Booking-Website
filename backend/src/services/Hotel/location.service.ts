@@ -74,4 +74,25 @@ export class LocationService {
       };
     }
   }
+
+  // Hàm lấy điểm đến phổ biến với số lượng khách sạn
+  async getPopularDestinations(limit: number = 6) {
+    try {
+      const items = await this.repo.getPopularDestinations(limit);
+
+      return {
+        success: true,
+        message: `Tìm thấy ${items.length} điểm đến phổ biến`,
+        count: items.length,
+        items
+      };
+    } catch (error: any) {
+      console.error("[LocationService] getPopularDestinations error:", error?.message || error);
+      return {
+        success: false,
+        message: "Lỗi server khi lấy điểm đến phổ biến",
+        items: []
+      };
+    }
+  }
 }

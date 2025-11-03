@@ -9,9 +9,17 @@ interface Destination {
 
 interface DestinationsSectionProps {
   destinations: Destination[];
+  onViewAllClick?: () => void;
 }
 
-export default function DestinationsSection({ destinations }: DestinationsSectionProps) {
+export default function DestinationsSection({ destinations, onViewAllClick }: DestinationsSectionProps) {
+  const handleViewAllClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onViewAllClick) {
+      onViewAllClick();
+    }
+  };
+
   return (
     <div className="py-12 md:py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +32,10 @@ export default function DestinationsSection({ destinations }: DestinationsSectio
               Khám phá những địa điểm du lịch được yêu thích nhất Việt Nam
             </p>
           </div>
-          <button className="hidden md:flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+          <button 
+            onClick={handleViewAllClick}
+            className="hidden md:flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+          >
             <span>Xem tất cả</span>
             <ArrowRight className="w-5 h-5" />
           </button>
@@ -59,7 +70,10 @@ export default function DestinationsSection({ destinations }: DestinationsSectio
           ))}
         </div>
 
-        <button className="md:hidden mt-6 w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 font-semibold py-3 border border-blue-600 rounded-lg transition-colors">
+        <button 
+          onClick={handleViewAllClick}
+          className="md:hidden mt-6 w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 font-semibold py-3 border border-blue-600 rounded-lg transition-colors"
+        >
           <span>Xem tất cả điểm đến</span>
           <ArrowRight className="w-4 h-4" />
         </button>

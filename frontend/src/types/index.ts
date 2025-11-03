@@ -16,7 +16,16 @@ export interface Hotel {
   longitude?: number;
   rating?: number;
   reviews_count?: number;
-  amenities?: string[];
+  amenities?: Array<{
+    facilityId?: string;
+    name: string;
+    icon?: string;
+  }>;
+  highlights?: Array<{
+    icon?: string;
+    text: string;
+    tooltip?: string;
+  }>;
 }
 
 // ============================================================================

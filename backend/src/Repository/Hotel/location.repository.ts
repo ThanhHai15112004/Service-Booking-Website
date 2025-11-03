@@ -108,4 +108,43 @@ export class LocationRepository {
       cityCount
     };
   }
+
+  // Hàm lấy điểm đến phổ biến với số lượng khách sạn và ảnh đại diện
+  async getPopularDestinations(limit: number): Promise<any[]> {
+    const sql = `
+      SELECT 
+        hl.city,
+        COUNT(DISTINCT h.hotel_id) as hotels_count,
+        (
+          SELECT hi.image_url 
+          FROM hotel h2
+          INNER JOIN hotel_image hi ON hi.hotel_id = h2.hotel_id
+          WHERE h2.location_id = hl.location_id 
+            AND hi.is_primary = 1
+            AND h2.status = 'ACTIVE'
+          LIMIT 1
+        ) as image
+      FROM hotel_location hl
+      INNER JOIN hotel h ON h.location_id = hl.location_id
+      WHERE h.status = 'ACTIVE'
+        AND hl.city IS NOT NULL
+        AND hl.city != ''
+      GROUP BY hl.city
+      HAVING hotels_count > 0
+      ORDER BY hotels_count DESC, hl.city ASC
+      LIMIT ?
+    `;
+
+    const results = await sequelize.query(sql, {
+      replacements: [limit],
+      type: QueryTypes.SELECT
+    });
+
+    // Set default image nếu không có ảnh
+    return results.map((item: any) => ({
+      city: item.city,
+      hotels_count: item.hotels_count,
+      image: item.image || 'https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg' // Default image
+    }));
+  }
 }

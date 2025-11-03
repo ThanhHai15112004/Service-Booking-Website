@@ -42,6 +42,8 @@ export interface HotelSearchParams {
 export interface HotelSearchResult {
   hotelId: string;
   name: string;
+  description: string | null;
+  address: string | null;
   starRating: number | null;
   avgRating: number | null;
   reviewCount: number | null;

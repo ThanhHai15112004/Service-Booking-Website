@@ -155,6 +155,8 @@ export class HotelSearchRepository {
       SELECT
         t1.hotel_id,
         t1.name,
+        t1.description,
+        t1.address,
         t1.star_rating,
         t1.avg_rating,
         t1.review_count,
@@ -179,6 +181,8 @@ export class HotelSearchRepository {
         SELECT
           h.hotel_id,
           h.name,
+          h.description,
+          h.address,
           h.star_rating,
           h.avg_rating,
           h.review_count,
@@ -210,7 +214,7 @@ export class HotelSearchRepository {
           AND CAST(rps.date AS DATE) < :checkoutDateStr
           AND rps.available_rooms > 0
           ${whereConditions.sqlConditions}
-        GROUP BY h.hotel_id, h.name, h.star_rating, h.avg_rating, h.review_count, h.main_image,
+        GROUP BY h.hotel_id, h.name, h.description, h.address, h.star_rating, h.avg_rating, h.review_count, h.main_image,
                  hc.name, hl.city, hl.district, hl.area_name, hl.distance_center,
                  rt.room_type_id, rt.name,
                  r.room_id, r.capacity
@@ -490,6 +494,8 @@ export class HotelSearchRepository {
       return {
         hotelId: row.hotel_id,
         name: row.name,
+        description: row.description || null,
+        address: row.address || null,
         starRating: row.star_rating ? Number(row.star_rating) : null,
         avgRating: row.avg_rating ? Number(row.avg_rating) : null,
         reviewCount: row.review_count ? Number(row.review_count) : null,
