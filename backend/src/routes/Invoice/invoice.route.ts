@@ -9,3 +9,4 @@ router.get("/:bookingId/download", authenticateJWT, downloadInvoice);
 
 export default router;
 
+

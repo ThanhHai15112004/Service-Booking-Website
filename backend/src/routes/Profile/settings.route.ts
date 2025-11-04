@@ -13,3 +13,4 @@ router.put("/", authenticateJWT, updateSettings);
 export default router;
 
 
+
