@@ -6,6 +6,7 @@ import "./config/db"; // Keep MySQL pool for raw queries
 import sequelize, { testConnection } from "./config/sequelize"; // ✅ Add Sequelize
 import { startCleanupJob } from "./jobs/cleanupUnverifiedAccounts";
 import { startCleanupExpiredBookingsJob } from "./jobs/cleanupExpiredBookings";
+import { startAutoGeneratePricesJob } from "./jobs/autoGeneratePrices";
 const cors = require('cors');
 import cookieParser from "cookie-parser";
 
@@ -27,8 +28,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 initRoutes(app);
 
-startCleanupJob(); // Cleanup unverified accounts
-startCleanupExpiredBookingsJob(); // Cleanup expired CREATED bookings (20 phút) và unlock phòng
+startCleanupJob()
+startCleanupExpiredBookingsJob();
+startAutoGeneratePricesJob(); 
 
 // ✅ Initialize Sequelize and start server
 (async () => {

@@ -15,12 +15,36 @@ import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
 import { Highlight } from "../../models/Hotel/highlight.model";
 import { HotelHighlight } from "../../models/Hotel/hotelHighlight.model";
 import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models/Hotel/hotelSearch.dto";
+import { PriceAutoGenerationService } from "../../services/Price/priceAutoGeneration.service";
 
 export class HotelSearchRepository {
 
   // Hàm tìm kiếm khách sạn
   async search(params: HotelSearchParams): Promise<HotelSearchResult[]> {
     try {
+      // ✅ Đảm bảo có giá tự động cho các ngày trong search range
+      const isOvernight = params.stayType === "overnight";
+      const checkinDate = (isOvernight ? params.checkin : params.date) || '';
+      let checkoutDateStr: string;
+      
+      if (isOvernight) {
+        checkoutDateStr = params.checkout || '';
+      } else {
+        const checkoutDate = new Date(params.date || '');
+        checkoutDate.setDate(checkoutDate.getDate() + 1);
+        checkoutDateStr = checkoutDate.toISOString().split('T')[0];
+      }
+
+      if (checkinDate && checkoutDateStr) {
+        try {
+          const priceService = new PriceAutoGenerationService();
+          await priceService.ensurePriceSchedulesForSearch(checkinDate, checkoutDateStr);
+        } catch (priceError: any) {
+          console.error('[HotelRepository] Error ensuring price schedules:', priceError.message);
+          // Không block search nếu auto-generate fail
+        }
+      }
+
       const rows = await this.buildSearchQuerySequelize(params);
       
       if (!Array.isArray(rows)) {
@@ -32,6 +56,7 @@ export class HotelSearchRepository {
       
       await this.attachImagesToResults(results);
       await this.attachFacilitiesToResults(results);
+      await this.attachPoliciesToResults(results);
       
       return results;
     } catch (error: any) {
@@ -80,6 +105,105 @@ export class HotelSearchRepository {
     
     results.forEach(result => {
       result.images = imagesByHotel[result.hotelId] || [];
+    });
+  }
+
+  // Hàm attach policies vào results
+  private async attachPoliciesToResults(results: HotelSearchResult[]): Promise<void> {
+    if (results.length === 0) return;
+    
+    const hotelIds = results.map(r => r.hotelId);
+    const roomTypeIds = results.map(r => r.bestOffer.roomTypeId)
+      .filter((id, index, self) => self.indexOf(id) === index); // Unique roomTypeIds
+    
+    // Lấy tất cả rooms thuộc các roomTypeIds này
+    const rooms = await Room.findAll({
+      where: {
+        room_type_id: { [Op.in]: roomTypeIds },
+        status: 'ACTIVE'
+      },
+      attributes: ['room_id', 'room_type_id'],
+      raw: true
+    });
+    
+    const roomIdsList = (rooms as any[]).map(r => r.room_id);
+    
+    // Lấy policies từ room_policy (room-level policies)
+    const roomPolicies = roomIdsList.length > 0 ? await RoomPolicy.findAll({
+      where: {
+        room_id: { [Op.in]: roomIdsList },
+        policy_key: { [Op.in]: ['free_cancellation', 'no_credit_card', 'pets_allowed', 'children_allowed', 'smoking_allowed', 'extra_bed_allowed'] },
+        value: { [Op.in]: ['1', 'true'] }
+      },
+      attributes: ['room_id', 'policy_key'],
+      raw: true
+    }) : [];
+    
+    // Lấy policies từ hotel_policy (hotel-level policies)
+    const hotelPolicies = await sequelize.query<any>(`
+      SELECT hotel_id, policy_key 
+      FROM hotel_policy
+      WHERE hotel_id IN (:hotelIds)
+        AND policy_key IN ('free_cancellation', 'no_credit_card', 'breakfast_included', 'airport_shuttle', 'parking_available', 'pay_later')
+        AND value IN ('1', 'true')
+    `, {
+      replacements: { hotelIds },
+      type: QueryTypes.SELECT
+    });
+    
+    // Tạo map: room_type_id -> room policies
+    const policiesByRoomType = new Map<string, Set<string>>();
+    
+    // First, map room_id -> room_type_id
+    const roomTypeMap = new Map<string, string>();
+    (rooms as any[]).forEach(r => {
+      roomTypeMap.set(r.room_id, r.room_type_id);
+    });
+    
+    // Then, map room policies
+    (roomPolicies as any[]).forEach(p => {
+      const roomTypeId = roomTypeMap.get(p.room_id);
+      if (roomTypeId) {
+        if (!policiesByRoomType.has(roomTypeId)) {
+          policiesByRoomType.set(roomTypeId, new Set());
+        }
+        policiesByRoomType.get(roomTypeId)!.add(p.policy_key);
+      }
+    });
+    
+    // Tạo map: hotel_id -> hotel policies
+    const policiesByHotel = new Map<string, Set<string>>();
+    hotelPolicies.forEach((p: any) => {
+      if (!policiesByHotel.has(p.hotel_id)) {
+        policiesByHotel.set(p.hotel_id, new Set());
+      }
+      policiesByHotel.get(p.hotel_id)!.add(p.policy_key);
+    });
+    
+    // Attach policies vào results
+    results.forEach(result => {
+      const roomTypeId = result.bestOffer.roomTypeId;
+      const hotelId = result.hotelId;
+      
+      // Room-level policies
+      const roomPoliciesSet = policiesByRoomType.get(roomTypeId) || new Set();
+      
+      // Hotel-level policies
+      const hotelPoliciesSet = policiesByHotel.get(hotelId) || new Set();
+      
+      // Combine: room policies take precedence, but hotel policies can also apply
+      result.bestOffer.freeCancellation = roomPoliciesSet.has('free_cancellation') || hotelPoliciesSet.has('free_cancellation');
+      result.bestOffer.noCreditCard = roomPoliciesSet.has('no_credit_card') || hotelPoliciesSet.has('no_credit_card');
+      result.bestOffer.petsAllowed = roomPoliciesSet.has('pets_allowed');
+      result.bestOffer.childrenAllowed = roomPoliciesSet.has('children_allowed');
+      result.bestOffer.smokingAllowed = roomPoliciesSet.has('smoking_allowed');
+      result.bestOffer.extraBedAllowed = roomPoliciesSet.has('extra_bed_allowed');
+      
+      // Hotel-level only policies
+      result.bestOffer.breakfastIncluded = hotelPoliciesSet.has('breakfast_included');
+      result.bestOffer.airportShuttle = hotelPoliciesSet.has('airport_shuttle');
+      result.bestOffer.parkingAvailable = hotelPoliciesSet.has('parking_available');
+      // payLater từ room_price_schedule, không cần lấy từ hotel_policy nữa
     });
   }
 
@@ -491,6 +615,12 @@ export class HotelSearchRepository {
       const originalPricePerNight = row.original_price ? (row.original_price / row.date_count) : 0;
       const totalOriginalPrice = (row.original_price || 0) * rooms;
       
+      // ✅ Chỉ tính discount nếu có original_price > sum_price (có giảm giá thực sự)
+      const hasDiscount = originalPricePerNight > 0 && avgPricePerNight > 0 && originalPricePerNight > avgPricePerNight;
+      const discountPercent = hasDiscount 
+        ? ((originalPricePerNight - avgPricePerNight) / originalPricePerNight) * 100
+        : 0;
+      
       return {
         hotelId: row.hotel_id,
         name: row.name,
@@ -519,17 +649,25 @@ export class HotelSearchRepository {
           availableRooms: row.min_available_rooms ? Number(row.min_available_rooms) : 0,
           totalPrice: totalPrice ? Number(totalPrice) : 0,
           avgPricePerNight: avgPricePerNight ? Number(avgPricePerNight) : 0,
-          originalPricePerNight: originalPricePerNight ? Number(originalPricePerNight) : 0,
-          totalOriginalPrice: totalOriginalPrice ? Number(totalOriginalPrice) : 0,
-          discountPercent: row.avg_discount_percent ? Number(row.avg_discount_percent) : 0,
+          // ✅ Chỉ set originalPricePerNight và discountPercent nếu thực sự có giảm giá
+          ...(hasDiscount ? {
+            originalPricePerNight: Number(originalPricePerNight),
+            totalOriginalPrice: Number(totalOriginalPrice),
+            discountPercent: Number(discountPercent.toFixed(2))
+          } : {}),
           refundable: Boolean(row.refundable),
           payLater: Boolean(row.pay_later),
           freeCancellation: false,
           noCreditCard: false,
           petsAllowed: false,
           childrenAllowed: false,
+          smokingAllowed: false,
+          extraBedAllowed: false,
+          breakfastIncluded: false,
+          airportShuttle: false,
+          parkingAvailable: false,
         },
-      };
+      } as HotelSearchResult;
     });
   }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MapPin, Star, Check, Wifi, Utensils, Car, Waves, Dumbbell, Dog, Users } from 'lucide-react';
+import { MapPin, Star, Check, Wifi, Utensils, Car, Waves, Dumbbell, Dog, Users, Coffee, Plane, ParkingCircle, Cigarette, BedDouble } from 'lucide-react';
 
 interface HotelSearchResult {
   hotelId: string;
@@ -31,6 +31,11 @@ interface HotelSearchResult {
     noCreditCard?: boolean;
     petsAllowed?: boolean;
     childrenAllowed?: boolean;
+    smokingAllowed?: boolean;
+    extraBedAllowed?: boolean;
+    breakfastIncluded?: boolean;
+    airportShuttle?: boolean;
+    parkingAvailable?: boolean;
   };
   images?: Array<{
     imageUrl: string;
@@ -196,30 +201,60 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
           {/* Separator line mờ */}
           <div className="border-t border-gray-200 my-2 opacity-50"></div>
 
-          {/* Policies - Nằm ngang với icon */}
-          <div className="flex items-center gap-3 flex-wrap mb-2">
+          {/* Policies - Chỉ hiện trên 1 hàng, nếu thừa thì ẩn đi */}
+          <div className="flex items-center gap-2 flex-nowrap overflow-hidden mb-2">
             {hotel.bestOffer.freeCancellation && (
-              <div className="flex items-center gap-1 text-green-700">
+              <div className="flex items-center gap-1 text-green-700 flex-shrink-0">
                 <Check className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="text-[12px] font-medium">Miễn phí hủy</span>
               </div>
             )}
             {hotel.bestOffer.noCreditCard && (
-              <div className="flex items-center gap-1 text-blue-700">
+              <div className="flex items-center gap-1 text-blue-700 flex-shrink-0">
                 <Check className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="text-[12px] font-medium">Không cần thẻ tín dụng</span>
               </div>
             )}
+            {hotel.bestOffer.breakfastIncluded && (
+              <div className="flex items-center gap-1 text-orange-700 flex-shrink-0">
+                <Coffee className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-[12px] font-medium">Bao gồm bữa sáng</span>
+              </div>
+            )}
+            {hotel.bestOffer.airportShuttle && (
+              <div className="flex items-center gap-1 text-cyan-700 flex-shrink-0">
+                <Plane className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-[12px] font-medium">Đưa đón sân bay</span>
+              </div>
+            )}
+            {hotel.bestOffer.parkingAvailable && (
+              <div className="flex items-center gap-1 text-gray-700 flex-shrink-0">
+                <ParkingCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-[12px] font-medium">Có bãi đỗ xe</span>
+              </div>
+            )}
             {hotel.bestOffer.petsAllowed && (
-              <div className="flex items-center gap-1 text-purple-700">
+              <div className="flex items-center gap-1 text-purple-700 flex-shrink-0">
                 <Dog className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="text-[12px] font-medium">Cho phép thú cưng</span>
               </div>
             )}
             {hotel.bestOffer.childrenAllowed && (
-              <div className="flex items-center gap-1 text-indigo-700">
+              <div className="flex items-center gap-1 text-indigo-700 flex-shrink-0">
                 <Users className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="text-[12px] font-medium">Cho phép trẻ em</span>
+              </div>
+            )}
+            {hotel.bestOffer.smokingAllowed && (
+              <div className="flex items-center gap-1 text-amber-700 flex-shrink-0">
+                <Cigarette className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-[12px] font-medium">Cho phép hút thuốc</span>
+              </div>
+            )}
+            {hotel.bestOffer.extraBedAllowed && (
+              <div className="flex items-center gap-1 text-teal-700 flex-shrink-0">
+                <BedDouble className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-[12px] font-medium">Cho phép giường phụ</span>
               </div>
             )}
           </div>
@@ -252,9 +287,9 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
         </div>
 
         {/* RIGHT: Rating & Price */}
-        <div className="w-[170px] flex-shrink-0 px-3 py-3 flex flex-col">
-          {/* Rating Section - Nhỏ hơn */}
-          <div className="flex items-start gap-1.5 mb-4">
+        <div className="w-[170px] flex-shrink-0 px-3 py-3 flex flex-col justify-between">
+          {/* Rating Section */}
+          <div className="flex items-start gap-1.5 mb-3">
             <div className="flex flex-col items-end flex-1">
               <div className="text-[11px] font-semibold text-gray-900 mb-0.5">
                 {getRatingText(hotel.avgRating)}
@@ -268,17 +303,14 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
             </div>
           </div>
 
-          {/* Spacer */}
-          <div className="flex-1"></div>
-
           {/* Price Section - Nổi bật hơn */}
           <div className="text-right">
             {/* Label */}
-            <div className="text-[10px] text-gray-500 mb-1">Giá mỗi đêm từ</div>
+            <div className="text-[10px] text-gray-500 mb-1.5">Giá mỗi đêm từ</div>
             
             {/* Discount Badge - Only show if there's a discount */}
             {hotel.bestOffer.discountPercent && hotel.bestOffer.discountPercent > 0 && (
-              <div className="flex items-center justify-end gap-1 mb-2">
+              <div className="flex items-center justify-end gap-1 mb-1.5">
                 <Check className="w-3 h-3 text-green-600" />
                 <span className="text-[11px] text-green-600 font-medium">
                   Giá đã giảm {Math.round(hotel.bestOffer.discountPercent)}%
@@ -286,22 +318,33 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
               </div>
             )}
 
-            {/* Old Price (nếu có giảm giá) */}
-            {hotel.bestOffer.originalPricePerNight && hotel.bestOffer.discountPercent && hotel.bestOffer.discountPercent > 0 && (
-              <div className="text-[13px] text-gray-500 line-through mb-2">
+            {/* Old Price (nếu có giảm giá) - CHỈ HIỂN THỊ KHI THỰC SỰ CÓ GIẢM GIÁ */}
+            {hotel.bestOffer.originalPricePerNight && 
+             hotel.bestOffer.originalPricePerNight > 0 && 
+             hotel.bestOffer.discountPercent && 
+             hotel.bestOffer.discountPercent > 0 && (
+              <div className="text-[13px] text-gray-500 line-through mb-1.5">
                 {new Intl.NumberFormat('vi-VN').format(hotel.bestOffer.originalPricePerNight)}đ <span className="text-red-600 font-semibold">-{Math.round(hotel.bestOffer.discountPercent)}%</span>
               </div>
             )}
 
             {/* Current Price - TO & NỔI BẬT */}
-            <div className="text-[20px] font-bold text-red-600 leading-tight mb-2">
-              {new Intl.NumberFormat('vi-VN').format(hotel.bestOffer.avgPricePerNight)}đ
-            </div>
+            {hotel.bestOffer.avgPricePerNight > 0 ? (
+              <div className="text-[20px] font-bold text-red-600 leading-tight mb-1.5">
+                {new Intl.NumberFormat('vi-VN').format(hotel.bestOffer.avgPricePerNight)}đ
+              </div>
+            ) : (
+              <div className="text-[16px] font-medium text-gray-500 mb-1.5">
+                Liên hệ
+              </div>
+            )}
 
             {/* Total Price */}
-            <div className="text-[11px] text-gray-600">
-              Tổng: {new Intl.NumberFormat('vi-VN').format(hotel.bestOffer.totalPrice)}đ
-            </div>
+            {hotel.bestOffer.totalPrice > 0 && (
+              <div className="text-[11px] text-gray-600">
+                Tổng: {new Intl.NumberFormat('vi-VN').format(hotel.bestOffer.totalPrice)}đ
+              </div>
+            )}
           </div>
         </div>
       </div>

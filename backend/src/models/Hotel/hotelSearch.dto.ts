@@ -71,15 +71,20 @@ export interface HotelSearchResult {
     availableRooms: number;
     totalPrice: number;
     avgPricePerNight: number;
-    originalPricePerNight: number;
-    totalOriginalPrice: number;
-    discountPercent: number;
+    originalPricePerNight?: number; // ✅ Chỉ có khi thực sự có giảm giá
+    totalOriginalPrice?: number; // ✅ Chỉ có khi thực sự có giảm giá
+    discountPercent?: number; // ✅ Chỉ có khi thực sự có giảm giá
     refundable: boolean;
     payLater: boolean;
     freeCancellation: boolean;
     noCreditCard: boolean;
     petsAllowed: boolean;
     childrenAllowed: boolean;
+    smokingAllowed?: boolean;
+    extraBedAllowed?: boolean;
+    breakfastIncluded?: boolean;
+    airportShuttle?: boolean;
+    parkingAvailable?: boolean;
   };
   
   // Attached data (populated later)

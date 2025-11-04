@@ -128,7 +128,9 @@ export class BookingRepository {
         DATE_FORMAT(rps.date, '%Y-%m-%d') as date,
         rps.base_price as basePrice,
         rps.discount_percent as discountPercent,
-        (rps.base_price * (1 - rps.discount_percent / 100)) as finalPrice
+        COALESCE(rps.provider_discount_amount, 0) as providerDiscount,
+        COALESCE(rps.system_discount_amount, 0) as systemDiscount,
+        COALESCE(rps.final_price, rps.base_price - COALESCE(rps.provider_discount_amount, 0) - COALESCE(rps.system_discount_amount, 0), rps.base_price * (1 - rps.discount_percent / 100)) as finalPrice
       FROM room_price_schedule rps
       WHERE rps.room_id = ?
         ${dateCondition}
@@ -152,20 +154,28 @@ export class BookingRepository {
       const dailyPrices = priceData.map((row: any) => ({
         date: row.date,
         basePrice: Number(row.basePrice),
-        discountPercent: Number(row.discountPercent),
+        discountPercent: Number(row.discountPercent || 0),
+        providerDiscount: Number(row.providerDiscount || 0),
+        systemDiscount: Number(row.systemDiscount || 0),
         finalPrice: Number(row.finalPrice)
       }));
 
       const subtotalPerRoom = dailyPrices.reduce((sum: number, day: any) => sum + day.finalPrice, 0);
       const subtotal = subtotalPerRoom * roomsCount;
-      const taxAmount = subtotal * 0.1;
-      const discountAmount = 0;
-      const totalAmount = subtotal + taxAmount - discountAmount;
+      const packageDiscount = 0; // TODO: Implement package discount logic
+      const subtotalAfterPackage = subtotal - packageDiscount;
+      const taxAmount = subtotalAfterPackage * 0.1;
+      const codeDiscount = 0; // TODO: Implement discount code logic
+      const discountAmount = packageDiscount + codeDiscount;
+      const totalAmount = subtotalAfterPackage + taxAmount - codeDiscount;
 
       return {
         dailyPrices,
         subtotal,
+        packageDiscount,
+        subtotalAfterPackage,
         taxAmount,
+        codeDiscount,
         discountAmount,
         totalAmount,
         nightsCount: dailyPrices.length
@@ -205,6 +215,27 @@ export class BookingRepository {
         booking.special_requests || null
       ]);
 
+      return (result as ResultSetHeader).affectedRows > 0;
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Hàm tạo booking discount record
+  async createBookingDiscount(
+    bookingId: string,
+    discountId: string,
+    discountAmount: number
+  ): Promise<boolean> {
+    const sql = `
+      INSERT INTO booking_discount (booking_id, discount_id, discount_amount)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE discount_amount = VALUES(discount_amount)
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [result] = await conn.query(sql, [bookingId, discountId, discountAmount]);
       return (result as ResultSetHeader).affectedRows > 0;
     } finally {
       conn.release();
@@ -312,6 +343,89 @@ export class BookingRepository {
     try {
       const [rows] = await conn.query(sql, [bookingId]);
       return rows as BookingDetail[];
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Hàm cancel booking và unlock phòng trong cùng transaction (atomic)
+  async cancelBookingAndUnlockRooms(
+    bookingId: string
+  ): Promise<{ success: boolean; unlockedRooms: number }> {
+    const conn = await pool.getConnection();
+    let unlockedRooms = 0;
+    
+    try {
+      await conn.beginTransaction();
+      
+      // 1. Cancel booking
+      const cancelSql = `
+        UPDATE booking
+        SET status = 'CANCELLED', updated_at = NOW()
+        WHERE booking_id = ? AND status = 'CREATED'
+      `;
+      const [cancelResult] = await conn.query(cancelSql, [bookingId]);
+      
+      if ((cancelResult as ResultSetHeader).affectedRows === 0) {
+        await conn.rollback();
+        return { success: false, unlockedRooms: 0 };
+      }
+      
+      // 2. Lấy booking details để unlock phòng
+      const [details]: any = await conn.query(`
+        SELECT room_id, checkin_date, checkout_date
+        FROM booking_detail
+        WHERE booking_id = ?
+      `, [bookingId]);
+      
+      // 3. Unlock từng phòng trong cùng transaction
+      const normalizeDate = (date: Date | string): string => {
+        if (!date) return '';
+        const d = typeof date === 'string' ? new Date(date) : date;
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      for (const detail of details) {
+        const checkInDate = normalizeDate(detail.checkin_date);
+        const checkOutDate = normalizeDate(detail.checkout_date);
+        const isDayuse = checkInDate === checkOutDate;
+        
+        // Unlock phòng bằng cách tăng available_rooms trong room_price_schedule
+        let unlockSql: string;
+        if (isDayuse) {
+          unlockSql = `
+            UPDATE room_price_schedule
+            SET available_rooms = available_rooms + 1
+            WHERE room_id = ? AND date = ?
+          `;
+          const [unlockResult]: any = await conn.query(unlockSql, [detail.room_id, checkInDate]);
+          if ((unlockResult as ResultSetHeader).affectedRows > 0) {
+            unlockedRooms++;
+          }
+        } else {
+          unlockSql = `
+            UPDATE room_price_schedule
+            SET available_rooms = available_rooms + 1
+            WHERE room_id = ? AND date >= ? AND date < ?
+          `;
+          const [unlockResult]: any = await conn.query(unlockSql, [detail.room_id, checkInDate, checkOutDate]);
+          if ((unlockResult as ResultSetHeader).affectedRows > 0) {
+            unlockedRooms += (unlockResult as ResultSetHeader).affectedRows;
+          }
+        }
+      }
+      
+      // 4. Commit transaction
+      await conn.commit();
+      return { success: true, unlockedRooms };
+      
+    } catch (error: any) {
+      await conn.rollback();
+      console.error(`[BookingRepository] Error canceling booking ${bookingId} and unlocking rooms:`, error.message);
+      throw error;
     } finally {
       conn.release();
     }
@@ -529,21 +643,36 @@ export class BookingRepository {
     const sql = `
       SELECT
         b.booking_id,
+        CONCAT('BK', LPAD(b.booking_id, 8, '0')) as booking_code,
         b.status,
         b.total_amount,
+        b.subtotal,
+        b.tax_amount,
+        b.discount_amount,
         b.created_at,
+        b.updated_at,
+        b.special_requests,
+        h.hotel_id,
         h.name as hotel_name,
         h.main_image as hotel_image,
-        bd.checkin_date,
-        bd.checkout_date,
-        bd.nights_count,
-        rt.name as room_type_name
+        h.address as hotel_address,
+        h.phone_number as hotel_phone,
+        MIN(bd.checkin_date) as checkin_date,
+        MIN(bd.checkout_date) as checkout_date,
+        MIN(bd.nights_count) as nights_count,
+        SUM(bd.guests_count) as guests_count,
+        COUNT(DISTINCT bd.room_id) as rooms_count,
+        GROUP_CONCAT(DISTINCT rt.name ORDER BY rt.name SEPARATOR ', ') as room_type_names,
+        MIN(rt.name) as room_type_name
       FROM booking b
       JOIN hotel h ON h.hotel_id = b.hotel_id
       LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
       LEFT JOIN room r ON r.room_id = bd.room_id
       LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
       WHERE b.account_id = ?
+      GROUP BY b.booking_id, b.status, b.total_amount, b.subtotal, b.tax_amount, 
+               b.discount_amount, b.created_at, b.updated_at, b.special_requests,
+               h.hotel_id, h.name, h.main_image, h.address, h.phone_number
       ORDER BY b.created_at DESC
     `;
 

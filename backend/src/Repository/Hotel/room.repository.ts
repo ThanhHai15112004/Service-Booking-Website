@@ -1,5 +1,7 @@
 import { Room } from "../../models/Hotel/room.model";
 import { RoomType } from "../../models/Hotel/roomType.model";
+import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
+import { Facility } from "../../models/Hotel/facility.model";
 import { Op } from "sequelize";
 
 export class RoomRepository {
@@ -64,18 +66,41 @@ export class RoomRepository {
     }
   }
 
-  // Hàm lấy phòng có thể đặt theo roomTypeId và date range
-  async getAvailableRoomsByRoomTypeId(
-    roomTypeId: string,
-    checkIn: string,
-    checkOut: string,
-    roomsNeeded: number = 1
-  ): Promise<any[]> {
+  // Hàm lấy amenities của một phòng cụ thể
+  async getRoomAmenities(roomId: string): Promise<any[]> {
     try {
-      const rooms = await this.getRoomsByRoomTypeId(roomTypeId, 'ACTIVE');
-      return rooms.slice(0, roomsNeeded);
+      const amenities = await RoomAmenity.findAll({
+        include: [
+          {
+            model: Facility,
+            as: 'facility',
+            attributes: ['facility_id', 'name', 'icon'],
+            required: true
+          }
+        ],
+        where: {
+          room_id: roomId
+        },
+        attributes: [],
+        raw: false
+      });
+
+      // Transform để format đúng
+      const facilityMap = new Map<string, any>();
+      amenities.forEach((item: any) => {
+        const facility = item.facility;
+        if (facility && !facilityMap.has(facility.facility_id)) {
+          facilityMap.set(facility.facility_id, {
+            facilityId: facility.facility_id,
+            name: facility.name,
+            icon: facility.icon
+          });
+        }
+      });
+
+      return Array.from(facilityMap.values());
     } catch (error: any) {
-      console.error("[RoomRepository] getAvailableRoomsByRoomTypeId error:", error.message);
+      console.error("[RoomRepository] getRoomAmenities error:", error.message);
       return [];
     }
   }

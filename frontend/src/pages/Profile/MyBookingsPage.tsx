@@ -33,6 +33,8 @@ interface Booking {
   checkout_date: string;
   nights_count: number;
   room_type_name: string;
+  rooms_count?: number;
+  room_type_names?: string;
   guests_count?: number;
   booking_code?: string;
   special_requests?: string;
@@ -381,7 +383,11 @@ function MyBookingsPage() {
                               <div className="flex flex-wrap items-center gap-3 mb-3">
                                 <div className="flex items-center gap-2 text-sm">
                                   <Bed className="w-4 h-4 text-blue-600" />
-                                  <span className="text-gray-700">{booking.room_type_name}</span>
+                                  <span className="text-gray-700">
+                                    {booking.rooms_count && booking.rooms_count > 1 
+                                      ? `${booking.rooms_count} phòng (${booking.room_type_names || booking.room_type_name})` 
+                                      : booking.room_type_name}
+                                  </span>
                                 </div>
                                 {booking.guests_count && (
                                   <div className="flex items-center gap-2 text-sm">

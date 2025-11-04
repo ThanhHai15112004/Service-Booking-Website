@@ -1,6 +1,7 @@
 import { BookingRepository } from "../../Repository/Booking/booking.repository";
 import { AvailabilityRepository } from "../../Repository/Hotel/availability.repository";
 import { RoomRepository } from "../../Repository/Hotel/room.repository";
+import { DiscountRepository } from "../../Repository/Discount/discount.repository";
 import {
   CreateBookingRequest,
   CreateTemporaryBookingRequest,
@@ -32,6 +33,7 @@ export class BookingService {
   private bookingRepo = new BookingRepository();
   private availabilityRepo = new AvailabilityRepository();
   private roomRepo = new RoomRepository();
+  private discountRepo = new DiscountRepository();
 
   // Hàm tạo booking tạm thời (status CREATED) khi vào trang booking
   async createTemporaryBooking(
@@ -122,9 +124,12 @@ export class BookingService {
 
       // Tính giá tổng cho tất cả phòng
       const totalSubtotal = priceCalculation.subtotal * request.rooms;
-      const totalTaxAmount = totalSubtotal * 0.1;
-      const totalDiscountAmount = 0;
-      const totalAmount = totalSubtotal + totalTaxAmount - totalDiscountAmount;
+      const totalPackageDiscount = (priceCalculation.packageDiscount || 0) * request.rooms;
+      const totalSubtotalAfterPackage = totalSubtotal - totalPackageDiscount;
+      const totalTaxAmount = totalSubtotalAfterPackage * 0.1;
+      const totalCodeDiscount = (priceCalculation.codeDiscount || 0) * request.rooms;
+      const totalDiscountAmount = totalPackageDiscount + totalCodeDiscount;
+      const totalAmount = totalSubtotalAfterPackage + totalTaxAmount - totalCodeDiscount;
 
       // Lock tất cả các phòng vật lý đã chọn (20 phút)
       const lockedRooms: string[] = [];
@@ -455,11 +460,43 @@ export class BookingService {
         };
       }
 
+      // ✅ Validate và tính discount code nếu có
+      let discountId: string | undefined;
+      let codeDiscountAmount = 0;
+      
+      if (request.discountCode) {
+        console.log(`🔍 [BookingService] Validating discount code: ${request.discountCode}`);
+        const nights = calculateNights(request.checkIn, request.checkOut);
+        const subtotalBeforeDiscount = priceCalculation.subtotal * request.rooms;
+        
+        const validation = await this.discountRepo.validateDiscountCode(
+          request.discountCode,
+          subtotalBeforeDiscount,
+          request.hotelId,
+          selectedRoomIds[0],
+          nights
+        );
+        
+        if (validation.valid && validation.discountId && validation.discountAmount) {
+          discountId = validation.discountId;
+          codeDiscountAmount = validation.discountAmount;
+          console.log(`✅ [BookingService] Discount code validated: discountId=${discountId}, amount=${codeDiscountAmount}`);
+        } else {
+          // Nếu discount code không hợp lệ, vẫn tiếp tục nhưng không áp dụng discount
+          console.warn(`⚠️ [BookingService] Invalid discount code: ${request.discountCode}, message: ${validation.message}`);
+        }
+      } else {
+        console.log(`ℹ️ [BookingService] No discount code provided in request`);
+      }
+
       // Tính giá tổng cho tất cả phòng
       const totalSubtotal = priceCalculation.subtotal * request.rooms;
-      const totalTaxAmount = totalSubtotal * 0.1;
-      const totalDiscountAmount = 0;
-      const totalAmount = totalSubtotal + totalTaxAmount - totalDiscountAmount;
+      const totalPackageDiscount = (priceCalculation.packageDiscount || 0) * request.rooms;
+      const totalSubtotalAfterPackage = totalSubtotal - totalPackageDiscount;
+      const totalTaxAmount = totalSubtotalAfterPackage * 0.1;
+      const totalCodeDiscount = codeDiscountAmount; // ✅ Sử dụng discount amount từ validate
+      const totalDiscountAmount = totalPackageDiscount + totalCodeDiscount;
+      const totalAmount = totalSubtotalAfterPackage + totalTaxAmount - totalCodeDiscount;
 
       // Kiểm tra availability và lock phòng
       if (existingBooking) {
@@ -556,7 +593,8 @@ export class BookingService {
             lockedRooms.push(roomId);
           }
         }
-        // Nếu dates không thay đổi, các phòng đã được lock trong createTemporaryBooking, không cần lock lại
+        // ✅ Nếu dates không thay đổi, các phòng đã được lock trong createTemporaryBooking
+        // Logic lock lại khi confirm sẽ được thực hiện sau khi finalBookingStatus được set
       } else {
         // Tạo booking mới - kiểm tra và lock phòng (tất cả phòng)
         for (const roomId of selectedRoomIds) {
@@ -633,6 +671,63 @@ export class BookingService {
         
         // Cập nhật booking status thành CONFIRMED khi user xác nhận ở Step 2
         finalBookingStatus = 'CONFIRMED';
+        
+        // ✅ CRITICAL: Khi confirm booking, đảm bảo tất cả phòng đã được lock
+        // Nếu dates không thay đổi, phòng đã được lock từ temporary booking
+        // Nhưng để đảm bảo chắc chắn, ta lock lại tất cả phòng khi confirm
+        const formatDate = (d: any) => {
+          if (!d) return '';
+          if (typeof d === 'string') return d.slice(0, 10);
+          try {
+            const dateObj = d instanceof Date ? d : new Date(d);
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          } catch {
+            return String(d).slice(0, 10);
+          }
+        };
+        const existingCheckIn = formatDate(existingBooking.checkin_date);
+        const existingCheckOut = formatDate(existingBooking.checkout_date);
+        const datesChanged = existingCheckIn !== request.checkIn || 
+                             existingCheckOut !== request.checkOut;
+        
+        if (!datesChanged) {
+          // ✅ Khi confirm booking (CONFIRMED), đảm bảo tất cả phòng đã được lock
+          console.log(`[BookingService] Confirming booking ${bookingId} (status: CREATED → CONFIRMED), ensuring all rooms are locked...`);
+          for (const roomId of selectedRoomIds) {
+            try {
+              // Lock lại phòng để đảm bảo chắc chắn
+              // Nếu đã lock (available_rooms = 0), điều kiện available_rooms >= 1 sẽ fail, nhưng không sao
+              // Ta sẽ thử lock, nếu không được thì kiểm tra lại
+              const lockResult = await this.availabilityRepo.reduceAvailableRooms(
+                roomId,
+                request.checkIn,
+                request.checkOut,
+                1
+              );
+              
+              if (lockResult.success && lockResult.affectedRows > 0) {
+                console.log(`✅ [BookingService] Confirmed booking ${bookingId}: Locked room ${roomId} for dates ${request.checkIn} to ${request.checkOut}, affectedRows: ${lockResult.affectedRows}`);
+              } else {
+                // Phòng có thể đã được lock (available_rooms = 0), verify lại
+                const roomAvailability = await this.availabilityRepo.getRoomDailyAvailability(roomId, request.checkIn, request.checkOut);
+                const minAvailable = roomAvailability.length > 0 
+                  ? Math.min(...roomAvailability.map((r: any) => parseInt(r.available_rooms || r.availableRooms || '0')))
+                  : -1;
+                
+                if (minAvailable === 0) {
+                  console.log(`✅ [BookingService] Confirmed booking ${bookingId}: Room ${roomId} is already locked (available_rooms = 0)`);
+                } else {
+                  console.warn(`⚠️ [BookingService] Confirmed booking ${bookingId}: Room ${roomId} still has available_rooms = ${minAvailable}, but lock failed (affectedRows: ${lockResult.affectedRows})`);
+                }
+              }
+            } catch (lockError: any) {
+              console.error(`❌ [BookingService] Failed to lock room ${roomId} when confirming booking ${bookingId}:`, lockError.message);
+            }
+          }
+        }
       }
 
       if (existingBooking) {
@@ -829,6 +924,28 @@ export class BookingService {
         };
       }
 
+      // ✅ Lưu discount code vào booking_discount nếu có
+      if (discountId && request.discountCode) {
+        try {
+          // Lưu discount code ngay cả khi amount = 0 (để tracking)
+          const discountSaved = await this.bookingRepo.createBookingDiscount(
+            bookingId,
+            discountId,
+            codeDiscountAmount
+          );
+          if (discountSaved) {
+            console.log(`✅ [BookingService] Saved discount code ${request.discountCode} (discountId: ${discountId}, amount: ${codeDiscountAmount}) to booking_discount`);
+          } else {
+            console.error(`⚠️ [BookingService] Failed to save discount code to booking_discount`);
+          }
+        } catch (discountError: any) {
+          console.error(`❌ [BookingService] Error saving discount code:`, discountError.message);
+          // Không fail booking nếu lưu discount code lỗi
+        }
+      } else if (request.discountCode && !discountId) {
+        console.warn(`⚠️ [BookingService] Discount code ${request.discountCode} was provided but validation failed, not saving to booking_discount`);
+      }
+
       // Lấy lại booking từ database để đảm bảo có status mới nhất (đã được cập nhật ở trên)
       const updatedBookingFromDb = existingBooking ? await this.bookingRepo.getBookingById(bookingId) : null;
       const confirmedBookingStatus = updatedBookingFromDb ? updatedBookingFromDb.status : finalBookingStatus;
@@ -859,7 +976,10 @@ export class BookingService {
         guestInfo: request.guestInfo,
         priceBreakdown: {
           subtotal: totalSubtotal,
+          packageDiscount: priceCalculation.packageDiscount || 0,
+          subtotalAfterPackage: priceCalculation.subtotalAfterPackage || totalSubtotal,
           taxAmount: totalTaxAmount,
+          codeDiscount: priceCalculation.codeDiscount || 0,
           discountAmount: totalDiscountAmount,
           totalPrice: totalAmount
         },
@@ -1033,12 +1153,47 @@ export class BookingService {
         }
       }
 
-      // Attach room amenities vào booking data
+      // ✅ Lấy tất cả booking_details (rooms) của booking này
+      const bookingDetails = await this.bookingRepo.getBookingDetailsByBookingId(bookingId);
+      
+      // ✅ Transform booking_details thành danh sách rooms với thông tin đầy đủ
+      const rooms = [];
+      for (const detail of bookingDetails) {
+        try {
+          // Lấy thông tin phòng chi tiết
+          const roomInfo = await this.bookingRepo.getRoomById(detail.room_id);
+          if (roomInfo) {
+            // Lấy amenities cho phòng này
+            const roomAmenitiesList = await this.roomRepo.getRoomAmenities(detail.room_id);
+            
+            rooms.push({
+              bookingDetailId: detail.booking_detail_id,
+              roomId: detail.room_id,
+              roomNumber: roomInfo.room_number,
+              roomTypeName: roomInfo.room_type_name,
+              bedType: roomInfo.bed_type,
+              capacity: roomInfo.capacity,
+              checkinDate: detail.checkin_date,
+              checkoutDate: detail.checkout_date,
+              guestsCount: detail.guests_count,
+              pricePerNight: detail.price_per_night,
+              nightsCount: detail.nights_count,
+              totalPrice: detail.total_price,
+              amenities: roomAmenitiesList
+            });
+          }
+        } catch (detailError: any) {
+          console.error(`[BookingService] Error loading detail for room ${detail.room_id}:`, detailError.message);
+        }
+      }
+
+      // Attach room amenities và danh sách rooms vào booking data
       return {
         success: true,
         data: {
           ...booking,
-          room_amenities: roomAmenities
+          room_amenities: roomAmenities, // Vẫn giữ nếu cần cho thông tin chung
+          rooms: rooms // Danh sách các phòng chi tiết
         }
       };
     } catch (error: any) {

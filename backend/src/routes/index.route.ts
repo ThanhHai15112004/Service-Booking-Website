@@ -20,6 +20,7 @@ import settingsRoutes from "./Profile/settings.route";
 import paymentCardRoutes from "./Payment/paymentCard.route";
 import uploadRoutes from "./Upload/upload.route";
 import invoiceRoutes from "./Invoice/invoice.route";
+import promotionRoutes from "./Promotion/promotion.route";
 
 export function initRoutes(app: Express): void {
   //Auth
@@ -55,4 +56,7 @@ export function initRoutes(app: Express): void {
 
   //Invoice
   app.use("/api/invoices", invoiceRoutes);
+
+  //Promotion
+  app.use("/api/promotions", promotionRoutes);
 }

@@ -31,49 +31,15 @@ export function startCleanupExpiredBookingsJob(): void {
 
       for (const booking of bookings) {
         try {
-          // Cancel booking (set status = CANCELLED)
-          const cancelled = await bookingRepo.cancelBooking(booking.booking_id);
+          // ✅ Cancel booking và unlock phòng ĐỒNG THỜI trong cùng transaction
+          const result = await bookingRepo.cancelBookingAndUnlockRooms(booking.booking_id);
           
-          if (cancelled) {
+          if (result.success) {
             cancelledCount++;
-
-            // Unlock phòng - tăng lại availability
-            const bookingDetails = await bookingRepo.getBookingDetailsByBookingId(booking.booking_id);
-            console.log(`[CleanupJob] Unlocking rooms for expired booking ${booking.booking_id}, found ${bookingDetails.length} details`);
-            
-            // Helper để normalize date format
-            const normalizeDate = (date: Date | string): string => {
-              if (!date) return '';
-              const d = typeof date === 'string' ? new Date(date) : date;
-              const year = d.getFullYear();
-              const month = (d.getMonth() + 1).toString().padStart(2, '0');
-              const day = d.getDate().toString().padStart(2, '0');
-              return `${year}-${month}-${day}`;
-            };
-            
-            for (const detail of bookingDetails) {
-              try {
-                // ✅ Normalize date format để đảm bảo đúng format YYYY-MM-DD
-                const checkInDate = normalizeDate(detail.checkin_date);
-                const checkOutDate = normalizeDate(detail.checkout_date);
-                
-                const unlockResult = await availabilityRepo.increaseAvailableRooms(
-                  detail.room_id,
-                  checkInDate,
-                  checkOutDate,
-                  1
-                );
-                
-                if (unlockResult.success && unlockResult.affectedRows > 0) {
-                  console.log(`✅ [CleanupJob] Unlocked room ${detail.room_id} for dates ${checkInDate} to ${checkOutDate}, affectedRows: ${unlockResult.affectedRows}`);
-                  unlockedCount++;
-                } else {
-                  console.error(`⚠️ [CleanupJob] Failed to unlock room ${detail.room_id} for dates ${checkInDate} to ${checkOutDate}. affectedRows: ${unlockResult.affectedRows}. Check if room_price_schedule record exists!`);
-                }
-              } catch (error: any) {
-                console.error(`❌ [CleanupJob] Error unlocking room ${detail.room_id} for booking ${booking.booking_id}:`, error.message);
-              }
-            }
+            unlockedCount += result.unlockedRooms;
+            console.log(`✅ [CleanupJob] Canceled booking ${booking.booking_id} and unlocked ${result.unlockedRooms} room(s)`);
+          } else {
+            console.error(`⚠️ [CleanupJob] Failed to cancel booking ${booking.booking_id} (may have been already cancelled)`);
           }
         } catch (error: any) {
           console.error(`❌ Lỗi khi cancel booking ${booking.booking_id}:`, error.message);

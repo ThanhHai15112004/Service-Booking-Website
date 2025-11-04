@@ -4,7 +4,8 @@ import {
   createTemporaryBooking,
   getBooking,
   getMyBookings,
-  cancelBooking
+  cancelBooking,
+  validateDiscountCode
 } from "../../controllers/Booking/booking.controller";
 import { authenticateJWT } from "../../middleware/auth.middleware";
 
@@ -24,6 +25,9 @@ router.get("/:bookingId", authenticateJWT, getBooking);
 
 // Hủy booking (yêu cầu đăng nhập)
 router.delete("/:bookingId", authenticateJWT, cancelBooking);
+
+// ✅ Validate discount code (không cần đăng nhập)
+router.post("/validate-discount", validateDiscountCode);
 
 export default router;
 

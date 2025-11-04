@@ -20,6 +20,7 @@ export interface CreateTemporaryBookingRequest {
   rooms: number;           
   adults: number;
   children?: number;
+  discountCode?: string; // ✅ Mã giảm giá (nếu có)
 }
 
 export interface CreateBookingRequest {
@@ -37,6 +38,7 @@ export interface CreateBookingRequest {
   guestInfo: GuestInfo;
   specialRequests?: string;
   paymentMethod: PaymentMethod;
+  discountCode?: string; // ✅ Mã giảm giá (nếu có)
 }
 
 export interface Booking {
@@ -89,10 +91,13 @@ export interface BookingConfirmation {
   children?: number;
   guestInfo: GuestInfo;
   priceBreakdown: {
-    subtotal: number;
-    taxAmount: number;
-    discountAmount: number;
-    totalPrice: number;
+    subtotal: number; // Tổng giá trước package discount
+    packageDiscount: number; // Discount từ account package
+    subtotalAfterPackage: number; // Subtotal sau package discount
+    taxAmount: number; // Thuế (10%)
+    codeDiscount: number; // Discount từ discount code
+    discountAmount: number; // Tổng discount (packageDiscount + codeDiscount)
+    totalPrice: number; // Tổng cuối cùng
   };
   paymentMethod: PaymentMethod;
   paymentStatus: 'pending' | 'paid';
@@ -111,13 +116,18 @@ export interface BookingPriceCalculation {
   dailyPrices: Array<{
     date: string;
     basePrice: number;
-    discountPercent: number;
-    finalPrice: number;
+    discountPercent: number; // Legacy field (từ discount_percent cũ)
+    providerDiscount: number; // Provider discount amount
+    systemDiscount: number; // System discount amount
+    finalPrice: number; // = basePrice - providerDiscount - systemDiscount
   }>;
-  subtotal: number;
-  taxAmount: number;
-  discountAmount: number;
-  totalAmount: number;
+  subtotal: number; // Tổng giá trước khi áp dụng package discount
+  packageDiscount: number; // Discount từ account package
+  subtotalAfterPackage: number; // Subtotal sau khi áp dụng package discount
+  taxAmount: number; // Thuế (10%)
+  codeDiscount: number; // Discount từ discount code
+  discountAmount: number; // Tổng discount (packageDiscount + codeDiscount)
+  totalAmount: number; // Tổng cuối cùng
   nightsCount: number;
 }
 

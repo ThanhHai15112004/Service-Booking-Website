@@ -10,6 +10,7 @@ export interface CreateTemporaryBookingRequest {
   rooms: number;
   adults: number;
   children?: number;
+  discountCode?: string; // ✅ Mã giảm giá
 }
 
 export interface CreateBookingRequest {
@@ -37,6 +38,7 @@ export interface CreateBookingRequest {
   checkInTime?: string;
   smokingPreference?: 'non-smoking' | 'smoking' | null;
   bedPreference?: 'large-bed' | 'twin-beds' | null;
+  discountCode?: string; // ✅ Mã giảm giá
 }
 
 export interface BookingConfirmation {
@@ -70,7 +72,10 @@ export interface BookingConfirmation {
   };
   priceBreakdown: {
     subtotal: number;
+    packageDiscount?: number;
+    subtotalAfterPackage?: number;
     taxAmount: number;
+    codeDiscount?: number;
     discountAmount: number;
     totalPrice: number;
   };

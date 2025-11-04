@@ -1,4 +1,4 @@
-import { Mail, Phone, Globe, Calendar, Clock, CheckCircle, Ban, BedDouble, Bed, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, Phone, Globe, Calendar, Clock, CheckCircle, Ban, BedDouble, Bed, ChevronDown, ChevronUp, Tag, X } from 'lucide-react';
 
 // Use Ban icon for smoking as Cigarette doesn't exist in lucide-react
 const SmokingIcon = Ban;
@@ -15,6 +15,9 @@ interface BookingStep1Props {
   bedPreference: 'large-bed' | 'twin-beds' | null;
   specialRequests: string;
   showMoreRequests: boolean;
+  discountCode?: string;
+  discountCodeApplied?: boolean;
+  discountCodeError?: string;
   onNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
@@ -26,6 +29,9 @@ interface BookingStep1Props {
   onBedPreferenceChange: (value: 'large-bed' | 'twin-beds' | null) => void;
   onSpecialRequestsChange: (value: string) => void;
   onShowMoreRequestsChange: (value: boolean) => void;
+  onDiscountCodeChange?: (value: string) => void;
+  onApplyDiscountCode?: () => void;
+  onRemoveDiscountCode?: () => void;
   paymentMethod?: 'pay_at_hotel' | 'online_payment';
   checkOut?: string;
   onNext: () => void;
@@ -43,6 +49,9 @@ export default function BookingStep1({
   bedPreference,
   specialRequests,
   showMoreRequests,
+  discountCode = '',
+  discountCodeApplied = false,
+  discountCodeError = '',
   onNameChange,
   onEmailChange,
   onPhoneChange,
@@ -54,6 +63,9 @@ export default function BookingStep1({
   onBedPreferenceChange,
   onSpecialRequestsChange,
   onShowMoreRequestsChange,
+  onDiscountCodeChange,
+  onApplyDiscountCode,
+  onRemoveDiscountCode,
   paymentMethod = 'pay_at_hotel',
   checkOut,
   onNext
@@ -363,6 +375,63 @@ export default function BookingStep1({
             />
           )}
         </div>
+      </div>
+
+      {/* Discount Code */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-black mb-2">Mã giảm giá</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Nhập mã giảm giá của bạn để được giảm giá đặc biệt
+        </p>
+
+        {!discountCodeApplied ? (
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+              <input
+                type="text"
+                value={discountCode}
+                onChange={(e) => onDiscountCodeChange?.(e.target.value)}
+                placeholder="Nhập mã giảm giá"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && discountCode && onApplyDiscountCode) {
+                    onApplyDiscountCode();
+                  }
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onApplyDiscountCode}
+              disabled={!discountCode || !onApplyDiscountCode}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Áp dụng
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="text-sm font-medium text-green-800">
+                Mã giảm giá <strong>{discountCode}</strong> đã được áp dụng
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onRemoveDiscountCode}
+              className="p-1 hover:bg-green-100 rounded transition-colors"
+              title="Xóa mã giảm giá"
+            >
+              <X className="w-4 h-4 text-green-600" />
+            </button>
+          </div>
+        )}
+
+        {discountCodeError && (
+          <p className="mt-2 text-sm text-red-600">{discountCodeError}</p>
+        )}
       </div>
 
       {/* Free Room Benefits */}

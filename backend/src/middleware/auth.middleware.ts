@@ -1,8 +1,11 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { AccountRepository } from "../Repository/Auth/account.repository";
 dotenv.config();
 
-export function authenticateJWT(req: any, res: any, next: any) {
+const accountRepo = new AccountRepository();
+
+export async function authenticateJWT(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ message: "Thiếu token." });
@@ -15,9 +18,32 @@ export function authenticateJWT(req: any, res: any, next: any) {
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
+    
     // ✅ Set both res.locals and req.user for compatibility
     res.locals.accountId = decoded.account_id;
-    req.user = { account_id: decoded.account_id }; // ✅ Set req.user for controller
+    
+    // ✅ Nếu token có role, dùng role từ token (nhanh hơn)
+    // Nếu không có, query từ database để đảm bảo chính xác
+    let role = decoded.role;
+    
+    if (!role) {
+      // Fallback: query từ database nếu token không có role (token cũ)
+      try {
+        const account = await accountRepo.findById(decoded.account_id);
+        role = account?.role || 'USER';
+      } catch (error) {
+        console.warn("[AuthMiddleware] Failed to fetch role from database, using default USER");
+        role = 'USER';
+      }
+    }
+    
+    // ✅ Set req.user với account_id và role
+    req.user = { 
+      account_id: decoded.account_id,
+      role: role,
+      email: decoded.email // Thêm email nếu cần
+    };
+    
     next();
   } catch (err: any) {
     // ✅ Differentiate between expired token (401) and invalid token (403)

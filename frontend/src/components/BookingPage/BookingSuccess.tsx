@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 
 interface Hotel {
@@ -25,6 +27,25 @@ export default function BookingSuccess({
   bookingCode,
   bookingId
 }: BookingSuccessProps) {
+  const navigate = useNavigate();
+
+  // ✅ Redirect về trang chủ nếu reload trang (không có bookingCode và bookingId)
+  useEffect(() => {
+    // Kiểm tra nếu không có bookingCode và bookingId (có thể do reload trang)
+    if (!bookingCode && !bookingId) {
+      navigate('/', { replace: true });
+      return;
+    }
+
+    // ✅ Lưu flag vào sessionStorage để đánh dấu đã vào trang success hợp lệ
+    sessionStorage.setItem('bookingSuccessVisited', 'true');
+    
+    // ✅ Cleanup: Xóa flag khi component unmount hoặc khi có bookingCode/bookingId
+    return () => {
+      // Không xóa flag ngay, để có thể check khi reload
+    };
+  }, [bookingCode, bookingId, navigate]);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',

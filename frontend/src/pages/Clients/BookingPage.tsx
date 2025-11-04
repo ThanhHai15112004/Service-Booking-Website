@@ -14,6 +14,7 @@ import { getHotelDetail } from '../../services/hotelService';
 import { createBooking, createTemporaryBooking, cancelBooking, checkBookingExists, confirmBooking, CreateBookingRequest, getBookingById } from '../../services/bookingService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfile } from '../../services/profileService';
+import { validateDiscountCode } from '../../services/discountService';
 
 export default function BookingPage() {
   const { id } = useParams(); // hotelId or roomId
@@ -62,7 +63,11 @@ export default function BookingPage() {
     cardName: '',
     cardNumber: '',
     cardExpiry: '',
-    cardCVC: ''
+    cardCVC: '',
+    // Discount code
+    discountCode: '',
+    discountCodeApplied: false,
+    discountCodeError: ''
   });
 
   const [bookingComplete, setBookingComplete] = useState(false);
@@ -107,6 +112,9 @@ export default function BookingPage() {
     tax: number;
     total: number;
     nights: number;
+    packageDiscount?: number;
+    codeDiscount?: number;
+    subtotalAfterPackage?: number;
   } | null>(null);
 
   // ✅ Auto-fill guest information from account if user is logged in
@@ -642,14 +650,97 @@ export default function BookingPage() {
 
   const nights = rehydratedTotals?.nights ?? calculateNights();
   
+  // ✅ Discount code handlers
+  const handleApplyDiscountCode = async () => {
+    if (!bookingData.discountCode || !temporaryBookingId) return;
+
+    try {
+      const validation = await validateDiscountCode({
+        code: bookingData.discountCode,
+        subtotal: rehydratedTotals?.subtotal || subtotal,
+        hotelId: hotel?.hotel_id || hotel?.hotelId,
+        roomId: room?.roomId,
+        nights: nights
+      });
+
+      if (validation.success && validation.discountAmount) {
+        setBookingData(prev => ({
+          ...prev,
+          discountCodeApplied: true,
+          discountCodeError: ''
+        }));
+        
+        // ✅ Tính toán lại giá với discount code
+        const currentSubtotal = rehydratedTotals?.subtotal || subtotal;
+        const currentPackageDiscount = rehydratedTotals?.packageDiscount || 0;
+        const currentSubtotalAfterPackage = currentSubtotal - currentPackageDiscount;
+        const currentTax = rehydratedTotals?.tax || (currentSubtotalAfterPackage * 0.1);
+        const codeDiscountAmount = validation.discountAmount;
+        const finalTotal = currentSubtotalAfterPackage + currentTax - codeDiscountAmount;
+        
+        setRehydratedTotals({
+          subtotal: currentSubtotal,
+          tax: currentTax,
+          total: finalTotal,
+          nights: rehydratedTotals?.nights || nights,
+          packageDiscount: currentPackageDiscount,
+          codeDiscount: codeDiscountAmount,
+          subtotalAfterPackage: currentSubtotalAfterPackage
+        });
+      } else {
+        setBookingData(prev => ({
+          ...prev,
+          discountCodeApplied: false,
+          discountCodeError: validation.message || 'Mã giảm giá không hợp lệ'
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error applying discount code:', error);
+      setBookingData(prev => ({
+        ...prev,
+        discountCodeApplied: false,
+        discountCodeError: 'Lỗi khi áp dụng mã giảm giá'
+      }));
+    }
+  };
+
+  const handleRemoveDiscountCode = () => {
+    setBookingData(prev => ({
+      ...prev,
+      discountCode: '',
+      discountCodeApplied: false,
+      discountCodeError: ''
+    }));
+    
+    // ✅ Tính toán lại giá không có discount code
+    const currentSubtotal = rehydratedTotals?.subtotal || subtotal;
+    const currentPackageDiscount = rehydratedTotals?.packageDiscount || 0;
+    const currentSubtotalAfterPackage = currentSubtotal - currentPackageDiscount;
+    const currentTax = rehydratedTotals?.tax || (currentSubtotalAfterPackage * 0.1);
+    const finalTotal = currentSubtotalAfterPackage + currentTax;
+    
+    setRehydratedTotals({
+      subtotal: currentSubtotal,
+      tax: currentTax,
+      total: finalTotal,
+      nights: rehydratedTotals?.nights || nights,
+      packageDiscount: currentPackageDiscount,
+      codeDiscount: 0,
+      subtotalAfterPackage: currentSubtotalAfterPackage
+    });
+  };
+  
   // ✅ Calculate price using useMemo to prevent infinite re-renders
-  const { subtotal, tax, total } = useMemo(() => {
+  const { subtotal, tax, total, packageDiscount, codeDiscount, subtotalAfterPackage } = useMemo(() => {
     // Prefer backend values if available
     if (rehydratedTotals) {
       return {
         subtotal: rehydratedTotals.subtotal,
         tax: rehydratedTotals.tax,
-        total: rehydratedTotals.total
+        total: rehydratedTotals.total,
+        packageDiscount: rehydratedTotals.packageDiscount || 0,
+        codeDiscount: rehydratedTotals.codeDiscount || 0,
+        subtotalAfterPackage: rehydratedTotals.subtotalAfterPackage || (rehydratedTotals.subtotal - (rehydratedTotals.packageDiscount || 0))
       };
     }
     let basePrice = 0;
@@ -673,7 +764,10 @@ export default function BookingPage() {
     return {
       subtotal: calculatedSubtotal,
       tax: calculatedTax,
-      total: calculatedTotal
+      total: calculatedTotal,
+      packageDiscount: 0,
+      codeDiscount: 0,
+      subtotalAfterPackage: calculatedSubtotal
     };
   }, [rehydratedTotals, room?.totalPrice, room?.avgPricePerNight, hotel?.price_per_night, nights, bookingData.rooms]);
 
@@ -822,7 +916,9 @@ export default function BookingPage() {
         paymentMethod: bookingPaymentMethod,
         checkInTime: bookingData.checkInTime !== 'unknown' ? bookingData.checkInTime : undefined,
         smokingPreference: bookingData.smokingPreference || undefined,
-        bedPreference: bookingData.bedPreference || undefined
+        bedPreference: bookingData.bedPreference || undefined,
+        // ✅ Thêm discount code nếu đã được áp dụng
+        ...(bookingData.discountCodeApplied && bookingData.discountCode ? { discountCode: bookingData.discountCode } : {})
       };
 
       // ✅ Validate request before sending
@@ -1033,6 +1129,12 @@ export default function BookingPage() {
                   onBedPreferenceChange={(value) => setBookingData({ ...bookingData, bedPreference: value })}
                   onSpecialRequestsChange={(value) => setBookingData({ ...bookingData, specialRequests: value })}
                   onShowMoreRequestsChange={(value) => setBookingData({ ...bookingData, showMoreRequests: value })}
+                  discountCode={bookingData.discountCode}
+                  discountCodeApplied={bookingData.discountCodeApplied}
+                  discountCodeError={bookingData.discountCodeError}
+                  onDiscountCodeChange={(value) => setBookingData({ ...bookingData, discountCode: value })}
+                  onApplyDiscountCode={handleApplyDiscountCode}
+                  onRemoveDiscountCode={handleRemoveDiscountCode}
                   paymentMethod={bookingData.paymentMethod}
                   checkOut={bookingData.checkOut}
                   onNext={handleStep1Next}
@@ -1081,6 +1183,9 @@ export default function BookingPage() {
                   subtotal={subtotal}
                   tax={tax}
                   total={total}
+                  packageDiscount={packageDiscount}
+                  codeDiscount={codeDiscount}
+                  subtotalAfterPackage={subtotalAfterPackage}
                   paymentMethod={bookingData.paymentMethod}
                 />
               </div>

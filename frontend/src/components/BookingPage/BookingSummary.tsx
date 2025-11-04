@@ -54,6 +54,9 @@ interface BookingSummaryProps {
   subtotal: number;
   tax: number;
   total: number;
+  packageDiscount?: number;
+  codeDiscount?: number;
+  subtotalAfterPackage?: number;
   paymentMethod?: 'pay_at_hotel' | 'online_payment';
 }
 
@@ -73,8 +76,12 @@ export default function BookingSummary({
   subtotal,
   tax,
   total,
+  packageDiscount = 0,
+  codeDiscount = 0,
+  subtotalAfterPackage,
   paymentMethod = 'pay_at_hotel'
 }: BookingSummaryProps) {
+  const finalSubtotalAfterPackage = subtotalAfterPackage ?? (subtotal - packageDiscount);
   const formatPrice = (price: number) => {
     if (!price || isNaN(price)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -346,11 +353,38 @@ export default function BookingSummary({
             GIẢM {discountPercent}% HÔM NAY
           </div>
         )}
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between text-gray-600">
-            <span>Giá phòng ({rooms} phòng × {nights} đêm)</span>
-            <span className="font-medium">{formatPrice(subtotal)}</span>
-          </div>
+                 <div className="space-y-2 text-sm">
+         <div className="flex justify-between text-gray-600">
+           <span>Giá phòng ({rooms} phòng × {nights} đêm)</span>
+           <span className="font-medium">
+             {subtotal > 0 ? formatPrice(subtotal) : 'Liên hệ'}
+           </span>
+         </div>
+          
+          {/* Package Discount */}
+          {packageDiscount > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Giảm giá gói thành viên</span>
+              <span>-{formatPrice(packageDiscount)}</span>
+            </div>
+          )}
+          
+          {/* Subtotal after package */}
+          {packageDiscount > 0 && (
+            <div className="flex justify-between text-gray-700 font-medium">
+              <span>Tổng sau giảm giá gói</span>
+              <span>{formatPrice(finalSubtotalAfterPackage)}</span>
+            </div>
+          )}
+          
+          {/* Code Discount */}
+          {codeDiscount > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Giảm giá mã khuyến mãi</span>
+              <span>-{formatPrice(codeDiscount)}</span>
+            </div>
+          )}
+          
           <div className="flex justify-between text-gray-600">
             <span>Thuế và phí (10%)</span>
             <span className="font-medium">{formatPrice(tax)}</span>
@@ -359,10 +393,12 @@ export default function BookingSummary({
             <span>Phí đặt trước</span>
             <span className="text-green-600 font-medium">MIỄN PHÍ</span>
           </div>
-          <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-200">
-            <span>Giá cuối cùng</span>
-            <span className="text-red-600">{formatPrice(total)}</span>
-          </div>
+                   <div className="flex justify-between text-lg font-bold text-black pt-3 border-t border-gray-200">
+           <span>Giá cuối cùng</span>
+           <span className="text-red-600">
+             {total > 0 ? formatPrice(total) : 'Liên hệ'}
+           </span>
+         </div>
           <p className="text-xs text-gray-500 mt-2">
             Giá đã bao gồm: Phí dịch vụ 5%, Thuế 8%
           </p>

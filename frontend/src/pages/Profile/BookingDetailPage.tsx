@@ -437,116 +437,163 @@ function BookingDetailPage() {
                   Thông tin phòng
                 </h2>
                 <div className="space-y-6">
-                  {/* Basic Room Info */}
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start gap-3">
-                        <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">Loại phòng</p>
-                          <p className="font-medium text-gray-900">{booking.room_type_name || 'N/A'}</p>
+                  {booking.rooms && booking.rooms.length > 0 ? (
+                    booking.rooms.map((room: any, index: number) => (
+                      <div key={room.roomId || index} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+                        <h3 className="font-semibold text-lg text-gray-800 mb-3">Phòng {index + 1}: {room.roomTypeName}</h3>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex items-start gap-3">
+                              <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">Loại phòng</p>
+                                <p className="font-medium text-gray-900">{room.roomTypeName}</p>
+                              </div>
+                            </div>
+
+                            {room.roomNumber && (
+                              <div className="flex items-start gap-3">
+                                <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm text-gray-500 mb-1">Số phòng</p>
+                                  <p className="font-medium text-gray-900">Phòng {room.roomNumber}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {room.capacity && (
+                              <div className="flex items-start gap-3">
+                                <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm text-gray-500 mb-1">Sức chứa</p>
+                                  <p className="font-medium text-gray-900">{room.capacity} người</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {room.bedType && (
+                              <div className="flex items-start gap-3">
+                                <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm text-gray-500 mb-1">Loại giường</p>
+                                  <p className="font-medium text-gray-900">{room.bedType}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {room.pricePerNight && (
+                              <div className="flex items-start gap-3">
+                                <Wallet className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm text-gray-500 mb-1">Giá mỗi đêm</p>
+                                  <p className="font-medium text-gray-900">{formatCurrency(room.pricePerNight)}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {room.guestsCount && (
+                              <div className="flex items-start gap-3">
+                                <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-sm text-gray-500 mb-1">Số khách</p>
+                                  <p className="font-medium text-gray-900">{room.guestsCount} người</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Room Amenities */}
+                          {room.amenities && room.amenities.length > 0 && (
+                            <div className="mt-4 border-t border-gray-200 pt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                <Coffee className="w-4 h-4 text-blue-600" />
+                                Tiện nghi phòng
+                              </h4>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {room.amenities.map((amenity: any, amenityIdx: number) => {
+                                  const facility = amenity.facility || amenity;
+                                  const facilityName = facility?.name || amenity?.name || amenity;
+                                  const facilityIcon = facility?.icon || amenity?.icon;
+                                  
+                                  return (
+                                    <div key={amenityIdx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                      {facilityIcon ? (
+                                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                          {facilityIcon.length <= 3 ? (
+                                            <span className="text-base">{facilityIcon}</span>
+                                          ) : (
+                                            <img src={facilityIcon} alt={facilityName} className="w-5 h-5" />
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <Coffee className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                      )}
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {facilityName}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-
-                      {booking.room_number && (
-                        <div className="flex items-start gap-3">
-                          <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">Số phòng</p>
-                            <p className="font-medium text-gray-900">Phòng {booking.room_number}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {booking.room_capacity && (
-                        <div className="flex items-start gap-3">
-                          <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">Sức chứa</p>
-                            <p className="font-medium text-gray-900">{booking.room_capacity} người</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {booking.bed_type && (
+                    ))
+                  ) : (
+                    // Fallback: hiển thị thông tin phòng cũ nếu không có rooms array
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex items-start gap-3">
                           <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                           <div>
-                            <p className="text-sm text-gray-500 mb-1">Loại giường</p>
-                            <p className="font-medium text-gray-900">{booking.bed_type}</p>
+                            <p className="text-sm text-gray-500 mb-1">Loại phòng</p>
+                            <p className="font-medium text-gray-900">{booking.room_type_name || 'N/A'}</p>
                           </div>
                         </div>
-                      )}
 
-                      {booking.room_area && (
-                        <div className="flex items-start gap-3">
-                          <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">Diện tích</p>
-                            <p className="font-medium text-gray-900">{booking.room_area} m²</p>
+                        {booking.room_number && (
+                          <div className="flex items-start gap-3">
+                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Số phòng</p>
+                              <p className="font-medium text-gray-900">Phòng {booking.room_number}</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        )}
 
-                  {/* Room Amenities */}
-                  {(() => {
-                    // Ưu tiên lấy từ booking.room_amenities (từ backend API)
-                    let roomAmenities: any[] = booking.room_amenities || [];
-                    
-                    // Fallback: Tìm từ hotelDetails nếu booking không có
-                    if (roomAmenities.length === 0 && hotelDetails?.availableRooms && hotelDetails.availableRooms.length > 0 && booking.room_type_id) {
-                      // Tìm room type theo room_type_id
-                      const roomType = hotelDetails.availableRooms.find((roomType: any) => 
-                        roomType.roomTypeId === booking.room_type_id ||
-                        roomType.room_type_id === booking.room_type_id
-                      );
-                      
-                      // Lấy facilities từ room type
-                      if (roomType?.facilities && Array.isArray(roomType.facilities) && roomType.facilities.length > 0) {
-                        roomAmenities = roomType.facilities;
-                      }
-                    }
-                    
-                    // Hiển thị nếu có tiện nghi - style giống như tiện nghi khách sạn
-                    return roomAmenities.length > 0 ? (
-                      <div className="border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                          <Coffee className="w-5 h-5 text-blue-600" />
-                          Tiện nghi phòng
-                        </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {roomAmenities.map((amenity: any, idx: number) => {
-                            // Backend trả về facility object với structure: { facilityId, name, icon }
-                            // Hoặc có thể là nested: { facility: { name, icon } }
-                            const facility = amenity.facility || amenity;
-                            const facilityName = facility?.name || amenity?.name || amenity;
-                            const facilityIcon = facility?.icon || amenity?.icon;
-                            
-                            return (
-                              <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                                {facilityIcon ? (
-                                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                    {facilityIcon.length <= 3 ? (
-                                      <span className="text-base">{facilityIcon}</span>
-                                    ) : (
-                                      <img src={facilityIcon} alt={facilityName} className="w-5 h-5" />
-                                    )}
-                                  </div>
-                                ) : (
-                                  <Coffee className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                )}
-                                <span className="text-sm font-medium text-gray-900">
-                                  {facilityName}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {booking.room_capacity && (
+                          <div className="flex items-start gap-3">
+                            <Users className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Sức chứa</p>
+                              <p className="font-medium text-gray-900">{booking.room_capacity} người</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {booking.bed_type && (
+                          <div className="flex items-start gap-3">
+                            <Bed className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Loại giường</p>
+                              <p className="font-medium text-gray-900">{booking.bed_type}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {booking.room_area && (
+                          <div className="flex items-start gap-3">
+                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Diện tích</p>
+                              <p className="font-medium text-gray-900">{booking.room_area} m²</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : null;
-                  })()}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -599,7 +646,9 @@ function BookingDetailPage() {
                       <Home className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Số lượng phòng</p>
-                        <p className="font-medium text-gray-900">1 phòng</p>
+                        <p className="font-medium text-gray-900">
+                          {booking.rooms && booking.rooms.length > 0 ? `${booking.rooms.length} phòng` : '1 phòng'}
+                        </p>
                       </div>
                     </div>
 

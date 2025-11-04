@@ -21,6 +21,9 @@ interface BookingStep2Props {
   couponApplied?: boolean;
   nights: number;
   rooms: number;
+  packageDiscount?: number;
+  codeDiscount?: number;
+  subtotalAfterPackage?: number;
 }
 
 export default function BookingStep2({
@@ -42,8 +45,12 @@ export default function BookingStep2({
   discount = 0,
   couponApplied = false,
   nights,
-  rooms
+  rooms,
+  packageDiscount = 0,
+  codeDiscount = 0,
+  subtotalAfterPackage
 }: BookingStep2Props) {
+  const finalSubtotalAfterPackage = subtotalAfterPackage ?? (subtotal - packageDiscount);
   // ✅ State để quản lý support level được chọn
   const [supportLevel, setSupportLevel] = useState<'standard' | 'fast'>('fast');
   
@@ -315,25 +322,36 @@ export default function BookingStep2({
         </div>
         <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between text-gray-600">
-            <span>Giá gốc ({rooms} phòng × {nights} đêm)</span>
-            <span className="line-through">{formatPrice(subtotal / 0.25)}</span>
+            <span>Giá phòng ({rooms} phòng × {nights} đêm)</span>
+            <span className="font-medium">{formatPrice(subtotal)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Giá của chúng tôi</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          {couponApplied && (
+          
+          {/* Package Discount */}
+          {packageDiscount > 0 && (
             <div className="flex justify-between text-green-600">
-              <span>Coupon đã sử dụng</span>
-              <span>-{formatPrice(discount)}</span>
+              <span>Giảm giá gói thành viên</span>
+              <span>-{formatPrice(packageDiscount)}</span>
             </div>
           )}
+          
+          {/* Subtotal after package */}
+          {packageDiscount > 0 && (
+            <div className="flex justify-between text-gray-700 font-medium">
+              <span>Tổng sau giảm giá gói</span>
+              <span>{formatPrice(finalSubtotalAfterPackage)}</span>
+            </div>
+          )}
+          
+          {/* Code Discount */}
+          {codeDiscount > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Giảm giá mã khuyến mãi</span>
+              <span>-{formatPrice(codeDiscount)}</span>
+            </div>
+          )}
+          
           <div className="flex justify-between text-gray-600">
-            <span>Giá phòng ({rooms} phòng × {nights} đêm)</span>
-            <span className="font-medium">{formatPrice(subtotal - discount)}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Thuế và phí</span>
+            <span>Thuế và phí (10%)</span>
             <span className="font-medium">{formatPrice(tax)}</span>
           </div>
           <div className="flex justify-between text-gray-600">

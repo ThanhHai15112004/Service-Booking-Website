@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import { BookingService } from "../../services/Booking/booking.service";
 import { CreateBookingRequest, CreateTemporaryBookingRequest } from "../../models/Booking/booking.model";
+import { DiscountRepository } from "../../Repository/Discount/discount.repository";
 
 const bookingService = new BookingService();
+const discountRepo = new DiscountRepository();
 
 // Hàm tạo booking tạm thời (status CREATED) khi vào trang booking
 export const createTemporaryBooking = async (req: Request, res: Response) => {
@@ -120,6 +122,55 @@ export const getMyBookings = async (req: Request, res: Response) => {
 };
 
 // Hàm hủy booking
+// ✅ Validate discount code
+export const validateDiscountCode = async (req: Request, res: Response) => {
+  try {
+    const { code, subtotal, hotelId, roomId, nights } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập mã giảm giá"
+      });
+    }
+
+    if (!subtotal || subtotal <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng cung cấp giá trị đơn hàng"
+      });
+    }
+
+    const validation = await discountRepo.validateDiscountCode(
+      code,
+      subtotal,
+      hotelId,
+      roomId,
+      nights
+    );
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message || "Mã giảm giá không hợp lệ",
+        discountAmount: 0
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Mã giảm giá hợp lệ",
+      discountAmount: validation.discountAmount || 0
+    });
+  } catch (error: any) {
+    console.error("[BookingController] validateDiscountCode error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi validate mã giảm giá"
+    });
+  }
+};
+
 export const cancelBooking = async (req: Request, res: Response) => {
   try {
     const { bookingId } = req.params;
