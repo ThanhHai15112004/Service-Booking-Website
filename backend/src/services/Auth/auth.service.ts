@@ -91,6 +91,87 @@ export class AuthService {
     };
   }
 
+  // ✅ Hàm tạo tài khoản admin trực tiếp (không cần verify email) - Chỉ dành cho SUPER ADMIN
+  async createAdminAccount(
+    full_name: string,
+    email: string,
+    password: string,
+    phone_number: string | undefined,
+    role: "ADMIN" | "STAFF" = "ADMIN",
+    avatar_url?: string
+  ) {
+    // Validate input cơ bản
+    if (!full_name || !full_name.trim()) {
+      throw new Error("Họ tên không được để trống.");
+    }
+
+    if (!email || !email.trim()) {
+      throw new Error("Email không được để trống.");
+    }
+
+    if (!validateEmailFormat(email)) {
+      throw new Error("Email không hợp lệ.");
+    }
+
+    if (!password || password.length < 6) {
+      throw new Error("Mật khẩu phải có ít nhất 6 ký tự.");
+    }
+
+    // Chỉ cho phép tạo ADMIN hoặc STAFF
+    if (role !== "ADMIN" && role !== "STAFF") {
+      throw new Error("Chỉ có thể tạo tài khoản ADMIN hoặc STAFF.");
+    }
+
+    // Kiểm tra email đã tồn tại chưa
+    const emailExists = await this.isEmailExisting(email);
+    if (emailExists) {
+      throw new Error("Email đã tồn tại trong hệ thống.");
+    }
+
+    // Tạo account_id mới
+    const account_id = await this.generateAccountId();
+    
+    // Hash password
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Tạo tài khoản với is_verified = true và status = ACTIVE ngay từ đầu
+    await this.accountRepo.create({
+      account_id,
+      full_name: full_name.trim(),
+      email: email.trim().toLowerCase(),
+      password_hash,
+      phone_number: phone_number?.trim() || null,
+      avatar_url: avatar_url || null,
+      role,
+      status: "ACTIVE",
+      is_verified: true,
+      verify_token: null,
+      verify_expires_at: null,
+      provider: "LOCAL",
+    });
+
+    // Lấy thông tin account vừa tạo
+    const newAccount = await this.accountRepo.findById(account_id);
+    
+    if (!newAccount) {
+      throw new Error("Không thể tạo tài khoản. Vui lòng thử lại.");
+    }
+
+    return {
+      success: true,
+      message: `Tạo tài khoản ${role} thành công! Tài khoản đã được kích hoạt và không cần xác thực email.`,
+      data: {
+        account_id: newAccount.account_id,
+        full_name: newAccount.full_name,
+        email: newAccount.email,
+        phone_number: newAccount.phone_number,
+        role: newAccount.role,
+        status: newAccount.status,
+        is_verified: newAccount.is_verified,
+      },
+    };
+  }
+
   // Hàm xác thực token email
   async verifyEmail(token: string): Promise<boolean> {
     const user = await this.accountRepo.findByVerifyToken(token);

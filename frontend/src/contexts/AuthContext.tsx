@@ -19,6 +19,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   user: User | null;
   accessToken: string | null;
+  isLoading: boolean;
   login: (user: User, accessToken: string, refreshToken: string) => void;
   updateAccessToken: (newAccessToken: string) => void;
   googleLoginHandler: (id_token: string) => Promise<void>;
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Kiểm tra trạng thái đăng nhập khi component mount
   useEffect(() => {
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       setIsLoggedIn(false);
     }
+    setIsLoading(false);
   }, []);
 
   const login = (newUser: User, newAccessToken: string, refreshToken: string) => {
@@ -94,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, accessToken, login, updateAccessToken, googleLoginHandler, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, accessToken, isLoading, login, updateAccessToken, googleLoginHandler, logout }}>
       {children}
     </AuthContext.Provider>
   );

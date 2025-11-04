@@ -1,0 +1,44 @@
+import { Router } from "express";
+import { authenticateJWT, requireAdmin } from "../../../middleware/auth.middleware";
+import { asyncHandler } from "../../../middleware/admin.middleware";
+import dashboardRoutes from "./dashboard.route";
+import accountRoutes from "./account.route";
+import bookingRoutes from "./booking.route";
+import reviewRoutes from "./review.route";
+import addressRoutes from "./address.route";
+import packageRoutes from "./package.route";
+import activityRoutes from "./activity.route";
+import { getBookingDetail } from "../../../controllers/Admin/AccountManager/booking.controller";
+import { toggleReviewVisibility, deleteReview } from "../../../controllers/Admin/AccountManager/review.controller";
+
+const router = Router();
+
+// Dashboard
+router.use("/dashboard", dashboardRoutes);
+
+// Account management
+router.use("/accounts", accountRoutes);
+
+// Account Bookings - nested under accounts
+router.use("/accounts", bookingRoutes);
+
+// Booking Detail - standalone route
+router.get("/bookings/:bookingId", authenticateJWT, requireAdmin, asyncHandler(getBookingDetail));
+
+// Account Reviews - nested under accounts
+router.use("/accounts", reviewRoutes);
+
+// Review actions - standalone routes
+router.put("/reviews/:reviewId/visibility", authenticateJWT, requireAdmin, asyncHandler(toggleReviewVisibility));
+router.delete("/reviews/:reviewId", authenticateJWT, requireAdmin, asyncHandler(deleteReview));
+
+// Account Addresses - nested under accounts
+router.use("/accounts", addressRoutes);
+
+// Account Packages & Payments - nested under accounts
+router.use("/accounts", packageRoutes);
+
+// Account Activity - nested under accounts
+router.use("/accounts", activityRoutes);
+
+export default router;

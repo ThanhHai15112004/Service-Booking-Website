@@ -1,5 +1,5 @@
 import { Users, ShoppingCart, Package, DollarSign } from "lucide-react";
-import StatCard from "../components/StatCard";
+import StatCard from "../../components/Admins/StatCard";
 
 const Dashboard = () => {
   // Mock data - sau này sẽ fetch từ API

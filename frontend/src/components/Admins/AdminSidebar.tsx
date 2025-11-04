@@ -13,11 +13,12 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import logo from "../../assets/imgs/logos/logo1.png";
 
 interface MenuItem {
   id: string;
   label: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
   path?: string;
   subItems?: { label: string; path: string }[];
 }
@@ -34,10 +35,14 @@ const AdminSidebar = () => {
       path: "/admin",
     },
     {
-      id: "users",
-      label: "Quản lý người dùng",
+      id: "accounts",
+      label: "Quản lý tài khoản",
       icon: <Users size={20} />,
-      path: "/admin/users",
+      subItems: [
+        { label: "Dashboard", path: "/admin/accounts/dashboard" },
+        { label: "Danh sách tài khoản", path: "/admin/accounts" },
+        { label: "Thêm tài khoản", path: "/admin/accounts/create" },
+      ],
     },
     {
       id: "products",
@@ -111,7 +116,13 @@ const AdminSidebar = () => {
     <aside className="w-64 bg-black text-white h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold tracking-tight">PANTHERA ADMIN</h1>
+        <Link to="/admin" className="flex items-center">
+          <img 
+            src={logo} 
+            alt="Admin Logo" 
+            className="h-10 w-auto"
+          />
+        </Link>
       </div>
 
       {/* Menu */}

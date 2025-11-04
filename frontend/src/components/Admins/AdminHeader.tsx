@@ -1,5 +1,6 @@
 import { Bell, Search, User, LogOut } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface AdminHeaderProps {
   onLogout: () => void;
@@ -96,8 +97,5 @@ const AdminHeader = ({ onLogout, adminName = "Admin" }: AdminHeaderProps) => {
     </header>
   );
 };
-
-// Missing import
-import { Link } from "react-router-dom";
 
 export default AdminHeader;

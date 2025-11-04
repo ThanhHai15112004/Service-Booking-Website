@@ -5,16 +5,35 @@ import api from "../../api/axiosClient";
 import Header from "../../components/Header";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import Footer from "../../components/Footer";
+import { useAuth } from "../../contexts/AuthContext";
 
 function VerifyEmailPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isLoggedIn, user, isLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
   const hasCalledAPI = useRef(false); // Đảm bảo API chỉ được gọi 1 lần
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ✅ Redirect nếu đã đăng nhập (trừ khi có token verify trong URL)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get('token');
+    
+    // Nếu có token trong URL, không redirect (cần verify email)
+    if (tokenFromUrl) return;
+
+    if (!isLoading && isLoggedIn && user) {
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoggedIn, user, isLoading, navigate, location.search]);
 
   useEffect(() => {
     // Cleanup countdown timer khi component unmount

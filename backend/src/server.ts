@@ -7,6 +7,7 @@ import sequelize, { testConnection } from "./config/sequelize"; // ✅ Add Seque
 import { startCleanupJob } from "./jobs/cleanupUnverifiedAccounts";
 import { startCleanupExpiredBookingsJob } from "./jobs/cleanupExpiredBookings";
 import { startAutoGeneratePricesJob } from "./jobs/autoGeneratePrices";
+import { adminErrorHandler } from "./middleware/admin.middleware";
 const cors = require('cors');
 import cookieParser from "cookie-parser";
 
@@ -27,6 +28,9 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));  
 
 initRoutes(app);
+
+// ✅ Admin error handler - phải đặt sau tất cả routes
+app.use("/api/admin", adminErrorHandler);
 
 startCleanupJob()
 startCleanupExpiredBookingsJob();

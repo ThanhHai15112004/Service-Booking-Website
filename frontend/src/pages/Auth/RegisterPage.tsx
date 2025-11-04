@@ -73,7 +73,18 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { googleLoginHandler } = useAuth();
+  const { googleLoginHandler, isLoggedIn, user, isLoading } = useAuth();
+
+  // ✅ Redirect nếu đã đăng nhập
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && user) {
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoggedIn, user, isLoading, navigate]);
 
 
   const [resendCount, setResendCount] = useState(0);

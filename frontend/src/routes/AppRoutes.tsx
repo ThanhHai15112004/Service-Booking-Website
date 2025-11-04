@@ -16,6 +16,15 @@ import WishlistPage from "../pages/Profile/WishlistPage";
 import UnauthorizedPage from "../pages/Error/UnauthorizedPage";
 import AccountSuspendedPage from "../pages/Error/AccountSuspendedPage";
 import ProtectedRoute from "../components/ProtectedRoute";
+import ProtectedAdminRoute from "../components/ProtectedAdminRoute";
+import AdminLayout from "../components/Admins/AdminLayout";
+import AdminLoginPage from "../pages/Admin/AdminLoginPage";
+import Dashboard from "../pages/Admin/Dashboard";
+import UserList from "../pages/Admin/UserList";
+import ProductList from "../pages/Admin/ProductList";
+import OrderList from "../pages/Admin/OrderList";
+import { AccountDashboard, AccountList, CreateAccount } from "../components/Admins/AccountManager";
+import AccountDetail from "../components/Admins/AccountManager/AccountDetail";
 
 function AppRoutes() {
   return (
@@ -63,6 +72,51 @@ function AppRoutes() {
         <ProtectedRoute>
           <WishlistPage />
         </ProtectedRoute>
+      } />
+      
+      {/* Admin Routes */}
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><Dashboard /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/users" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><UserList /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      
+      {/* Account Management Routes */}
+      <Route path="/admin/accounts/dashboard" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><AccountDashboard /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/accounts" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><AccountList /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/accounts/create" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><CreateAccount /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/accounts/:accountId" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><AccountDetail /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/products" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><ProductList /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/orders" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><OrderList /></AdminLayout>
+        </ProtectedAdminRoute>
       } />
       
       {/* Error Routes */}

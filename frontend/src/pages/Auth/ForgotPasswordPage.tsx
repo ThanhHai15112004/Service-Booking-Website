@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
 import { Mail, ChevronLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { forgotPassword, verifyResetToken, resetPassword } from '../../services/authService';
 import Toast from "../../components/Toast";
 import Loading from "../../components/Loading";
+import { useAuth } from '../../contexts/AuthContext';
 
 type ForgotStep = 'email' | 'verify' | 'reset' | 'success';
 
 function ForgotPasswordPage() {
+  const navigate = useNavigate();
+  const { isLoggedIn, user, isLoading } = useAuth();
   const [step, setStep] = useState<ForgotStep>('email');
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
@@ -17,6 +21,23 @@ function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // ✅ Redirect nếu đã đăng nhập (trừ khi có token reset trong URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    
+    // Nếu có token trong URL, không redirect (cần reset password)
+    if (tokenFromUrl) return;
+
+    if (!isLoading && isLoggedIn && user) {
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoggedIn, user, isLoading, navigate]);
 
   // Hàm showToast tự động ẩn sau 2.5s
   const showToast = (toastObj: { type: "error" | "success"; message: string }) => {

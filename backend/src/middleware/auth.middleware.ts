@@ -44,6 +44,14 @@ export async function authenticateJWT(req: any, res: any, next: any) {
       email: decoded.email // Thêm email nếu cần
     };
     
+    // ✅ Debug: Log thông tin user đã authenticate
+    console.log("[authenticateJWT] User authenticated:", {
+      account_id: req.user.account_id,
+      email: req.user.email,
+      role: req.user.role,
+      roleFromToken: decoded.role
+    });
+    
     next();
   } catch (err: any) {
     // ✅ Differentiate between expired token (401) and invalid token (403)
@@ -57,4 +65,46 @@ export async function authenticateJWT(req: any, res: any, next: any) {
       message: "Token không hợp lệ." 
     });
   }
+}
+
+// ✅ Middleware kiểm tra quyền ADMIN
+export function requireAdmin(req: any, res: any, next: any) {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: "Vui lòng đăng nhập" 
+    });
+  }
+  
+  // ✅ Debug: Log thông tin user để kiểm tra
+  console.log("[requireAdmin] Current user:", {
+    account_id: req.user.account_id,
+    email: req.user.email,
+    role: req.user.role
+  });
+  
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ 
+      success: false, 
+      message: `Chỉ ADMIN mới có quyền truy cập tài nguyên này. Role hiện tại của bạn: ${req.user.role}` 
+    });
+  }
+  next();
+}
+
+// ✅ Middleware kiểm tra quyền STAFF (ADMIN hoặc STAFF)
+export function requireStaff(req: any, res: any, next: any) {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: "Vui lòng đăng nhập" 
+    });
+  }
+  if (req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+    return res.status(403).json({ 
+      success: false, 
+      message: "Bạn không có quyền truy cập tài nguyên này" 
+    });
+  }
+  next();
 }

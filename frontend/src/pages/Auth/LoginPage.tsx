@@ -10,7 +10,7 @@ import { GoogleLogin } from '@react-oauth/google';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isLoggedIn, user, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -19,6 +19,17 @@ function LoginPage() {
     password: '',
     rememberMe: false
   });
+
+  // ✅ Redirect nếu đã đăng nhập
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && user) {
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoggedIn, user, isLoading, navigate]);
 
   // Load saved credentials on component mount
   useEffect(() => {
@@ -37,6 +48,11 @@ function LoginPage() {
       }
     }
   }, []);
+
+  // ✅ Redirect nếu đang load
+  if (isLoading) {
+    return <Loading message="Đang kiểm tra xác thực..." />;
+  }
 
   const showToast = (toastObj: { type: "error" | "success"; message: string }) => {
     setToast(toastObj);
@@ -69,8 +85,14 @@ function LoginPage() {
         login(res.data.user, res.data.tokens.access_token, res.data.tokens.refresh_token);
         
         showToast({ type: "success", message: "Đăng nhập thành công!" });
-        // Redirect ngay lập tức (không cần timeout)
-        navigate('/');
+        
+        // ✅ Redirect theo role
+        const userRole = res.data.user.role;
+        if (userRole === 'ADMIN' || userRole === 'STAFF') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
       } else {
         setLoading(false);
         showToast({ type: "error", message: res.message || "Đăng nhập thất bại!" });

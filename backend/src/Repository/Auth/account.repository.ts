@@ -136,5 +136,157 @@ export class AccountRepository {
         [account_id]
     );
     return rows.length > 0 ? (rows[0] as Account) : null;
+  }
+
+  // ✅ Hàm lấy tất cả accounts với pagination, search, filter
+  async findAll(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: "ADMIN" | "STAFF" | "USER";
+    status?: "ACTIVE" | "PENDING" | "BANNED" | "DELETED";
+    provider?: "GOOGLE" | "FACEBOOK" | "LOCAL";
+    is_verified?: boolean;
+    sortBy?: "created_at" | "full_name" | "email";
+    sortOrder?: "ASC" | "DESC";
+  }): Promise<{ accounts: Account[]; total: number }> {
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const offset = (page - 1) * limit;
+
+    let whereConditions: string[] = [];
+    let queryParams: any[] = [];
+
+    // Search by email, full_name, or account_id
+    if (params.search) {
+      whereConditions.push(
+        `(email LIKE ? OR full_name LIKE ? OR account_id LIKE ?)`
+      );
+      const searchPattern = `%${params.search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern);
     }
+
+    // Filter by role
+    if (params.role) {
+      whereConditions.push(`role = ?`);
+      queryParams.push(params.role);
+    }
+
+    // Filter by status
+    if (params.status) {
+      whereConditions.push(`status = ?`);
+      queryParams.push(params.status);
+    }
+
+    // Filter by provider
+    if (params.provider) {
+      whereConditions.push(`provider = ?`);
+      queryParams.push(params.provider);
+    }
+
+    // Filter by verified status
+    if (params.is_verified !== undefined) {
+      whereConditions.push(`is_verified = ?`);
+      queryParams.push(params.is_verified ? 1 : 0);
+    }
+
+    const whereClause =
+      whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+
+    // Sort
+    const sortBy = params.sortBy || "created_at";
+    const sortOrder = params.sortOrder || "DESC";
+    const orderBy = `ORDER BY ${sortBy} ${sortOrder}`;
+
+    // Get total count
+    const [countRows]: any = await pool.query(
+      `SELECT COUNT(*) as total FROM account ${whereClause}`,
+      queryParams
+    );
+    const total = countRows[0]?.total || 0;
+
+    // Get accounts
+    const [rows]: any = await pool.query(
+      `SELECT 
+        account_id, full_name, email, phone_number, status, role, 
+        created_at, updated_at, is_verified, provider, provider_id, avatar_url
+       FROM account 
+       ${whereClause}
+       ${orderBy}
+       LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    return {
+      accounts: rows.map((row: any) => ({
+        ...row,
+        is_verified: Boolean(row.is_verified === 1 || row.is_verified === true),
+      })),
+      total,
+    };
+  }
+
+  // ✅ Hàm cập nhật account
+  async update(accountId: string, updates: Partial<Account>): Promise<boolean> {
+    const allowedFields = [
+      "full_name",
+      "email",
+      "phone_number",
+      "status",
+      "role",
+      "is_verified",
+      "avatar_url",
+    ];
+    const updateFields = Object.keys(updates).filter((key) =>
+      allowedFields.includes(key)
+    );
+
+    if (updateFields.length === 0) {
+      return false;
+    }
+
+    const setClause = updateFields.map((field) => `${field} = ?`).join(", ");
+    const values = updateFields.map((field) => {
+      const value = (updates as any)[field];
+      // Convert boolean to 1/0 for MySQL
+      if (field === "is_verified" && typeof value === "boolean") {
+        return value ? 1 : 0;
+      }
+      return value;
+    });
+
+    await pool.query(
+      `UPDATE account SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?`,
+      [...values, accountId]
+    );
+
+    return true;
+  }
+
+  // ✅ Hàm soft delete account
+  async softDelete(accountId: string): Promise<boolean> {
+    await pool.query(
+      `UPDATE account SET status = 'DELETED', updated_at = CURRENT_TIMESTAMP WHERE account_id = ?`,
+      [accountId]
+    );
+    return true;
+  }
+
+  // ✅ Hàm force verify email
+  async forceVerify(accountId: string): Promise<boolean> {
+    await pool.query(
+      `UPDATE account SET is_verified = TRUE, verify_token = NULL, verify_expires_at = NULL, status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP WHERE account_id = ?`,
+      [accountId]
+    );
+    return true;
+  }
+
+  // ✅ Hàm reset password (set password_hash mới)
+  async resetPassword(accountId: string, passwordHash: string): Promise<boolean> {
+    await pool.query(
+      `UPDATE account SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?`,
+      [passwordHash, accountId]
+    );
+    return true;
+  }
 }
