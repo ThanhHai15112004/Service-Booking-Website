@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
-  Package,
-  ShoppingCart,
-  BarChart3,
-  Warehouse,
+  Building2,
+  Bed,
+  Calendar,
+  CreditCard,
   Tags,
-  FileText,
-  Settings,
+  Star,
+  BarChart3,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -27,12 +27,52 @@ const AdminSidebar = () => {
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
+  // Auto-expand menu items based on current route
+  useEffect(() => {
+    const shouldExpand: string[] = [];
+    
+    if (location.pathname.startsWith("/admin/accounts")) {
+      shouldExpand.push("accounts");
+    }
+    if (location.pathname.startsWith("/admin/hotels")) {
+      shouldExpand.push("hotels");
+    }
+    if (location.pathname.startsWith("/admin/rooms")) {
+      shouldExpand.push("rooms");
+    }
+    if (location.pathname.startsWith("/admin/bookings")) {
+      shouldExpand.push("bookings");
+    }
+    if (location.pathname.startsWith("/admin/payments")) {
+      shouldExpand.push("payments");
+    }
+    if (location.pathname.startsWith("/admin/discounts")) {
+      shouldExpand.push("discounts");
+    }
+    if (location.pathname.startsWith("/admin/reviews")) {
+      shouldExpand.push("reviews");
+    }
+    if (location.pathname.startsWith("/admin/reports")) {
+      // Reports doesn't have sub-items, so we don't need to expand it
+    }
+
+    // Only update if different to prevent unnecessary re-renders
+    setExpandedItems((prev) => {
+      const sortedPrev = [...prev].sort().join(",");
+      const sortedShould = [...shouldExpand].sort().join(",");
+      if (sortedPrev !== sortedShould) {
+        return shouldExpand;
+      }
+      return prev;
+    });
+  }, [location.pathname]);
+
   const menuItems: MenuItem[] = [
     {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: <LayoutDashboard size={20} />,
-      path: "/admin",
+      id: "reports",
+      label: "Dashboard & Báo cáo",
+      icon: <BarChart3 size={20} />,
+      path: "/admin/reports",
     },
     {
       id: "accounts",
@@ -45,57 +85,82 @@ const AdminSidebar = () => {
       ],
     },
     {
-      id: "products",
-      label: "Quản lý sản phẩm",
-      icon: <Package size={20} />,
+      id: "hotels",
+      label: "Quản lý khách sạn",
+      icon: <Building2 size={20} />,
       subItems: [
-        { label: "Danh sách sản phẩm", path: "/admin/products" },
-        { label: "Thêm sản phẩm", path: "/admin/products/create" },
-        { label: "Danh mục", path: "/admin/categories" },
+        { label: "Dashboard", path: "/admin/hotels/dashboard" },
+        { label: "Danh sách khách sạn", path: "/admin/hotels" },
+        { label: "Danh mục & Vị trí", path: "/admin/hotels/categories" },
+        { label: "Thống kê & Báo cáo", path: "/admin/hotels/reports" },
       ],
     },
     {
-      id: "orders",
-      label: "Quản lý đơn hàng",
-      icon: <ShoppingCart size={20} />,
-      path: "/admin/orders",
-    },
-    {
-      id: "inventory",
-      label: "Quản lý kho",
-      icon: <Warehouse size={20} />,
+      id: "rooms",
+      label: "Quản lý phòng",
+      icon: <Bed size={20} />,
       subItems: [
-        { label: "Tồn kho", path: "/admin/inventory" },
-        { label: "Cảnh báo", path: "/admin/inventory/alerts" },
+        { label: "Dashboard", path: "/admin/rooms/dashboard" },
+        { label: "Danh sách loại phòng", path: "/admin/rooms/types" },
+        { label: "Danh sách phòng vật lý", path: "/admin/rooms" },
+        { label: "Danh sách phòng trống", path: "/admin/rooms/availability" },
       ],
     },
     {
-      id: "vouchers",
-      label: "Quản lý voucher",
+      id: "bookings",
+      label: "Quản lý booking",
+      icon: <Calendar size={20} />,
+      subItems: [
+        { label: "Dashboard", path: "/admin/bookings/dashboard" },
+        { label: "Danh sách booking", path: "/admin/bookings" },
+        { label: "Tạo booking", path: "/admin/bookings/create" },
+        { label: "Thanh toán", path: "/admin/bookings/payments" },
+        { label: "Mã giảm giá", path: "/admin/bookings/discounts" },
+        { label: "Thống kê & Báo cáo", path: "/admin/bookings/reports" },
+        { label: "Nhật ký hoạt động", path: "/admin/bookings/activity" },
+      ],
+    },
+    {
+      id: "payments",
+      label: "Quản lý thanh toán",
+      icon: <CreditCard size={20} />,
+      subItems: [
+        { label: "Dashboard", path: "/admin/payments/dashboard" },
+        { label: "Danh sách thanh toán", path: "/admin/payments" },
+        { label: "Xác nhận thủ công", path: "/admin/payments/manual" },
+        { label: "Hoàn tiền", path: "/admin/payments/refunds" },
+        { label: "Thử lại thanh toán", path: "/admin/payments/retry" },
+        { label: "Xuất hóa đơn", path: "/admin/payments/invoice" },
+        { label: "Thống kê & Báo cáo", path: "/admin/payments/reports" },
+        { label: "Nhật ký giao dịch", path: "/admin/payments/activity" },
+      ],
+    },
+    {
+      id: "discounts",
+      label: "Quản lý mã giảm giá",
       icon: <Tags size={20} />,
-      path: "/admin/vouchers",
-    },
-    {
-      id: "reports",
-      label: "Báo cáo",
-      icon: <BarChart3 size={20} />,
       subItems: [
-        { label: "Doanh thu", path: "/admin/reports/revenue" },
-        { label: "Khách hàng", path: "/admin/reports/customers" },
+        { label: "Dashboard", path: "/admin/discounts/dashboard" },
+        { label: "Danh sách mã giảm giá", path: "/admin/discounts" },
+        { label: "Tạo mã mới", path: "/admin/discounts/create" },
+        { label: "Thống kê hiệu suất", path: "/admin/discounts/analytics" },
+        { label: "Người dùng đã sử dụng", path: "/admin/discounts/users" },
+        { label: "Báo cáo & Xuất dữ liệu", path: "/admin/discounts/reports" },
       ],
     },
     {
-      id: "blogs",
-      label: "Quản lý bài viết",
-      icon: <FileText size={20} />,
-      path: "/admin/blogs",
+      id: "reviews",
+      label: "Quản lý đánh giá",
+      icon: <Star size={20} />,
+      subItems: [
+        { label: "Dashboard", path: "/admin/reviews/dashboard" },
+        { label: "Danh sách review", path: "/admin/reviews" },
+        { label: "Duyệt review", path: "/admin/reviews/approval" },
+        { label: "Thống kê & Báo cáo", path: "/admin/reviews/reports" },
+        { label: "Nhật ký thao tác", path: "/admin/reviews/activity" },
+      ],
     },
-    {
-      id: "settings",
-      label: "Cài đặt",
-      icon: <Settings size={20} />,
-      path: "/admin/settings",
-    },
+    
   ];
 
   const toggleExpand = (itemId: string) => {
@@ -132,7 +197,11 @@ const AdminSidebar = () => {
             {item.subItems ? (
               <>
                 <button
-                  onClick={() => toggleExpand(item.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleExpand(item.id);
+                  }}
                   className={`w-full flex items-center justify-between px-6 py-3 text-sm transition-colors duration-200 ${
                     isParentActive(item.subItems)
                       ? "bg-white text-black"
@@ -150,15 +219,19 @@ const AdminSidebar = () => {
                   )}
                 </button>
                 {expandedItems.includes(item.id) && (
-                  <div className="bg-gray-950 animate-slideDown">
+                  <div className="bg-gray-950">
                     {item.subItems.map((subItem) => (
                       <Link
                         key={subItem.path}
                         to={subItem.path}
+                        onClick={(e) => {
+                          // Prevent event bubbling to parent button
+                          e.stopPropagation();
+                        }}
                         className={`block px-14 py-2.5 text-sm transition-colors duration-200 ${
                           isActive(subItem.path)
-                            ? "text-white font-medium"
-                            : "text-gray-400 hover:text-white"
+                            ? "text-white font-medium bg-gray-900"
+                            : "text-gray-400 hover:text-white hover:bg-gray-900"
                         }`}
                       >
                         {subItem.label}
