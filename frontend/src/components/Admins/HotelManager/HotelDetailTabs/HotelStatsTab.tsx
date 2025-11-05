@@ -3,6 +3,7 @@ import { TrendingUp, Calendar, DollarSign, Star, BarChart3 } from "lucide-react"
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
 
 interface HotelStatsTabProps {
   hotelId: string;
@@ -20,28 +21,15 @@ const HotelStatsTab = ({ hotelId }: HotelStatsTabProps) => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setStats({
-          totalBookings: 342,
-          monthlyBookings: [
-            { month: "Th1", bookings: 28 },
-            { month: "Th2", bookings: 32 },
-            { month: "Th3", bookings: 35 },
-            { month: "Th4", bookings: 38 },
-            { month: "Th5", bookings: 42 },
-            { month: "Th6", bookings: 45 },
-          ],
-          totalRevenue: 125000000,
-          avgRating: 8.2,
-          reviewCount: 256,
-          cancellationRate: 5.2,
-        });
-        setLoading(false);
-      }, 500);
+      const response = await adminService.getHotelStatistics(hotelId);
+      if (response.success && response.data) {
+        setStats(response.data);
+      } else {
+        showToast("error", response.message || "Không thể tải thống kê");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải thống kê");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải thống kê");
+    } finally {
       setLoading(false);
     }
   };

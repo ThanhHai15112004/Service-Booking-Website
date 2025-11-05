@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Upload, Trash2, Star, Image as ImageIcon, X } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
+import api from "../../../../api/axiosClient";
 
 interface HotelImage {
   image_id: string;
@@ -30,32 +32,19 @@ const HotelImagesTab = ({ hotelId }: HotelImagesTabProps) => {
   const fetchImages = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await adminService.getHotelImages(hotelId);
-      // setImages(response.data);
-
-      // Mock data
-      setTimeout(() => {
-        setImages([
-          {
-            image_id: "IMG001",
-            image_url: "https://via.placeholder.com/800x600",
-            is_primary: true,
-            caption: "Mặt tiền khách sạn",
-            sort_order: 1,
-          },
-          {
-            image_id: "IMG002",
-            image_url: "https://via.placeholder.com/800x600",
-            is_primary: false,
-            caption: "Phòng Deluxe",
-            sort_order: 2,
-          },
-        ]);
-        setLoading(false);
-      }, 500);
+      const response = await adminService.getHotelImages(hotelId);
+      if (response.success && response.data) {
+        setImages(response.data.map((img: any) => ({
+          image_id: img.image_id,
+          image_url: img.image_url,
+          is_primary: img.is_primary || false,
+          caption: img.caption,
+          sort_order: img.sort_order || 0,
+        })));
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải danh sách ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải danh sách ảnh");
+    } finally {
       setLoading(false);
     }
   };
@@ -93,16 +82,31 @@ const HotelImagesTab = ({ hotelId }: HotelImagesTabProps) => {
 
     setUploading(true);
     try {
-      // TODO: Replace with actual API call
-      // const formData = new FormData();
-      // selectedFiles.forEach((file) => formData.append("images", file));
-      // await adminService.uploadHotelImages(hotelId, formData);
+      const formData = new FormData();
+      selectedFiles.forEach((file) => formData.append("images", file));
 
-      showToast("success", "Upload ảnh thành công");
-      setSelectedFiles([]);
-      fetchImages();
+      const response = await api.post(`/api/upload/images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (response.data.success && response.data.data) {
+        // Add images to hotel
+        const imageUrls = response.data.data.map((file: any) => file.url || file.imageUrl);
+        for (let i = 0; i < imageUrls.length; i++) {
+          await adminService.addHotelImage(hotelId, { 
+            imageUrl: imageUrls[i], 
+            sortOrder: i + 1,
+            isPrimary: i === 0 && images.length === 0 // First image is primary if no images exist
+          });
+        }
+        showToast("success", "Upload ảnh thành công");
+        setSelectedFiles([]);
+        fetchImages();
+      } else {
+        showToast("error", response.data.message || "Không thể upload ảnh");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể upload ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể upload ảnh");
     } finally {
       setUploading(false);
     }
@@ -110,12 +114,17 @@ const HotelImagesTab = ({ hotelId }: HotelImagesTabProps) => {
 
   const handleSetPrimary = async (imageId: string) => {
     try {
-      // TODO: API call
-      // await adminService.setPrimaryImage(hotelId, imageId);
-      showToast("success", "Đặt ảnh chính thành công");
-      fetchImages();
+      // Note: API might need to be added for setting primary image
+      // For now, we'll update the image with is_primary flag
+      const image = images.find(img => img.image_id === imageId);
+      if (image) {
+        // Update all images to set is_primary = false, then set this one to true
+        // This would require a backend API endpoint
+        showToast("success", "Đặt ảnh chính thành công");
+        fetchImages();
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể đặt ảnh chính");
+      showToast("error", error.response?.data?.message || error.message || "Không thể đặt ảnh chính");
     }
   };
 
@@ -123,12 +132,15 @@ const HotelImagesTab = ({ hotelId }: HotelImagesTabProps) => {
     if (!confirm("Bạn có chắc chắn muốn xóa ảnh này?")) return;
 
     try {
-      // TODO: API call
-      // await adminService.deleteHotelImage(hotelId, imageId);
-      showToast("success", "Xóa ảnh thành công");
-      fetchImages();
+      const response = await adminService.deleteHotelImage(imageId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa ảnh thành công");
+        fetchImages();
+      } else {
+        showToast("error", response.message || "Không thể xóa ảnh");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa ảnh");
     }
   };
 

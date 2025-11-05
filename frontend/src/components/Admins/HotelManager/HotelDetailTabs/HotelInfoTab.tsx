@@ -82,8 +82,7 @@ const HotelInfoTab = ({ hotel, onUpdate }: HotelInfoTabProps) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Thành phố / Quận</label>
             <p className="text-gray-900">
-              {hotel.city}
-              {hotel.district && `, ${hotel.district}`}
+              {[hotel.city, hotel.district].filter(Boolean).join(", ") || "-"}
             </p>
           </div>
           {hotel.latitude && hotel.longitude && (
@@ -182,7 +181,7 @@ const HotelInfoTab = ({ hotel, onUpdate }: HotelInfoTabProps) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Rating trung bình</label>
             <div className="flex items-center gap-2">
               <Star className="text-yellow-500 fill-yellow-500" size={24} />
-              <span className="text-2xl font-bold text-gray-900">{hotel.avg_rating}</span>
+              <span className="text-2xl font-bold text-gray-900">{(hotel.avg_rating * 2).toFixed(1)}</span>
               <span className="text-gray-500">/ 10</span>
             </div>
           </div>

@@ -267,8 +267,8 @@ export class AuthService {
     };
 
     const accessToken = await this.tokenService.generateAccessToken(payload);
-    const refreshToken = await this.tokenService.generateRefreshToken(payload);
-    await this.tokenService.saveRefreshToken(user.account_id, refreshToken);
+    const refreshToken = await this.tokenService.generateRefreshToken(payload, user.role);
+    await this.tokenService.saveRefreshToken(user.account_id, refreshToken, user.role);
 
     return {
       user: {

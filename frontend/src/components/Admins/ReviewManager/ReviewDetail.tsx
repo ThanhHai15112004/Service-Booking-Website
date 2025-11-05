@@ -175,14 +175,28 @@ const ReviewDetail = () => {
     return date.toLocaleString("vi-VN");
   };
 
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }).map((_, i) => (
-      <Star
-        key={i}
-        size={18}
-        className={i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
-      />
-    ));
+  // Convert rating from backend (1-5) to display (1-10) - nhân đôi để hiển thị trên thang điểm 10
+  const convertRatingTo10 = (rating: number): number => {
+    return rating * 2;
+  };
+
+  const renderStars = (rating: number, showScore: boolean = false) => {
+    // Rating từ backend là 1-5, hiển thị điểm trên thang 10
+    const displayRating = convertRatingTo10(rating);
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            size={18}
+            className={i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
+          />
+        ))}
+        {showScore && (
+          <span className="ml-1 text-sm font-medium text-gray-700">{displayRating}/10</span>
+        )}
+      </div>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -301,7 +315,7 @@ const ReviewDetail = () => {
                 <div className="flex items-center">
                   {renderStars(review.overall_rating)}
                 </div>
-                <span className="text-2xl font-bold text-gray-900">{review.overall_rating}</span>
+                <span className="text-2xl font-bold text-gray-900">{convertRatingTo10(review.overall_rating)}/10</span>
               </div>
             </div>
           </div>
@@ -347,7 +361,7 @@ const ReviewDetail = () => {
                   <div className="flex items-center">
                     {renderStars(item.rating)}
                   </div>
-                  <span className="text-lg font-bold text-gray-900">{item.rating}</span>
+                  <span className="text-lg font-bold text-gray-900">{convertRatingTo10(item.rating)}/10</span>
                 </div>
               </div>
             ))}
@@ -438,7 +452,7 @@ const ReviewDetail = () => {
                 <div className="flex items-center">
                   {renderStars(Math.round(review.hotel_average_rating))}
                 </div>
-                <span className="text-lg font-bold text-gray-900">{review.hotel_average_rating}</span>
+                <span className="text-lg font-bold text-gray-900">{convertRatingTo10(review.hotel_average_rating).toFixed(1)}/10</span>
               </div>
             </div>
           </div>

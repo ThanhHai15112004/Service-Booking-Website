@@ -295,11 +295,16 @@ export default function HotelReviewsDetailed({
   };
 
   // ✅ FIX: Ensure overallRating is a number (handle string from backend)
+  // hotel.avgRating từ props là trên thang điểm 1-5 (chưa convert)
+  // Chỉ convert nếu rating < 5 (đảm bảo không convert 2 lần)
   const numericRating = overallRating 
     ? (typeof overallRating === 'number' 
-        ? overallRating 
+        ? (overallRating < 5 ? overallRating * 2 : overallRating) // Chỉ convert nếu < 5
         : (typeof overallRating === 'string' 
-            ? parseFloat(overallRating) || 8.5 
+            ? (() => {
+                const parsed = parseFloat(overallRating);
+                return isNaN(parsed) ? 8.5 : (parsed < 5 ? parsed * 2 : parsed);
+              })()
             : 8.5))
     : 8.5;
   const numericReviewsCount = reviewsCount 
@@ -382,6 +387,7 @@ export default function HotelReviewsDetailed({
     poor: reviewsStats.poor_count || 0
   } : ratingDistribution;
 
+  // reviewsStats.avg_rating đã được backend convert sang thang điểm 10 rồi, không cần convert thêm
   const actualOverallRating = reviewsStats?.avg_rating || numericRating;
   const actualReviewsCount = reviewsStats?.total_reviews || numericReviewsCount;
   
@@ -407,7 +413,7 @@ export default function HotelReviewsDetailed({
         {/* Left: Overall Score */}
         <div className="lg:col-span-1">
           <div className="bg-blue-600 text-white rounded-lg p-6 text-center">
-            <div className="text-5xl font-bold mb-2">{displayRating.toFixed(1)}</div>
+            <div className="text-5xl font-bold mb-2">{displayRating.toFixed(1)}<span className="text-3xl">/10</span></div>
             <div className="text-xl font-semibold mb-2">{getRatingText(displayRating)}</div>
             <div className="flex items-center justify-center gap-1 text-sm">
               <Check className="w-4 h-4" />
@@ -427,15 +433,18 @@ export default function HotelReviewsDetailed({
               { key: 'cleanliness', label: 'Độ sạch sẽ', score: reviewsStats?.avg_cleanliness_rating || categoryRatings.find(c => c.label === 'Độ sạch sẽ')?.score || 0 },
               { key: 'value', label: 'Đáng giá tiền', score: reviewsStats?.avg_value_rating || categoryRatings.find(c => c.label === 'Đáng giá tiền')?.score || 0 }
             ]).map((category) => {
-              // Ensure score is a number
-              const score = typeof category.score === 'number' ? category.score : (typeof category.score === 'string' ? parseFloat(category.score) : 0);
-              const safeScore = isNaN(score) ? 0 : score;
+              // reviewsStats ratings đã được backend convert sang thang điểm 10 rồi
+              // categoryRatings từ props có thể là hardcoded trên thang điểm 10
+              const rawScore = typeof category.score === 'number' ? category.score : (typeof category.score === 'string' ? parseFloat(category.score) : 0);
+              // Nếu score từ reviewsStats (đã convert) hoặc từ categoryRatings (đã là 1-10), không cần convert
+              // Chỉ convert nếu score < 5 (có thể là từ 1-5 scale)
+              const safeScore = isNaN(rawScore) ? 0 : (rawScore < 5 ? rawScore * 2 : rawScore);
               
               return (
                 <div key={category.key}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs text-gray-700">{category.label}</span>
-                    <span className="text-xs font-bold text-gray-900">{safeScore.toFixed(1)}</span>
+                    <span className="text-xs font-bold text-gray-900">{safeScore.toFixed(1)}/10</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -654,9 +663,9 @@ export default function HotelReviewsDetailed({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   {/* Left: Rating & Reviewer Info */}
                   <div className="md:col-span-1">
-                    <div className="text-4xl font-bold mb-2" style={{ color: getRatingColor(userReview.rating) }}>
-                      {userReview.rating.toFixed(1)}
-                    </div>
+                  <div className="text-4xl font-bold mb-2" style={{ color: getRatingColor(userReview.rating) }}>
+                    {userReview.rating.toFixed(1)}<span className="text-2xl">/10</span>
+                  </div>
                     <div className="text-sm font-semibold mb-4" style={{ color: getRatingColor(userReview.rating) }}>
                       {getRatingText(userReview.rating)}
                     </div>
@@ -730,7 +739,7 @@ export default function HotelReviewsDetailed({
                 {/* Left: Rating & Reviewer Info */}
                 <div className="md:col-span-1">
                   <div className="text-4xl font-bold mb-2" style={{ color: getRatingColor(reviewRating) }}>
-                    {reviewRating.toFixed(1)}
+                    {reviewRating.toFixed(1)}<span className="text-2xl">/10</span>
                   </div>
                   <div className="text-sm font-semibold mb-4" style={{ color: getRatingColor(reviewRating) }}>
                     {getRatingText(reviewRating)}

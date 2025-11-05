@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import HomePage from "../pages/Clients/HomePage";
 import HotelLandingPage from "../pages/Clients/HotelPage";
 import HotelsListPage from "../pages/Clients/HotelsListPage";
@@ -19,15 +19,13 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import ProtectedAdminRoute from "../components/ProtectedAdminRoute";
 import AdminLayout from "../components/Admins/AdminLayout";
 import AdminLoginPage from "../pages/Admin/AdminLoginPage";
-import Dashboard from "../pages/Admin/Dashboard";
 import UserList from "../pages/Admin/UserList";
-import ProductList from "../pages/Admin/ProductList";
-import OrderList from "../pages/Admin/OrderList";
 import { AccountDashboard, AccountList, CreateAccount } from "../components/Admins/AccountManager";
 import AccountDetail from "../components/Admins/AccountManager/AccountDetail";
 import HotelDashboard from "../components/Admins/HotelManager/Dashboard";
 import HotelList from "../components/Admins/HotelManager/HotelList";
 import HotelDetail from "../components/Admins/HotelManager/HotelDetail";
+import EditHotel from "../components/Admins/HotelManager/EditHotel";
 import CategoriesAndLocations from "../components/Admins/HotelManager/CategoriesAndLocations";
 import HotelReports from "../components/Admins/HotelManager/HotelReports";
 import RoomDashboard from "../components/Admins/RoomManager/Dashboard";
@@ -121,9 +119,15 @@ function AppRoutes() {
       
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
+      {/* Redirect /admin to /admin/reports */}
       <Route path="/admin" element={
         <ProtectedAdminRoute requireAdmin={true}>
-          <AdminLayout><Dashboard /></AdminLayout>
+          <Navigate to="/admin/reports" replace />
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/reports" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><ReportsManager /></AdminLayout>
         </ProtectedAdminRoute>
       } />
       <Route path="/admin/users" element={
@@ -168,6 +172,11 @@ function AppRoutes() {
       <Route path="/admin/hotels/:hotelId" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><HotelDetail /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/hotels/:hotelId/edit" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><EditHotel /></AdminLayout>
         </ProtectedAdminRoute>
       } />
       <Route path="/admin/hotels/categories" element={
@@ -371,24 +380,6 @@ function AppRoutes() {
         </ProtectedAdminRoute>
       } />
 
-      {/* Reports Management Routes */}
-      <Route path="/admin/reports" element={
-        <ProtectedAdminRoute requireAdmin={true}>
-          <AdminLayout><ReportsManager /></AdminLayout>
-        </ProtectedAdminRoute>
-      } />
-      
-      <Route path="/admin/products" element={
-        <ProtectedAdminRoute requireAdmin={true}>
-          <AdminLayout><ProductList /></AdminLayout>
-        </ProtectedAdminRoute>
-      } />
-      <Route path="/admin/orders" element={
-        <ProtectedAdminRoute requireAdmin={true}>
-          <AdminLayout><OrderList /></AdminLayout>
-        </ProtectedAdminRoute>
-      } />
-      
       {/* Error Routes */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/account-suspended" element={<AccountSuspendedPage />} />

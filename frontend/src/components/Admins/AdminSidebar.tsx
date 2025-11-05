@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
   Users,
   Building2,
   Bed,
@@ -181,7 +180,7 @@ const AdminSidebar = () => {
     <aside className="w-64 bg-black text-white h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-800">
-        <Link to="/admin" className="flex items-center">
+        <Link to="/admin/reports" className="flex items-center">
           <img 
             src={logo} 
             alt="Admin Logo" 

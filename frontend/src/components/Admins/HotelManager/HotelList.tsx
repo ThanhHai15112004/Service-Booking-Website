@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Filter, Eye, Edit, Trash2, Lock, Unlock, MoreVertical, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Hotel {
   hotel_id: string;
@@ -26,7 +27,8 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
+  const [totalHotels, setTotalHotels] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,170 +42,70 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
   useEffect(() => {
-    fetchHotels();
-  }, []);
+    setCurrentPage(1); // Reset về trang 1 khi filter thay đổi
+  }, [searchTerm, filters.status, filters.category, filters.city, filters.starRating, sortBy, sortOrder]);
 
   useEffect(() => {
-    applyFiltersAndSort();
-  }, [hotels, searchTerm, filters, sortBy, sortOrder]);
+    fetchHotels();
+  }, [currentPage, itemsPerPage, searchTerm, filters.status, filters.category, filters.city, filters.starRating, sortBy, sortOrder]);
 
   const fetchHotels = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await adminService.getHotels();
-      // setHotels(response.data);
+      const response = await adminService.getHotels({
+        search: searchTerm || undefined,
+        status: filters.status || undefined,
+        category: filters.category || undefined,
+        city: filters.city || undefined,
+        starRating: filters.starRating || undefined,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+        page: currentPage,
+        limit: itemsPerPage,
+      });
 
-      // Mock data
-      setTimeout(() => {
-        setHotels([
-          {
-            hotel_id: "H001",
-            name: "Hanoi Old Quarter Hotel",
-            category: "Khách sạn",
-            city: "Hà Nội",
-            star_rating: 3,
-            avg_rating: 8.2,
-            status: "ACTIVE",
-            booking_count: 342,
-            main_image: "https://via.placeholder.com/150",
-            created_at: "2025-10-20",
-          },
-          {
-            hotel_id: "H002",
-            name: "My Khe Beach Resort",
-            category: "Resort",
-            city: "Đà Nẵng",
-            star_rating: 5,
-            avg_rating: 8.7,
-            status: "ACTIVE",
-            booking_count: 289,
-            main_image: "https://via.placeholder.com/150",
-            created_at: "2025-10-20",
-          },
-          {
-            hotel_id: "H003",
-            name: "Saigon Riverside Hotel",
-            category: "Khách sạn",
-            city: "Hồ Chí Minh",
-            star_rating: 5,
-            avg_rating: 8.5,
-            status: "ACTIVE",
-            booking_count: 256,
-            main_image: "https://via.placeholder.com/150",
-            created_at: "2025-10-20",
-          },
-          {
-            hotel_id: "H004",
-            name: "Sofitel Legend Metropole",
-            category: "Khách sạn",
-            city: "Hà Nội",
-            star_rating: 5,
-            avg_rating: 9.3,
-            status: "ACTIVE",
-            booking_count: 234,
-            main_image: "https://via.placeholder.com/150",
-            created_at: "2025-10-27",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      if (response.success && response.data) {
+        setHotels(response.data.hotels);
+        setTotalHotels(response.data.total);
+        setTotalPages(response.data.totalPages);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách khách sạn");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải danh sách khách sạn");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải danh sách khách sạn");
+    } finally {
       setLoading(false);
     }
-  };
-
-  const applyFiltersAndSort = () => {
-    let result = [...hotels];
-
-    // Search filter
-    if (searchTerm) {
-      result = result.filter(
-        (hotel) =>
-          hotel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          hotel.hotel_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          hotel.city.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (filters.status) {
-      result = result.filter((hotel) => hotel.status === filters.status);
-    }
-
-    // Category filter
-    if (filters.category) {
-      result = result.filter((hotel) => hotel.category === filters.category);
-    }
-
-    // City filter
-    if (filters.city) {
-      result = result.filter((hotel) => hotel.city === filters.city);
-    }
-
-    // Star rating filter
-    if (filters.starRating) {
-      result = result.filter((hotel) => hotel.star_rating === parseInt(filters.starRating));
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let aValue: any, bValue: any;
-      switch (sortBy) {
-        case "name":
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case "rating":
-          aValue = a.avg_rating;
-          bValue = b.avg_rating;
-          break;
-        case "bookings":
-          aValue = a.booking_count;
-          bValue = b.booking_count;
-          break;
-        case "created_at":
-          aValue = new Date(a.created_at).getTime();
-          bValue = new Date(b.created_at).getTime();
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortOrder === "ASC") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    setFilteredHotels(result);
-    setCurrentPage(1);
   };
 
   const handleDelete = async (hotelId: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa khách sạn này?")) return;
 
     try {
-      // TODO: API call
-      // await adminService.deleteHotel(hotelId);
-      showToast("success", "Xóa khách sạn thành công");
-      fetchHotels();
+      const response = await adminService.deleteHotel(hotelId, false);
+      if (response.success) {
+        showToast("success", response.message || "Xóa khách sạn thành công");
+        fetchHotels();
+      } else {
+        showToast("error", response.message || "Không thể xóa khách sạn");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa khách sạn");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa khách sạn");
     }
   };
 
   const handleToggleStatus = async (hotelId: string, currentStatus: string) => {
     try {
       const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      // TODO: API call
-      // await adminService.updateHotelStatus(hotelId, newStatus);
-      showToast("success", `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} khách sạn`);
-      fetchHotels();
+      const response = await adminService.updateHotelStatus(hotelId, newStatus);
+      if (response.success) {
+        showToast("success", response.message || `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} khách sạn`);
+        fetchHotels();
+      } else {
+        showToast("error", response.message || "Không thể thay đổi trạng thái");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể thay đổi trạng thái");
+      showToast("error", error.response?.data?.message || error.message || "Không thể thay đổi trạng thái");
     }
   };
 
@@ -212,10 +114,8 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredHotels.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentHotels = filteredHotels.slice(startIndex, endIndex);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(startIndex + hotels.length - 1, totalHotels);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -364,14 +264,14 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentHotels.length === 0 ? (
+              {hotels.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     Không tìm thấy khách sạn nào
                   </td>
                 </tr>
               ) : (
-                currentHotels.map((hotel) => (
+                hotels.map((hotel) => (
                   <tr key={hotel.hotel_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       {hotel.main_image ? (
@@ -396,7 +296,13 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(hotel.status)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{hotel.booking_count}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{hotel.created_at}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(hotel.created_at).toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                      })}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         <button
@@ -447,7 +353,7 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredHotels.length)} trong tổng số {filteredHotels.length} khách sạn
+                Hiển thị {startIndex + 1}-{endIndex} trong tổng số {totalHotels} khách sạn
               </span>
               <select
                 value={itemsPerPage}

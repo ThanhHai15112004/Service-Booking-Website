@@ -96,14 +96,28 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
     }
   };
 
-  const renderStars = (rating: number, size: number = 16) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        size={size}
-        className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-      />
-    ));
+  // Convert rating from backend (1-5) to display (1-10) - nhân đôi để hiển thị trên thang điểm 10
+  const convertRatingTo10 = (rating: number): number => {
+    return rating * 2;
+  };
+
+  const renderStars = (rating: number, size: number = 16, showScore: boolean = false) => {
+    // Rating từ backend là 1-5, hiển thị điểm trên thang 10
+    const displayRating = convertRatingTo10(rating);
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Star
+            key={i}
+            size={size}
+            className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+          />
+        ))}
+        {showScore && (
+          <span className="ml-1 text-sm font-medium text-gray-700">{displayRating}/10</span>
+        )}
+      </div>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -258,8 +272,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        {renderStars(review.rating)}
-                        <span className="text-xs text-gray-500 ml-1">({review.rating})</span>
+                        {renderStars(review.rating, 16, true)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -407,7 +420,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                   <div className="flex items-center gap-2">
                     {renderStars(selectedReview.rating, 24)}
                   </div>
-                  <span className="text-2xl font-bold">{selectedReview.rating}/5</span>
+                  <span className="text-2xl font-bold">{convertRatingTo10(selectedReview.rating)}/10</span>
                 </div>
               </div>
 
@@ -437,7 +450,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(selectedReview.location_rating)}
-                          <span className="text-sm font-medium">{selectedReview.location_rating}/5</span>
+                          <span className="text-sm font-medium">{convertRatingTo10(selectedReview.location_rating)}/10</span>
                         </div>
                       </div>
                     )}
@@ -449,7 +462,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(selectedReview.facilities_rating)}
-                          <span className="text-sm font-medium">{selectedReview.facilities_rating}/5</span>
+                          <span className="text-sm font-medium">{convertRatingTo10(selectedReview.facilities_rating)}/10</span>
                         </div>
                       </div>
                     )}
@@ -461,7 +474,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(selectedReview.service_rating)}
-                          <span className="text-sm font-medium">{selectedReview.service_rating}/5</span>
+                          <span className="text-sm font-medium">{convertRatingTo10(selectedReview.service_rating)}/10</span>
                         </div>
                       </div>
                     )}
@@ -473,7 +486,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(selectedReview.cleanliness_rating)}
-                          <span className="text-sm font-medium">{selectedReview.cleanliness_rating}/5</span>
+                          <span className="text-sm font-medium">{convertRatingTo10(selectedReview.cleanliness_rating)}/10</span>
                         </div>
                       </div>
                     )}
@@ -485,7 +498,7 @@ const AccountReviews = ({ accountId, showHeader = true }: AccountReviewsProps) =
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(selectedReview.value_rating)}
-                          <span className="text-sm font-medium">{selectedReview.value_rating}/5</span>
+                          <span className="text-sm font-medium">{convertRatingTo10(selectedReview.value_rating)}/10</span>
                         </div>
                       </div>
                     )}

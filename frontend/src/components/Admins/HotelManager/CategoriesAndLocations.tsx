@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Building2, MapPin, Plus, Edit, Trash2, Star, X } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Category {
   category_id: string;
@@ -44,66 +45,25 @@ const CategoriesAndLocations = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // Mock data
-      setTimeout(() => {
-        setCategories([
-          {
-            category_id: "CAT001",
-            name: "Khách sạn",
-            description: "Khách sạn nghỉ dưỡng, du lịch",
-            icon: "🏨",
-            created_at: "2025-10-20",
-          },
-          {
-            category_id: "CAT002",
-            name: "Resort",
-            description: "Khu nghỉ dưỡng cao cấp ven biển",
-            icon: "🏖️",
-            created_at: "2025-10-20",
-          },
-          {
-            category_id: "CAT003",
-            name: "Homestay",
-            description: "Nhà dân, căn hộ mini",
-            icon: "🏠",
-            created_at: "2025-10-20",
-          },
-        ]);
-        setLocations([
-          {
-            location_id: "LOC_HN_01",
-            country: "Việt Nam",
-            city: "Hà Nội",
-            district: "Hoàn Kiếm",
-            ward: "Hàng Bạc",
-            area_name: "12 Hàng Bạc",
-            latitude: 21.033,
-            longitude: 105.85,
-            distance_center: 0.5,
-            description: "Trung tâm thành phố",
-            is_hot: true,
-            created_at: "2025-10-20",
-          },
-          {
-            location_id: "LOC_DN_04",
-            country: "Việt Nam",
-            city: "Đà Nẵng",
-            district: "Ngũ Hành Sơn",
-            ward: "Mỹ Khê",
-            area_name: "99 Võ Nguyên Giáp",
-            latitude: 16.07,
-            longitude: 108.25,
-            distance_center: 10.0,
-            description: "Gần biển Mỹ Khê",
-            is_hot: true,
-            created_at: "2025-10-20",
-          },
-        ]);
-        setLoading(false);
-      }, 500);
+      const [categoriesRes, locationsRes] = await Promise.all([
+        adminService.getCategories(),
+        adminService.getLocations(),
+      ]);
+
+      if (categoriesRes.success && categoriesRes.data) {
+        setCategories(categoriesRes.data);
+      } else {
+        showToast("error", categoriesRes.message || "Không thể tải danh mục");
+      }
+
+      if (locationsRes.success && locationsRes.data) {
+        setLocations(locationsRes.data);
+      } else {
+        showToast("error", locationsRes.message || "Không thể tải vị trí");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu");
+    } finally {
       setLoading(false);
     }
   };
@@ -115,13 +75,37 @@ const CategoriesAndLocations = () => {
 
   const handleSaveCategory = async (category: Partial<Category>) => {
     try {
-      // TODO: API call
-      showToast("success", editingCategory ? "Cập nhật danh mục thành công" : "Thêm danh mục thành công");
-      fetchData();
-      setShowCategoryModal(false);
-      setEditingCategory(null);
+      if (editingCategory) {
+        const response = await adminService.updateCategory(editingCategory.category_id, category);
+        if (response.success) {
+          showToast("success", response.message || "Cập nhật danh mục thành công");
+          fetchData();
+          setShowCategoryModal(false);
+          setEditingCategory(null);
+        } else {
+          showToast("error", response.message || "Không thể cập nhật danh mục");
+        }
+      } else {
+        if (!category.category_id || !category.name) {
+          showToast("error", "Vui lòng điền đầy đủ thông tin");
+          return;
+        }
+        const response = await adminService.createCategory({
+          category_id: category.category_id,
+          name: category.name,
+          description: category.description,
+          icon: category.icon,
+        });
+        if (response.success) {
+          showToast("success", response.message || "Thêm danh mục thành công");
+          fetchData();
+          setShowCategoryModal(false);
+        } else {
+          showToast("error", response.message || "Không thể thêm danh mục");
+        }
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể lưu danh mục");
+      showToast("error", error.response?.data?.message || error.message || "Không thể lưu danh mục");
     }
   };
 
@@ -129,23 +113,58 @@ const CategoriesAndLocations = () => {
     if (!confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa danh mục thành công");
-      fetchData();
+      const response = await adminService.deleteCategory(categoryId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa danh mục thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể xóa danh mục");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa danh mục");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa danh mục");
     }
   };
 
   const handleSaveLocation = async (location: Partial<Location>) => {
     try {
-      // TODO: API call
-      showToast("success", editingLocation ? "Cập nhật vị trí thành công" : "Thêm vị trí thành công");
-      fetchData();
-      setShowLocationModal(false);
-      setEditingLocation(null);
+      if (editingLocation) {
+        const response = await adminService.updateLocation(editingLocation.location_id, location);
+        if (response.success) {
+          showToast("success", response.message || "Cập nhật vị trí thành công");
+          fetchData();
+          setShowLocationModal(false);
+          setEditingLocation(null);
+        } else {
+          showToast("error", response.message || "Không thể cập nhật vị trí");
+        }
+      } else {
+        if (!location.location_id || !location.country || !location.city) {
+          showToast("error", "Vui lòng điền đầy đủ thông tin");
+          return;
+        }
+        const response = await adminService.createLocation({
+          location_id: location.location_id,
+          country: location.country,
+          city: location.city,
+          district: location.district,
+          ward: location.ward,
+          area_name: location.area_name,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          distance_center: location.distance_center,
+          description: location.description,
+          is_hot: location.is_hot,
+        });
+        if (response.success) {
+          showToast("success", response.message || "Thêm vị trí thành công");
+          fetchData();
+          setShowLocationModal(false);
+        } else {
+          showToast("error", response.message || "Không thể thêm vị trí");
+        }
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể lưu vị trí");
+      showToast("error", error.response?.data?.message || error.message || "Không thể lưu vị trí");
     }
   };
 
@@ -153,11 +172,15 @@ const CategoriesAndLocations = () => {
     if (!confirm("Bạn có chắc chắn muốn xóa vị trí này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa vị trí thành công");
-      fetchData();
+      const response = await adminService.deleteLocation(locationId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa vị trí thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể xóa vị trí");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa vị trí");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa vị trí");
     }
   };
 
@@ -225,7 +248,15 @@ const CategoriesAndLocations = () => {
                   <div key={category.category_id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-3xl">{category.icon || "🏨"}</span>
+                        {category.icon ? (
+                          category.icon.startsWith('http') ? (
+                            <img src={category.icon} alt={category.name} className="w-12 h-12 object-contain" />
+                          ) : (
+                            <span className="text-3xl">{category.icon}</span>
+                          )
+                        ) : (
+                          <span className="text-3xl">🏨</span>
+                        )}
                         <div>
                           <h4 className="font-medium text-gray-900">{category.name}</h4>
                           {category.description && <p className="text-sm text-gray-600 mt-1">{category.description}</p>}
@@ -289,8 +320,7 @@ const CategoriesAndLocations = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{location.country}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{location.city}</td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {location.district}
-                          {location.ward && `, ${location.ward}`}
+                          {[location.district, location.ward, location.area_name].filter(Boolean).join(", ") || location.city || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {location.distance_center ? `${location.distance_center} km` : "-"}

@@ -20,11 +20,11 @@ function LoginPage() {
     rememberMe: false
   });
 
-  // ✅ Redirect nếu đã đăng nhập
+  // ✅ Redirect nếu đã đăng nhập - ADMIN/STAFF → admin, USER → homepage
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
       if (user.role === 'ADMIN' || user.role === 'STAFF') {
-        navigate('/admin', { replace: true });
+        navigate('/admin/reports', { replace: true });
       } else {
         navigate('/', { replace: true });
       }
@@ -86,10 +86,10 @@ function LoginPage() {
         
         showToast({ type: "success", message: "Đăng nhập thành công!" });
         
-        // ✅ Redirect theo role
+        // ✅ Redirect theo role - ADMIN/STAFF → admin reports, USER → homepage
         const userRole = res.data.user.role;
         if (userRole === 'ADMIN' || userRole === 'STAFF') {
-          navigate('/admin', { replace: true });
+          navigate('/admin/reports', { replace: true });
         } else {
           navigate('/', { replace: true });
         }
@@ -236,7 +236,13 @@ function LoginPage() {
                 try {
                   await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
                   showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
-                  navigate('/');
+                  // ✅ Redirect theo role sau khi đăng nhập Google
+                  const user = JSON.parse(localStorage.getItem('user') || '{}');
+                  if (user.role === 'ADMIN' || user.role === 'STAFF') {
+                    navigate('/admin/reports', { replace: true });
+                  } else {
+                    navigate('/', { replace: true });
+                  }
                 } catch (error: any) {
                   showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
                 }

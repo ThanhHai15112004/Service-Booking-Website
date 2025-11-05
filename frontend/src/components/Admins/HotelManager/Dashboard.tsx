@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Building2, TrendingUp, Star, Calendar, MapPin, Hotel, CheckCircle, Clock } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DashboardStats {
   totalHotels: number;
@@ -43,65 +44,15 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await adminService.getHotelDashboardStats();
-      // setStats(response.data);
-
-      // Mock data for now
-      setTimeout(() => {
-        setStats({
-          totalHotels: 156,
-          activeHotels: 142,
-          inactiveHotels: 8,
-          pendingHotels: 6,
-          topRatedHotels: 24,
-          avgBookingsPerHotel: 45.8,
-          hotelsByCity: [
-            { city: "Hà Nội", count: 42 },
-            { city: "Hồ Chí Minh", count: 38 },
-            { city: "Đà Nẵng", count: 28 },
-            { city: "Nha Trang", count: 22 },
-            { city: "Phú Quốc", count: 16 },
-            { city: "Hội An", count: 10 },
-          ],
-          hotelsByCategory: [
-            { category: "Khách sạn", count: 89 },
-            { category: "Resort", count: 45 },
-            { category: "Homestay", count: 22 },
-          ],
-          bookingTrends: [
-            { month: "Th1", bookings: 1240 },
-            { month: "Th2", bookings: 1380 },
-            { month: "Th3", bookings: 1520 },
-            { month: "Th4", bookings: 1690 },
-            { month: "Th5", bookings: 1820 },
-            { month: "Th6", bookings: 1950 },
-            { month: "Th7", bookings: 2100 },
-            { month: "Th8", bookings: 2240 },
-            { month: "Th9", bookings: 2380 },
-            { month: "Th10", bookings: 2520 },
-            { month: "Th11", bookings: 2680 },
-            { month: "Th12", bookings: 2850 },
-          ],
-          topBookedHotels: [
-            { hotel_id: "H001", name: "Hanoi Old Quarter Hotel", booking_count: 342, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H002", name: "My Khe Beach Resort", booking_count: 289, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H003", name: "Saigon Riverside Hotel", booking_count: 256, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H004", name: "Sofitel Legend Metropole", booking_count: 234, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H005", name: "Da Nang Beachfront Hotel", booking_count: 198, main_image: "https://via.placeholder.com/150" },
-          ],
-          topRatedHotelsList: [
-            { hotel_id: "H004", name: "Sofitel Legend Metropole", avg_rating: 9.3, review_count: 450, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H002", name: "My Khe Beach Resort", avg_rating: 8.7, review_count: 312, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H003", name: "Saigon Riverside Hotel", avg_rating: 8.5, review_count: 289, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H001", name: "Hanoi Old Quarter Hotel", avg_rating: 8.2, review_count: 256, main_image: "https://via.placeholder.com/150" },
-            { hotel_id: "H005", name: "Da Nang Beachfront Hotel", avg_rating: 8.0, review_count: 198, main_image: "https://via.placeholder.com/150" },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getHotelDashboardStats();
+      if (response.success && response.data) {
+        setStats(response.data);
+      } else {
+        showToast("error", response.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };

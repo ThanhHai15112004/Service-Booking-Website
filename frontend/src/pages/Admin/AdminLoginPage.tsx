@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Shield, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { login as loginAPI } from '../../services/authService';
 import Toast from '../../components/Toast';
 import Loading from '../../components/Loading';
@@ -23,7 +23,7 @@ function AdminLoginPage() {
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
       if (user.role === 'ADMIN' || user.role === 'STAFF') {
-        const from = (location.state as any)?.from?.pathname || '/admin';
+        const from = (location.state as any)?.from?.pathname || '/admin/reports';
         navigate(from, { replace: true });
       } else {
         // Nếu là USER thường, redirect về trang chủ
@@ -72,8 +72,8 @@ function AdminLoginPage() {
         
         showToast({ type: "success", message: "Đăng nhập thành công!" });
         
-        // ✅ Redirect đến admin dashboard
-        const from = (location.state as any)?.from?.pathname || '/admin';
+        // ✅ Redirect đến admin reports dashboard (mặc định)
+        const from = (location.state as any)?.from?.pathname || '/admin/reports';
         setTimeout(() => {
           navigate(from, { replace: true });
         }, 500);

@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Calendar, TrendingUp, Filter } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -23,45 +24,20 @@ const HotelReports = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setReportData({
-          summary: {
-            totalBookings: 12450,
-            totalRevenue: 4520000000,
-            newReviews: 342,
-            avgRating: 8.5,
-          },
-          hotelsDetail: [
-            { hotel: "Hanoi Old Quarter Hotel", bookings: 342, reviews: 256, avgRating: 8.2, revenue: 125000000 },
-            { hotel: "My Khe Beach Resort", bookings: 289, reviews: 312, avgRating: 8.7, revenue: 189000000 },
-            { hotel: "Saigon Riverside Hotel", bookings: 256, reviews: 289, avgRating: 8.5, revenue: 156000000 },
-            { hotel: "Sofitel Legend Metropole", bookings: 234, reviews: 450, avgRating: 9.3, revenue: 312000000 },
-          ],
-          revenueByHotel: [
-            { hotel: "Hanoi Old Quarter", revenue: 125000000 },
-            { hotel: "My Khe Beach", revenue: 189000000 },
-            { hotel: "Saigon Riverside", revenue: 156000000 },
-            { hotel: "Sofitel Metropole", revenue: 312000000 },
-          ],
-          cancellationRate: [
-            { hotel: "Hanoi Old Quarter", rate: 5.2 },
-            { hotel: "My Khe Beach", rate: 3.8 },
-            { hotel: "Saigon Riverside", rate: 4.5 },
-            { hotel: "Sofitel Metropole", rate: 2.1 },
-          ],
-          topHotels: [
-            { hotel: "Sofitel Legend Metropole", score: 95 },
-            { hotel: "My Khe Beach Resort", score: 88 },
-            { hotel: "Saigon Riverside Hotel", score: 85 },
-            { hotel: "Hanoi Old Quarter Hotel", score: 82 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getHotelReports({
+        period: filters.period,
+        city: filters.city || undefined,
+        category: filters.category || undefined,
+      });
+
+      if (response.success && response.data) {
+        setReportData(response.data);
+      } else {
+        showToast("error", response.message || "Không thể tải báo cáo");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo");
+    } finally {
       setLoading(false);
     }
   };

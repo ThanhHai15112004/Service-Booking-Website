@@ -10,9 +10,11 @@ export class TokenService {
   private REFRESH_EXPIRES: SignOptions["expiresIn"] =
     (process.env.JWT_REFRESH_EXPIRES_IN as SignOptions["expiresIn"]) || "6h";
 
-  // Hàm lưu refresh token
-  async saveRefreshToken(accountId: string, token: string) {
-    await this.repo.saveRefreshToken(accountId, token);
+  // Hàm lưu refresh token với role để set expiration khác nhau
+  async saveRefreshToken(accountId: string, token: string, role?: string) {
+    // ADMIN/STAFF: 6 hours, USER: default (7 days hoặc từ env)
+    const hours = role === 'ADMIN' || role === 'STAFF' ? 6 : undefined;
+    await this.repo.saveRefreshToken(accountId, token, hours);
   }
 
   // Hàm thu hồi refresh token
@@ -30,9 +32,13 @@ export class TokenService {
     return sign(payload, this.ACCESS_SECRET, { expiresIn: this.ACCESS_EXPIRES });
   }
 
-  // Hàm tạo refresh token
-  async generateRefreshToken(payload: object): Promise<string> {
-    return sign(payload, this.REFRESH_SECRET, { expiresIn: this.REFRESH_EXPIRES });
+  // Hàm tạo refresh token với role để set expiration khác nhau
+  async generateRefreshToken(payload: object, role?: string): Promise<string> {
+    // ADMIN/STAFF: 6 hours, USER: default (7 days hoặc từ env)
+    const expiresIn = role === 'ADMIN' || role === 'STAFF' 
+      ? '6h' 
+      : this.REFRESH_EXPIRES;
+    return sign(payload, this.REFRESH_SECRET, { expiresIn });
   }
 
   // Hàm tạo access token mới từ refresh token

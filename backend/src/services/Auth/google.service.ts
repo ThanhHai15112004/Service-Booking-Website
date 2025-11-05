@@ -67,8 +67,8 @@ export class GoogleAuthService {
     };
 
     const accessToken = await this.tokenService.generateAccessToken(payloadJWT);
-    const refreshToken = await this.tokenService.generateRefreshToken(payloadJWT);
-    await this.tokenService.saveRefreshToken(user.account_id, refreshToken);
+    const refreshToken = await this.tokenService.generateRefreshToken(payloadJWT, user.role);
+    await this.tokenService.saveRefreshToken(user.account_id, refreshToken, user.role);
 
     return {
       user,

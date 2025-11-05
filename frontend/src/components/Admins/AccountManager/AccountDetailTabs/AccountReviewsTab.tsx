@@ -58,14 +58,26 @@ const AccountReviewsTab = ({ accountId }: AccountReviewsTabProps) => {
     }
   };
 
+  // Convert rating from backend (1-5) to display (1-10) - nhân đôi để hiển thị trên thang điểm 10
+  const convertRatingTo10 = (rating: number): number => {
+    return rating * 2;
+  };
+
   const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        size={16}
-        className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-      />
-    ));
+    // Rating từ backend là 1-5, hiển thị điểm trên thang 10
+    const displayRating = convertRatingTo10(rating);
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Star
+            key={i}
+            size={16}
+            className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+          />
+        ))}
+        <span className="ml-1 text-xs font-medium text-gray-700">{displayRating}/10</span>
+      </div>
+    );
   };
 
   if (loading) {

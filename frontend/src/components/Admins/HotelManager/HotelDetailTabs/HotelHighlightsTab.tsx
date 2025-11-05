@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Trash2, Edit, X } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
 
 interface Highlight {
   highlight_id: string;
@@ -40,49 +41,50 @@ const HotelHighlightsTab = ({ hotelId }: HotelHighlightsTabProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // Mock data
-      setTimeout(() => {
-        setHotelHighlights([
-          {
-            highlight_id: "HL001",
-            name: "Gần trung tâm thành phố",
-            description: "Chỉ cách trung tâm 0.5km",
-            icon: "📍",
-            icon_type: "EMOJI",
-            sort_order: 1,
-          },
-          {
-            highlight_id: "HL002",
-            name: "View đẹp",
-            description: "Nhìn ra thành phố",
-            icon: "🏙️",
-            icon_type: "EMOJI",
-            sort_order: 2,
-          },
-        ]);
-        setAllHighlights([
-          { highlight_id: "HL001", name: "Gần trung tâm thành phố", description: "Chỉ cách trung tâm 0.5km", icon: "📍" },
-          { highlight_id: "HL002", name: "View đẹp", description: "Nhìn ra thành phố", icon: "🏙️" },
-          { highlight_id: "HL003", name: "Gần biển", description: "Cách biển 100m", icon: "🏖️" },
-          { highlight_id: "HL004", name: "Dịch vụ 24/7", description: "Phục vụ suốt ngày đêm", icon: "🕐" },
-        ]);
-        setLoading(false);
-      }, 500);
+      const [hotelHighlightsRes, allHighlightsRes] = await Promise.all([
+        adminService.getHotelHighlights(hotelId),
+        adminService.getAllHighlights(),
+      ]);
+
+      if (hotelHighlightsRes.success && hotelHighlightsRes.data) {
+        setHotelHighlights(hotelHighlightsRes.data.map((h: any) => ({
+          highlight_id: h.highlight_id,
+          name: h.name,
+          description: h.description,
+          icon: h.icon_url,
+          icon_type: "URL",
+          custom_text: h.custom_text,
+          sort_order: h.sort_order || 0,
+        })));
+      }
+
+      if (allHighlightsRes.success && allHighlightsRes.data) {
+        setAllHighlights(allHighlightsRes.data.map((h: any) => ({
+          highlight_id: h.highlight_id,
+          name: h.name,
+          description: h.description,
+          icon: h.icon_url,
+        })));
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu");
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleAddHighlight = async (highlightId: string) => {
+  const handleAddHighlight = async (highlightId: string, customText?: string, sortOrder?: number) => {
     try {
-      // TODO: API call
-      showToast("success", "Thêm highlight thành công");
-      fetchData();
-      setShowAddModal(false);
+      const response = await adminService.addHotelHighlight(hotelId, { highlightId, customText, sortOrder });
+      if (response.success) {
+        showToast("success", response.message || "Thêm highlight thành công");
+        fetchData();
+        setShowAddModal(false);
+      } else {
+        showToast("error", response.message || "Không thể thêm highlight");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể thêm highlight");
+      showToast("error", error.response?.data?.message || error.message || "Không thể thêm highlight");
     }
   };
 
@@ -90,21 +92,29 @@ const HotelHighlightsTab = ({ hotelId }: HotelHighlightsTabProps) => {
     if (!confirm("Bạn có chắc chắn muốn xóa highlight này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa highlight thành công");
-      fetchData();
+      const response = await adminService.removeHotelHighlight(hotelId, highlightId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa highlight thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể xóa highlight");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa highlight");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa highlight");
     }
   };
 
-  const handleUpdateSort = async (highlightId: string, newOrder: number) => {
+  const handleUpdateSort = async (highlightId: string, newOrder: number, customText?: string) => {
     try {
-      // TODO: API call
-      showToast("success", "Cập nhật thứ tự thành công");
-      fetchData();
+      const response = await adminService.updateHotelHighlight(hotelId, highlightId, { sortOrder: newOrder, customText });
+      if (response.success) {
+        showToast("success", response.message || "Cập nhật thứ tự thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể cập nhật thứ tự");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể cập nhật thứ tự");
+      showToast("error", error.response?.data?.message || error.message || "Không thể cập nhật thứ tự");
     }
   };
 
@@ -159,7 +169,15 @@ const HotelHighlightsTab = ({ hotelId }: HotelHighlightsTabProps) => {
               {sortedHighlights.map((highlight) => (
                 <tr key={highlight.highlight_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-2xl">{highlight.icon || "⭐"}</span>
+                    {highlight.icon ? (
+                      highlight.icon.startsWith('http') ? (
+                        <img src={highlight.icon} alt={highlight.name} className="w-8 h-8 object-contain" />
+                      ) : (
+                        <span className="text-2xl">{highlight.icon}</span>
+                      )
+                    ) : (
+                      <span className="text-2xl">⭐</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{highlight.custom_text || highlight.name}</div>
@@ -197,9 +215,76 @@ const HotelHighlightsTab = ({ hotelId }: HotelHighlightsTabProps) => {
         </div>
       )}
 
+      {/* Edit Modal */}
+      {editingHighlight && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setEditingHighlight(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Chỉnh sửa highlight</h3>
+              <button onClick={() => setEditingHighlight(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tên highlight</label>
+                <input
+                  type="text"
+                  value={editingHighlight.custom_text || editingHighlight.name}
+                  onChange={(e) => setEditingHighlight({ ...editingHighlight, custom_text: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  placeholder={editingHighlight.name}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Thứ tự</label>
+                <input
+                  type="number"
+                  value={editingHighlight.sort_order}
+                  onChange={(e) => setEditingHighlight({ ...editingHighlight, sort_order: parseInt(e.target.value) || 0 })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  min="1"
+                />
+              </div>
+              <div className="flex items-center gap-3 justify-end">
+                <button
+                  onClick={() => setEditingHighlight(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => {
+                    handleUpdateSort(editingHighlight.highlight_id, editingHighlight.sort_order, editingHighlight.custom_text);
+                    setEditingHighlight(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Lưu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddModal(false);
+            }
+          }}
+        >
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Thêm highlight</h3>
@@ -214,10 +299,18 @@ const HotelHighlightsTab = ({ hotelId }: HotelHighlightsTabProps) => {
                 {availableHighlights.map((highlight) => (
                   <button
                     key={highlight.highlight_id}
-                    onClick={() => handleAddHighlight(highlight.highlight_id)}
+                    onClick={() => handleAddHighlight(highlight.highlight_id, undefined, hotelHighlights.length + 1)}
                     className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors text-left"
                   >
-                    <span className="text-2xl">{highlight.icon || "⭐"}</span>
+                    {highlight.icon ? (
+                      highlight.icon.startsWith('http') ? (
+                        <img src={highlight.icon} alt={highlight.name} className="w-8 h-8 object-contain" />
+                      ) : (
+                        <span className="text-2xl">{highlight.icon}</span>
+                      )
+                    ) : (
+                      <span className="text-2xl">⭐</span>
+                    )}
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">{highlight.name}</div>
                       {highlight.description && <div className="text-sm text-gray-600 mt-1">{highlight.description}</div>}

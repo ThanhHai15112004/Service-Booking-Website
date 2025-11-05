@@ -3,26 +3,34 @@ import { RefreshToken } from "../../models/Auth/refresh_token.model";
 
 export class TokenRepository {
   // Hàm lưu refresh token (parse expiration time từ h, d, m formats)
-  async saveRefreshToken(account_id: string, token: string): Promise<void> {
-    const raw = process.env.JWT_REFRESH_EXPIRES_IN || "6h";
+  // hours: undefined = dùng từ env, số cụ thể = dùng số đó
+  async saveRefreshToken(account_id: string, token: string, hours?: number): Promise<void> {
+    let expirationHours: number;
     
-    let hours = 6;
-    if (raw.endsWith("h")) {
-      hours = parseInt(raw.replace("h", ""), 10);
-    } else if (raw.endsWith("d")) {
-      const days = parseInt(raw.replace("d", ""), 10);
-      hours = days * 24;
-    } else if (raw.endsWith("m")) {
-      const minutes = parseInt(raw.replace("m", ""), 10);
-      hours = Math.ceil(minutes / 60);
+    if (hours !== undefined) {
+      // Nếu có truyền hours cụ thể (cho ADMIN/STAFF), dùng luôn
+      expirationHours = hours;
     } else {
-      hours = parseInt(raw, 10) || 6;
+      // Nếu không, parse từ env (cho USER)
+      const raw = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
+      
+      if (raw.endsWith("h")) {
+        expirationHours = parseInt(raw.replace("h", ""), 10);
+      } else if (raw.endsWith("d")) {
+        const days = parseInt(raw.replace("d", ""), 10);
+        expirationHours = days * 24;
+      } else if (raw.endsWith("m")) {
+        const minutes = parseInt(raw.replace("m", ""), 10);
+        expirationHours = Math.ceil(minutes / 60);
+      } else {
+        expirationHours = parseInt(raw, 10) || 168; // default 7 days
+      }
     }
 
     await pool.execute(
       `INSERT INTO refresh_tokens (account_id, token, expires_at)
        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))`,
-      [account_id, token, hours]
+      [account_id, token, expirationHours]
     );
   }
 

@@ -1,5 +1,16 @@
 import api from "../api/axiosClient";
 
+// Get all facilities
+export const getAllFacilities = async () => {
+  try {
+    const res = await api.get("/api/facilities");
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ getAllFacilities error:', error);
+    return { success: false, items: [], message: "Không thể lấy danh sách tiện nghi." };
+  }
+};
+
 export const searchHotels = async (params: {
   destination: string;
   checkIn: string;

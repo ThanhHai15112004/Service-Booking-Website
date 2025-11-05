@@ -61,7 +61,10 @@ export default function HotelCard({ hotel }: HotelCardProps) {
         {/* Top left: Rating score */}
         {hotel.rating && (
           <div className="absolute top-2 left-2 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-md shadow-lg">
-            <div className="text-base font-bold text-gray-900">{hotel.rating}</div>
+            <div className="text-base font-bold text-gray-900">
+              {typeof hotel.rating === 'number' ? hotel.rating.toFixed(1) : hotel.rating}
+              <span className="text-xs">/10</span>
+            </div>
             {hotel.reviews_count && (
               <div className="text-[11px] text-gray-600">
                 {hotel.reviews_count} đánh giá

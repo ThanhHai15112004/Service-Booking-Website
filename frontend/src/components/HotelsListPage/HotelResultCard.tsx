@@ -102,12 +102,20 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
     return <Star className="w-4 h-4" />;
   };
 
-  // Tính rating text
+  // Convert rating từ backend (1-5) sang hiển thị (1-10) nếu chưa convert
+  const getDisplayRating = (rating: number): number => {
+    // Nếu rating < 5 thì là thang điểm 1-5, cần convert
+    // Nếu rating >= 5 thì đã là thang điểm 10 rồi
+    return rating < 5 ? rating * 2 : rating;
+  };
+
+  // Tính rating text dựa trên thang điểm 10
   const getRatingText = (rating: number) => {
-    if (rating >= 9) return 'Tuyệt vời';
-    if (rating >= 8) return 'Rất tốt';
-    if (rating >= 7) return 'Tốt';
-    if (rating >= 6) return 'Khá';
+    const displayRating = getDisplayRating(rating);
+    if (displayRating >= 9) return 'Tuyệt vời';
+    if (displayRating >= 8) return 'Rất tốt';
+    if (displayRating >= 7) return 'Tốt';
+    if (displayRating >= 6) return 'Khá';
     return 'Trung bình';
   };
 
@@ -298,8 +306,8 @@ export default function HotelResultCard({ hotel }: HotelResultCardProps) {
                 {hotel.reviewCount} đánh giá
               </div>
             </div>
-            <div className="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-lg flex-shrink-0">
-              <span className="text-[12px] font-bold">{hotel.avgRating.toFixed(1)}</span>
+            <div className="flex items-center justify-center bg-blue-600 text-white rounded-lg flex-shrink-0 px-2 py-1">
+              <span className="text-[12px] font-bold">{getDisplayRating(hotel.avgRating).toFixed(1)}<span className="text-[10px]">/10</span></span>
             </div>
           </div>
 

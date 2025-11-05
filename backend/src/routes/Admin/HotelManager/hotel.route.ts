@@ -1,0 +1,84 @@
+import { Router } from "express";
+import { authenticateJWT, requireAdmin } from "../../../middleware/auth.middleware";
+import { asyncHandler } from "../../../middleware/admin.middleware";
+import {
+  getHotels,
+  getHotelById,
+  updateHotel,
+  updateHotelStatus,
+  deleteHotel,
+  getDashboardStats,
+  getReportData,
+  getHotelFacilities,
+  addHotelFacility,
+  removeHotelFacility,
+  getAllHighlights,
+  getHotelHighlights,
+  addHotelHighlight,
+  updateHotelHighlight,
+  removeHotelHighlight,
+  getHotelPolicies,
+  getPolicyTypes,
+  setHotelPolicy,
+  removeHotelPolicy,
+  getHotelImages,
+  addHotelImage,
+  deleteHotelImage,
+  getHotelReviews,
+  getHotelStatistics,
+} from "../../../controllers/Admin/HotelManager/hotel.controller";
+
+const router = Router();
+
+// Dashboard stats
+router.get("/dashboard/stats", authenticateJWT, requireAdmin, asyncHandler(getDashboardStats));
+
+// Reports
+router.get("/reports", authenticateJWT, requireAdmin, asyncHandler(getReportData));
+
+// List hotels
+router.get("/", authenticateJWT, requireAdmin, asyncHandler(getHotels));
+
+// Hotel detail
+router.get("/:hotelId", authenticateJWT, requireAdmin, asyncHandler(getHotelById));
+
+// Update hotel
+router.put("/:hotelId", authenticateJWT, requireAdmin, asyncHandler(updateHotel));
+
+// Update status
+router.put("/:hotelId/status", authenticateJWT, requireAdmin, asyncHandler(updateHotelStatus));
+
+// Delete hotel
+router.delete("/:hotelId", authenticateJWT, requireAdmin, asyncHandler(deleteHotel));
+
+// Hotel Facilities
+router.get("/:hotelId/facilities", authenticateJWT, requireAdmin, asyncHandler(getHotelFacilities));
+router.post("/:hotelId/facilities", authenticateJWT, requireAdmin, asyncHandler(addHotelFacility));
+router.delete("/:hotelId/facilities/:facilityId", authenticateJWT, requireAdmin, asyncHandler(removeHotelFacility));
+
+// Hotel Highlights
+router.get("/highlights/all", authenticateJWT, requireAdmin, asyncHandler(getAllHighlights));
+router.get("/:hotelId/highlights", authenticateJWT, requireAdmin, asyncHandler(getHotelHighlights));
+router.post("/:hotelId/highlights", authenticateJWT, requireAdmin, asyncHandler(addHotelHighlight));
+router.put("/:hotelId/highlights/:highlightId", authenticateJWT, requireAdmin, asyncHandler(updateHotelHighlight));
+router.delete("/:hotelId/highlights/:highlightId", authenticateJWT, requireAdmin, asyncHandler(removeHotelHighlight));
+
+// Hotel Policies
+router.get("/policies/types", authenticateJWT, requireAdmin, asyncHandler(getPolicyTypes));
+router.get("/:hotelId/policies", authenticateJWT, requireAdmin, asyncHandler(getHotelPolicies));
+router.post("/:hotelId/policies", authenticateJWT, requireAdmin, asyncHandler(setHotelPolicy));
+router.delete("/:hotelId/policies/:policyKey", authenticateJWT, requireAdmin, asyncHandler(removeHotelPolicy));
+
+// Hotel Images
+router.get("/:hotelId/images", authenticateJWT, requireAdmin, asyncHandler(getHotelImages));
+router.post("/:hotelId/images", authenticateJWT, requireAdmin, asyncHandler(addHotelImage));
+router.delete("/images/:imageId", authenticateJWT, requireAdmin, asyncHandler(deleteHotelImage));
+
+// Hotel Reviews
+router.get("/:hotelId/reviews", authenticateJWT, requireAdmin, asyncHandler(getHotelReviews));
+
+// Hotel Statistics
+router.get("/:hotelId/statistics", authenticateJWT, requireAdmin, asyncHandler(getHotelStatistics));
+
+export default router;
+

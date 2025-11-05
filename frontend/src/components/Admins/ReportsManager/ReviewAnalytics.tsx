@@ -136,6 +136,11 @@ const ReviewAnalytics = () => {
     );
   }
 
+  // Convert rating from backend (1-5) to display (1-10) - nhân đôi để hiển thị trên thang điểm 10
+  const convertRatingTo10 = (rating: number): number => {
+    return rating * 2;
+  };
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
       <Star
@@ -183,7 +188,7 @@ const ReviewAnalytics = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <p className="text-sm text-gray-600 mb-2">Điểm trung bình</p>
           <div className="flex items-center gap-2">
-            <p className="text-3xl font-bold text-yellow-600">{analytics.averageRating}</p>
+            <p className="text-3xl font-bold text-yellow-600">{convertRatingTo10(analytics.averageRating).toFixed(1)}/10</p>
             <div className="flex items-center">{renderStars(Math.round(analytics.averageRating))}</div>
           </div>
         </div>
@@ -331,12 +336,12 @@ const ReviewAnalytics = () => {
               <div key={city.city}>
                 <div className="flex justify-between mb-1">
                   <span className="text-sm font-medium text-gray-900">{city.city}</span>
-                  <span className="text-sm text-gray-600">{city.average_rating.toFixed(1)} ⭐</span>
+                  <span className="text-sm text-gray-600">{convertRatingTo10(city.average_rating).toFixed(1)}/10</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${(city.average_rating / 5) * 100}%` }}
+                    style={{ width: `${(convertRatingTo10(city.average_rating) / 10) * 100}%` }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{city.review_count} reviews</p>
@@ -353,12 +358,12 @@ const ReviewAnalytics = () => {
               <div key={hotel.hotel_id}>
                 <div className="flex justify-between mb-1">
                   <span className="text-sm font-medium text-gray-900 truncate">{hotel.hotel_name}</span>
-                  <span className="text-sm text-gray-600">{hotel.average_rating.toFixed(1)} ⭐</span>
+                  <span className="text-sm text-gray-600">{convertRatingTo10(hotel.average_rating).toFixed(1)}/10</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-green-600 h-2 rounded-full"
-                    style={{ width: `${(hotel.average_rating / 5) * 100}%` }}
+                    style={{ width: `${(convertRatingTo10(hotel.average_rating) / 10) * 100}%` }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{hotel.review_count} reviews</p>

@@ -139,7 +139,12 @@ const UserList = () => {
   const handleSaveEdit = async () => {
     if (!selectedAccount) return;
     try {
-      await adminService.updateAccount(selectedAccount.account_id, editForm);
+      // Convert null to undefined for phone_number to match UpdateAccountData type
+      const updateData = {
+        ...editForm,
+        phone_number: editForm.phone_number === null ? undefined : editForm.phone_number,
+      };
+      await adminService.updateAccount(selectedAccount.account_id, updateData);
       showToast("success", "Cập nhật tài khoản thành công");
       setShowEditModal(false);
       fetchAccounts();

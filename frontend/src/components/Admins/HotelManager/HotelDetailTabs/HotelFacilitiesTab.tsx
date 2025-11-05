@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Plus, X, Trash2 } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
+import { getAllFacilities } from "../../../../services/hotelService";
 
 interface Facility {
   facility_id: string;
@@ -35,49 +37,70 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // const [hotelFacilitiesRes, allFacilitiesRes] = await Promise.all([
-      //   adminService.getHotelFacilities(hotelId),
-      //   adminService.getAllFacilities(),
-      // ]);
-      // setHotelFacilities(hotelFacilitiesRes.data);
-      // setAllFacilities(allFacilitiesRes.data);
+      const [hotelFacilitiesRes, allFacilitiesRes] = await Promise.all([
+        adminService.getHotelFacilities(hotelId),
+        getAllFacilities(),
+      ]);
 
-      // Mock data
-      setTimeout(() => {
-        setHotelFacilities([
-          { facility_id: "F001", name: "Wi-Fi miễn phí", icon: "wifi", category: "HOTEL" },
-          { facility_id: "F002", name: "Bãi đỗ xe", icon: "parking", category: "HOTEL" },
-          { facility_id: "F003", name: "Hồ bơi", icon: "pool", category: "HOTEL" },
-          { facility_id: "F016", name: "Điều hòa", icon: "ac", category: "ROOM" },
-          { facility_id: "F017", name: "TV", icon: "tv", category: "ROOM" },
-        ]);
-        setAllFacilities([
-          { facility_id: "F001", name: "Wi-Fi miễn phí", icon: "wifi", category: "HOTEL" },
-          { facility_id: "F002", name: "Bãi đỗ xe", icon: "parking", category: "HOTEL" },
-          { facility_id: "F003", name: "Hồ bơi", icon: "pool", category: "HOTEL" },
-          { facility_id: "F004", name: "Nhà hàng", icon: "restaurant", category: "HOTEL" },
-          { facility_id: "F005", name: "Bar", icon: "bar", category: "HOTEL" },
-          { facility_id: "F016", name: "Điều hòa", icon: "ac", category: "ROOM" },
-          { facility_id: "F017", name: "TV", icon: "tv", category: "ROOM" },
-          { facility_id: "F018", name: "Minibar", icon: "minibar", category: "ROOM" },
-        ]);
-        setLoading(false);
-      }, 500);
+      if (hotelFacilitiesRes.success && hotelFacilitiesRes.data) {
+        setHotelFacilities(hotelFacilitiesRes.data);
+      }
+
+      // Handle different response structures
+      if (allFacilitiesRes.success) {
+        let facilitiesArray: any[] = [];
+        
+        if (allFacilitiesRes.items && Array.isArray(allFacilitiesRes.items)) {
+          facilitiesArray = allFacilitiesRes.items;
+        } else if (Array.isArray(allFacilitiesRes.data)) {
+          facilitiesArray = allFacilitiesRes.data;
+        } else if (Array.isArray(allFacilitiesRes)) {
+          facilitiesArray = allFacilitiesRes;
+        } else {
+          console.error("Unexpected facilities response structure:", allFacilitiesRes);
+          showToast("error", "Không thể parse dữ liệu tiện nghi");
+          return;
+        }
+        
+        // Map facilityId (camelCase) to facility_id (snake_case) for consistency
+        const mappedFacilities = facilitiesArray.map((facility: any) => ({
+          facility_id: facility.facility_id || facility.facilityId,
+          name: facility.name,
+          category: facility.category,
+          icon: facility.icon,
+          created_at: facility.created_at || facility.createdAt
+        }));
+        
+        setAllFacilities(mappedFacilities);
+      } else {
+        console.error("Failed to fetch facilities:", allFacilitiesRes);
+        showToast("error", allFacilitiesRes.message || "Không thể tải danh sách tiện nghi");
+      }image.png
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu");
+      console.error("Error fetching facilities:", error);
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu");
+    } finally {
       setLoading(false);
     }
   };
 
   const handleAddFacility = async (facilityId: string) => {
+    if (!facilityId) {
+      showToast("error", "Không tìm thấy ID tiện nghi");
+      return;
+    }
+    
     try {
-      // TODO: API call
-      // await adminService.addHotelFacility(hotelId, facilityId);
-      showToast("success", "Thêm tiện nghi thành công");
-      fetchData();
+      const response = await adminService.addHotelFacility(hotelId, facilityId);
+      if (response.success) {
+        showToast("success", response.message || "Thêm tiện nghi thành công");
+        fetchData();
+        setShowAddModal(false);
+      } else {
+        showToast("error", response.message || "Không thể thêm tiện nghi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể thêm tiện nghi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể thêm tiện nghi");
     }
   };
 
@@ -85,12 +108,15 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
     if (!confirm("Bạn có chắc chắn muốn xóa tiện nghi này?")) return;
 
     try {
-      // TODO: API call
-      // await adminService.removeHotelFacility(hotelId, facilityId);
-      showToast("success", "Xóa tiện nghi thành công");
-      fetchData();
+      const response = await adminService.removeHotelFacility(hotelId, facilityId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa tiện nghi thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể xóa tiện nghi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa tiện nghi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa tiện nghi");
     }
   };
 
@@ -140,7 +166,11 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                 <div className="flex items-center gap-3">
                   {facility.icon && (
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xl">{facility.icon}</span>
+                      {facility.icon.startsWith('http') ? (
+                        <img src={facility.icon} alt={facility.name} className="w-8 h-8 object-contain" />
+                      ) : (
+                        <span className="text-xl">{facility.icon}</span>
+                      )}
                     </div>
                   )}
                   <span className="font-medium text-gray-900">{facility.name}</span>
@@ -149,7 +179,7 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                   onClick={() => handleRemoveFacility(facility.facility_id)}
                   className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
                 >
-                  <X size={18} />
+                  <Trash2 size={18} />
                 </button>
               </div>
             ))}
@@ -172,7 +202,11 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                 <div className="flex items-center gap-3">
                   {facility.icon && (
                     <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xl">{facility.icon}</span>
+                      {facility.icon.startsWith('http') ? (
+                        <img src={facility.icon} alt={facility.name} className="w-8 h-8 object-contain" />
+                      ) : (
+                        <span className="text-xl">{facility.icon}</span>
+                      )}
                     </div>
                   )}
                   <span className="font-medium text-gray-900">{facility.name}</span>
@@ -181,7 +215,7 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                   onClick={() => handleRemoveFacility(facility.facility_id)}
                   className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
                 >
-                  <X size={18} />
+                  <Trash2 size={18} />
                 </button>
               </div>
             ))}
@@ -191,7 +225,14 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddModal(false);
+            }
+          }}
+        >
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Thêm tiện nghi</h3>
@@ -203,7 +244,7 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
               {availableFacilities.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">Không còn tiện nghi nào để thêm</p>
               ) : (
-                <>
+                <div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Tiện nghi khách sạn</h4>
                     <div className="grid grid-cols-2 gap-3">
@@ -211,14 +252,23 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                         .filter((f) => f.category === "HOTEL")
                         .map((facility) => (
                           <button
-                            key={facility.facility_id}
+                            key={facility.facility_id || `hotel-${facility.name}`}
                             onClick={() => {
-                              handleAddFacility(facility.facility_id);
-                              setShowAddModal(false);
+                              if (facility.facility_id) {
+                                handleAddFacility(facility.facility_id);
+                              } else {
+                                showToast("error", "Tiện nghi không có ID hợp lệ");
+                              }
                             }}
                             className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors text-left"
                           >
-                            {facility.icon && <span className="text-xl">{facility.icon}</span>}
+                            {facility.icon ? (
+                              facility.icon.startsWith('http') ? (
+                                <img src={facility.icon} alt={facility.name} className="w-6 h-6 object-contain" />
+                              ) : (
+                                <span className="text-xl">{facility.icon}</span>
+                              )
+                            ) : null}
                             <span className="text-sm font-medium text-gray-900">{facility.name}</span>
                           </button>
                         ))}
@@ -231,20 +281,29 @@ const HotelFacilitiesTab = ({ hotelId }: HotelFacilitiesTabProps) => {
                         .filter((f) => f.category === "ROOM")
                         .map((facility) => (
                           <button
-                            key={facility.facility_id}
+                            key={facility.facility_id || `room-${facility.name}`}
                             onClick={() => {
-                              handleAddFacility(facility.facility_id);
-                              setShowAddModal(false);
+                              if (facility.facility_id) {
+                                handleAddFacility(facility.facility_id);
+                              } else {
+                                showToast("error", "Tiện nghi không có ID hợp lệ");
+                              }
                             }}
                             className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-500 transition-colors text-left"
                           >
-                            {facility.icon && <span className="text-xl">{facility.icon}</span>}
+                            {facility.icon ? (
+                              facility.icon.startsWith('http') ? (
+                                <img src={facility.icon} alt={facility.name} className="w-6 h-6 object-contain" />
+                              ) : (
+                                <span className="text-xl">{facility.icon}</span>
+                              )
+                            ) : null}
                             <span className="text-sm font-medium text-gray-900">{facility.name}</span>
                           </button>
                         ))}
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>

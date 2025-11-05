@@ -3,14 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit, Trash2, Lock, Unlock, Image as ImageIcon, Settings, Star, MapPin, Phone, Mail, Globe, Clock } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 import HotelInfoTab from "./HotelDetailTabs/HotelInfoTab";
 import HotelImagesTab from "./HotelDetailTabs/HotelImagesTab";
 import HotelFacilitiesTab from "./HotelDetailTabs/HotelFacilitiesTab";
 import HotelHighlightsTab from "./HotelDetailTabs/HotelHighlightsTab";
 import HotelPoliciesTab from "./HotelDetailTabs/HotelPoliciesTab";
+import HotelReviewsTab from "./HotelDetailTabs/HotelReviewsTab";
 import HotelStatsTab from "./HotelDetailTabs/HotelStatsTab";
 
-type TabType = "info" | "images" | "facilities" | "highlights" | "policies" | "stats";
+type TabType = "info" | "images" | "facilities" | "highlights" | "policies" | "reviews" | "stats";
 
 interface Hotel {
   hotel_id: string;
@@ -61,41 +63,17 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
   const fetchHotelDetail = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await adminService.getHotelDetail(hotelId!);
-      // setHotel(response.data);
-
-      // Mock data
-      setTimeout(() => {
-        setHotel({
-          hotel_id: hotelId || "H001",
-          name: "Hanoi Old Quarter Hotel",
-          description: "Khách sạn nằm ở trung tâm Hà Nội...",
-          category: "Khách sạn",
-          city: "Hà Nội",
-          district: "Hoàn Kiếm",
-          address: "12 Hàng Bạc, Hoàn Kiếm, Hà Nội",
-          latitude: 21.033,
-          longitude: 105.85,
-          star_rating: 3,
-          avg_rating: 8.2,
-          review_count: 256,
-          checkin_time: "14:00:00",
-          checkout_time: "12:00:00",
-          phone_number: "024-88888888",
-          email: "contact@hoqhotel.vn",
-          website: "https://hoqhotel.vn",
-          total_rooms: 30,
-          main_image: "https://via.placeholder.com/800x400",
-          status: "ACTIVE",
-          created_at: "2025-10-20",
-          updated_at: "2025-11-04",
-        });
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getHotelDetail(hotelId!);
+      if (response.success && response.data) {
+        setHotel(response.data);
+      } else {
+        showToast("error", response.message || "Không tìm thấy khách sạn");
+        navigate("/admin/hotels");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Lỗi khi tải thông tin khách sạn");
+      showToast("error", error.response?.data?.message || error.message || "Lỗi khi tải thông tin khách sạn");
       navigate("/admin/hotels");
+    } finally {
       setLoading(false);
     }
   };
@@ -108,12 +86,15 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
   const handleDelete = async () => {
     if (!hotel) return;
     try {
-      // TODO: API call
-      // await adminService.deleteHotel(hotel.hotel_id);
-      showToast("success", "Xóa khách sạn thành công");
-      setTimeout(() => navigate("/admin/hotels"), 1500);
+      const response = await adminService.deleteHotel(hotel.hotel_id, false);
+      if (response.success) {
+        showToast("success", response.message || "Xóa khách sạn thành công");
+        setTimeout(() => navigate("/admin/hotels"), 1500);
+      } else {
+        showToast("error", response.message || "Lỗi khi xóa khách sạn");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Lỗi khi xóa khách sạn");
+      showToast("error", error.response?.data?.message || error.message || "Lỗi khi xóa khách sạn");
     }
   };
 
@@ -121,12 +102,15 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
     if (!hotel) return;
     try {
       const newStatus = hotel.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      // TODO: API call
-      // await adminService.updateHotelStatus(hotel.hotel_id, newStatus);
-      showToast("success", `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} khách sạn`);
-      fetchHotelDetail();
+      const response = await adminService.updateHotelStatus(hotel.hotel_id, newStatus);
+      if (response.success) {
+        showToast("success", response.message || `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} khách sạn`);
+        fetchHotelDetail();
+      } else {
+        showToast("error", response.message || "Lỗi khi thay đổi trạng thái");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Lỗi khi thay đổi trạng thái");
+      showToast("error", error.response?.data?.message || error.message || "Lỗi khi thay đổi trạng thái");
     }
   };
 
@@ -161,6 +145,7 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
     { id: "facilities" as TabType, label: "Tiện nghi", icon: Settings },
     { id: "highlights" as TabType, label: "Điểm nổi bật", icon: Star },
     { id: "policies" as TabType, label: "Chính sách", icon: Settings },
+    { id: "reviews" as TabType, label: "Đánh giá", icon: Star },
     { id: "stats" as TabType, label: "Thống kê", icon: Star },
   ];
 
@@ -285,6 +270,7 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
           {activeTab === "facilities" && <HotelFacilitiesTab hotelId={hotel.hotel_id} />}
           {activeTab === "highlights" && <HotelHighlightsTab hotelId={hotel.hotel_id} />}
           {activeTab === "policies" && <HotelPoliciesTab hotelId={hotel.hotel_id} />}
+          {activeTab === "reviews" && <HotelReviewsTab hotelId={hotel.hotel_id} />}
           {activeTab === "stats" && <HotelStatsTab hotelId={hotel.hotel_id} />}
         </div>
       </div>
