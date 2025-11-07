@@ -1,4 +1,11 @@
-export type BookingStatus = 'CREATED' | 'CONFIRMED' | 'CANCELLED' | 'PAID';
+export type BookingStatus = 
+  | 'CREATED'              // Đặt phòng
+  | 'PENDING_CONFIRMATION' // Chờ xác nhận (sau khi thanh toán)
+  | 'CONFIRMED'            // Đã xác nhận (admin xác nhận)
+  | 'CHECKED_IN'           // Đã check-in
+  | 'CHECKED_OUT'          // Đã check-out
+  | 'COMPLETED'            // Hoàn tất
+  | 'CANCELLED';           // Đã hủy
 
 export type PaymentMethod = 'VNPAY' | 'MOMO' | 'CASH';
 

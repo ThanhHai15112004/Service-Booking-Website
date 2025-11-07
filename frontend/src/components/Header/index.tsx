@@ -1,4 +1,5 @@
 import { Menu } from "lucide-react";
+import { useEffect } from "react";
 import UserAccountStatus from "./UserAccountStatus";
 import LanguageSelector from "./LanguageSelector";
 import MessageDropdown from "./MessageDropdown";
@@ -10,7 +11,13 @@ import RegisterButton from "./RegisterButton";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function Header() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user, isLoading } = useAuth();
+  
+  // Debug log
+  useEffect(() => {
+    console.log('Header - Auth state:', { isLoggedIn, user: user?.email, isLoading });
+  }, [isLoggedIn, user, isLoading]);
+  
   return (
     <header className="sticky top-0 z-50 bg-white text-gray-900 shadow-sm">
       <div className="mx-auto max-w-7xl px-4">

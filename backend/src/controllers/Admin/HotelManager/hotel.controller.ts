@@ -286,3 +286,127 @@ export const getHotelStatistics = asyncHandler(async (req: Request, res: Respons
   res.status(result.success ? 200 : 400).json(result);
 });
 
+// ========== Hotel Bookings Management ==========
+export const getHotelBookings = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId } = req.params;
+  const {
+    status,
+    accountId,
+    accountName,
+    accountEmail,
+    dateFrom,
+    dateTo,
+    checkinFrom,
+    checkinTo,
+    sortBy,
+    sortOrder,
+    page,
+    limit,
+  } = req.query;
+
+  const result = await hotelService.getHotelBookings(hotelId, {
+    status: status as string,
+    accountId: accountId as string,
+    accountName: accountName as string,
+    accountEmail: accountEmail as string,
+    dateFrom: dateFrom as string,
+    dateTo: dateTo as string,
+    checkinFrom: checkinFrom as string,
+    checkinTo: checkinTo as string,
+    sortBy: sortBy as string,
+    sortOrder: (sortOrder as "ASC" | "DESC") || "DESC",
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+  });
+
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+export const getHotelBookingDetail = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const result = await hotelService.getHotelBookingDetail(hotelId, bookingId);
+  res.status(result.success ? 200 : 404).json(result);
+});
+
+export const updateHotelBookingStatus = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu trường status",
+    });
+  }
+
+  const result = await hotelService.updateBookingStatus(hotelId, bookingId, status);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Check-in booking
+export const checkInBooking = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const { staffName } = req.body;
+  const result = await hotelService.checkInBooking(hotelId, bookingId, staffName);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Check-out booking
+export const checkOutBooking = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const { staffName } = req.body;
+  const result = await hotelService.checkOutBooking(hotelId, bookingId, staffName);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+export const getHotelBookingStats = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId } = req.params;
+  const result = await hotelService.getHotelBookingStats(hotelId);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Cập nhật special requests cho booking
+export const updateBookingSpecialRequests = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const { specialRequests } = req.body;
+
+  if (specialRequests === undefined) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu trường specialRequests",
+    });
+  }
+
+  const result = await hotelService.updateBookingSpecialRequests(hotelId, bookingId, specialRequests);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Cập nhật admin note cho booking
+export const updateBookingAdminNote = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const { adminNote } = req.body;
+
+  if (adminNote === undefined) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu trường adminNote",
+    });
+  }
+
+  const result = await hotelService.updateBookingAdminNote(hotelId, bookingId, adminNote);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Lấy activity log cho booking
+export const getBookingActivityLog = asyncHandler(async (req: Request, res: Response) => {
+  const { hotelId, bookingId } = req.params;
+  const result = await hotelService.getBookingActivityLog(hotelId, bookingId);
+  res.status(result.success ? 200 : 400).json(result);
+});
+
+// Lấy tổng số booking đang chờ xác nhận
+export const getTotalPendingBookingCount = asyncHandler(async (req: Request, res: Response) => {
+  const result = await hotelService.getTotalPendingBookingCount();
+  res.status(result.success ? 200 : 400).json(result);
+});
+

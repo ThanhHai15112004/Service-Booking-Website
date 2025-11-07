@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Calendar, DollarSign, Users, Building2, Bed, TrendingUp, TrendingDown, Clock, AlertCircle, CheckCircle, XCircle, MessageSquare, Wrench, FileText } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DashboardStats {
   bookings: {
@@ -23,7 +24,7 @@ interface DashboardStats {
   occupancyRate: number;
   cancellationRate: number;
   revenueByDate: Array<{ date: string; revenue: number }>;
-  bookingsByStatus: Array<{ status: string; count: number; percentage: number }>;
+  bookingsByStatus: Array<{ status: string; count: number; percentage: number | string }>;
   topBookedHotels: Array<{ hotel_id: string; hotel_name: string; bookings: number }>;
   newUsersTrend: Array<{ date: string; count: number }>;
   recentBookings: Array<{
@@ -67,85 +68,23 @@ const MainDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
+      const response = await adminService.getMainDashboardStats();
+      if (response.success && response.data) {
+        // Convert percentage from string to number for charts
+        const bookingsByStatus = response.data.bookingsByStatus.map(item => ({
+          ...item,
+          percentage: Number(item.percentage)
+        }));
         setStats({
-          bookings: {
-            today: 45,
-            week: 312,
-            month: 1245,
-            total: 15678,
-          },
-          revenue: {
-            today: 125000000,
-            week: 850000000,
-            month: 3450000000,
-            total: 45678000000,
-          },
-          newUsers: 234,
-          totalHotels: 156,
-          activeRooms: 3420,
-          occupancyRate: 78.5,
-          cancellationRate: 8.2,
-          revenueByDate: [
-            { date: "01/11", revenue: 85000000 },
-            { date: "02/11", revenue: 95000000 },
-            { date: "03/11", revenue: 110000000 },
-            { date: "04/11", revenue: 125000000 },
-            { date: "05/11", revenue: 145000000 },
-            { date: "06/11", revenue: 135000000 },
-            { date: "07/11", revenue: 150000000 },
-          ],
-          bookingsByStatus: [
-            { status: "PAID", count: 8567, percentage: 54.7 },
-            { status: "CONFIRMED", count: 4234, percentage: 27.0 },
-            { status: "CREATED", count: 1876, percentage: 12.0 },
-            { status: "CANCELLED", count: 1001, percentage: 6.3 },
-          ],
-          topBookedHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", bookings: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", bookings: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", bookings: 298 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", bookings: 234 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", bookings: 187 },
-          ],
-          newUsersTrend: [
-            { date: "01/11", count: 45 },
-            { date: "02/11", count: 52 },
-            { date: "03/11", count: 48 },
-            { date: "04/11", count: 61 },
-            { date: "05/11", count: 58 },
-            { date: "06/11", count: 55 },
-            { date: "07/11", count: 62 },
-          ],
-          recentBookings: [
-            { booking_id: "BK001", customer_name: "Nguyễn Văn A", hotel_name: "Hanoi Old Quarter Hotel", status: "PAID", created_at: "2025-11-07T14:30:00" },
-            { booking_id: "BK002", customer_name: "Trần Thị B", hotel_name: "My Khe Beach Resort", status: "CONFIRMED", created_at: "2025-11-07T13:20:00" },
-            { booking_id: "BK003", customer_name: "Lê Văn C", hotel_name: "Saigon Riverside Hotel", status: "CREATED", created_at: "2025-11-07T12:15:00" },
-            { booking_id: "BK004", customer_name: "Phạm Thị D", hotel_name: "Sofitel Metropole", status: "PAID", created_at: "2025-11-07T11:00:00" },
-            { booking_id: "BK005", customer_name: "Hoàng Văn E", hotel_name: "Da Nang Beach Hotel", status: "CANCELLED", created_at: "2025-11-07T10:30:00" },
-          ],
-          upcomingCheckIns: [
-            { booking_id: "BK006", customer_name: "Nguyễn Văn F", hotel_name: "Hanoi Old Quarter Hotel", check_in_date: "2025-11-07" },
-            { booking_id: "BK007", customer_name: "Trần Thị G", hotel_name: "My Khe Beach Resort", check_in_date: "2025-11-07" },
-            { booking_id: "BK008", customer_name: "Lê Văn H", hotel_name: "Saigon Riverside Hotel", check_in_date: "2025-11-08" },
-            { booking_id: "BK009", customer_name: "Phạm Thị I", hotel_name: "Sofitel Metropole", check_in_date: "2025-11-08" },
-          ],
-          maintenanceRooms: [
-            { room_id: "R001", room_number: "101", hotel_name: "Hanoi Old Quarter Hotel", room_type: "Standard", maintenance_start: "2025-11-05" },
-            { room_id: "R002", room_number: "205", hotel_name: "My Khe Beach Resort", room_type: "Deluxe", maintenance_start: "2025-11-06" },
-            { room_id: "R003", room_number: "301", hotel_name: "Saigon Riverside Hotel", room_type: "Suite", maintenance_start: "2025-11-04" },
-          ],
-          pendingRequests: {
-            newReviews: 23,
-            refunds: 8,
-            emailVerifications: 45,
-          },
+          ...response.data,
+          bookingsByStatus,
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", response.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };
@@ -181,9 +120,12 @@ const MainDashboard = () => {
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { bg: string; text: string; label: string }> = {
-      PAID: { bg: "bg-green-100", text: "text-green-800", label: "Đã thanh toán" },
+      CREATED: { bg: "bg-gray-100", text: "text-gray-800", label: "Đã tạo" },
+      PENDING_CONFIRMATION: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Chờ xác nhận" },
       CONFIRMED: { bg: "bg-blue-100", text: "text-blue-800", label: "Đã xác nhận" },
-      CREATED: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Đã tạo" },
+      CHECKED_IN: { bg: "bg-green-100", text: "text-green-800", label: "Đã check-in" },
+      CHECKED_OUT: { bg: "bg-purple-100", text: "text-purple-800", label: "Đã check-out" },
+      COMPLETED: { bg: "bg-emerald-100", text: "text-emerald-800", label: "Hoàn tất" },
       CANCELLED: { bg: "bg-red-100", text: "text-red-800", label: "Đã hủy" },
     };
     const badge = badges[status] || badges.CREATED;

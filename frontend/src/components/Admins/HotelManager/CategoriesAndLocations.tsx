@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { Building2, MapPin, Plus, Edit, Trash2, Star, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Building2, MapPin, Plus, Edit, Trash2, Star, X, Upload } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
 import { adminService } from "../../../services/adminService";
+import adminApi from "../../../api/adminAxiosClient";
 
 interface Category {
   category_id: string;
@@ -249,13 +250,13 @@ const CategoriesAndLocations = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         {category.icon ? (
-                          category.icon.startsWith('http') ? (
-                            <img src={category.icon} alt={category.name} className="w-12 h-12 object-contain" />
+                          category.icon.startsWith('http') || category.icon.startsWith('/') ? (
+                            <img src={category.icon} alt={category.name} className="w-12 h-12 object-contain rounded" />
                           ) : (
                             <span className="text-3xl">{category.icon}</span>
                           )
                         ) : (
-                          <span className="text-3xl">🏨</span>
+                          <Building2 size={24} className="text-gray-400" />
                         )}
                         <div>
                           <h4 className="font-medium text-gray-900">{category.name}</h4>
@@ -405,10 +406,113 @@ const CategoryModal = ({
     description: category?.description || "",
     icon: category?.icon || "",
   });
+  const [uploading, setUploading] = useState(false);
+  const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Update form and preview when category changes
+  useEffect(() => {
+    if (category) {
+      setForm({
+        name: category.name || "",
+        description: category.description || "",
+        icon: category.icon || "",
+      });
+      // Show preview for URLs (http/https) or relative paths (/uploads/ or /)
+      if (category.icon && (category.icon.startsWith('http') || category.icon.startsWith('/'))) {
+        setIconPreview(category.icon);
+      } else if (category.icon) {
+        // Emoji, không hiển thị preview nhưng vẫn giữ trong form
+        setIconPreview(null);
+      } else {
+        setIconPreview(null);
+      }
+    } else {
+      setForm({
+        name: "",
+        description: "",
+        icon: "",
+      });
+      setIconPreview(null);
+    }
+  }, [category]);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast("error", "Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("error", "Kích thước file không được vượt quá 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await adminApi.post('/api/upload/single', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success && response.data.data) {
+        const imageUrl = response.data.data.imageUrl || response.data.data.url;
+        setForm({ ...form, icon: imageUrl });
+        setIconPreview(imageUrl);
+        showToast("success", "Upload ảnh thành công");
+      } else {
+        showToast("error", response.data.message || "Không thể upload ảnh");
+      }
+    } catch (error: any) {
+      showToast("error", error.response?.data?.message || error.message || "Không thể upload ảnh");
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveIcon = () => {
+    setForm({ ...form, icon: "" });
+    setIconPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        // Đóng modal khi click vào overlay (background)
+        if (e.target === e.currentTarget && !uploading) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {toast && <Toast type={toast.type} message={toast.message} />}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">{category ? "Chỉnh sửa" : "Thêm"} danh mục</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -422,7 +526,8 @@ const CategoryModal = ({
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nhập tên danh mục"
             />
           </div>
           <div>
@@ -430,29 +535,100 @@ const CategoryModal = ({
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={3}
+              placeholder="Nhập mô tả"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Icon (Emoji hoặc URL)</label>
-            <input
-              type="text"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              placeholder="🏨"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+            
+            {/* Preview */}
+            {iconPreview && (
+              <div className="mb-3 flex items-center gap-3">
+                <div className="relative">
+                  <img 
+                    src={iconPreview} 
+                    alt="Icon preview" 
+                    className="w-16 h-16 object-contain border border-gray-300 rounded-lg bg-gray-50"
+                  />
+                  <button
+                    onClick={handleRemoveIcon}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    type="button"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500">Đã chọn ảnh</p>
+                  <p className="text-xs text-gray-400 truncate">{iconPreview}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Upload button */}
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="icon-upload"
+              />
+              <label
+                htmlFor="icon-upload"
+                className={`flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                  uploading 
+                    ? "border-gray-300 bg-gray-100 cursor-not-allowed" 
+                    : "border-blue-300 hover:border-blue-400 hover:bg-blue-50"
+                }`}
+              >
+                <Upload size={18} className={uploading ? "text-gray-400" : "text-blue-600"} />
+                <span className={`text-sm ${uploading ? "text-gray-400" : "text-blue-600"}`}>
+                  {uploading ? "Đang upload..." : "Chọn ảnh"}
+                </span>
+              </label>
+              
+              {/* Fallback: Manual URL input (optional) */}
+              {!iconPreview && (
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={form.icon}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setForm({ ...form, icon: value });
+                      // Show preview if URL (http/https) or relative path (/uploads/)
+                      if (value.startsWith('http') || value.startsWith('/')) {
+                        setIconPreview(value);
+                      } else if (!value) {
+                        setIconPreview(null);
+                      }
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Hoặc nhập URL ảnh"
+                  />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Hỗ trợ: JPG, PNG, GIF, WebP (tối đa 5MB)</p>
           </div>
-          <div className="flex items-center gap-3 justify-end">
-            <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <div className="flex items-center gap-3 justify-end pt-4 border-t">
+            <button 
+              onClick={onClose} 
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={uploading}
+            >
               Hủy
             </button>
             <button
               onClick={() => onSave(form)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={uploading || !form.name.trim()}
             >
-              Lưu
+              {uploading ? "Đang upload..." : "Lưu"}
             </button>
           </div>
         </div>
@@ -485,8 +661,19 @@ const LocationModal = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        // Đóng modal khi click vào overlay (background)
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">{location ? "Chỉnh sửa" : "Thêm"} vị trí</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">

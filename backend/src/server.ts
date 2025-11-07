@@ -7,6 +7,7 @@ import sequelize, { testConnection } from "./config/sequelize"; // ✅ Add Seque
 import { startCleanupJob } from "./jobs/cleanupUnverifiedAccounts";
 import { startCleanupExpiredBookingsJob } from "./jobs/cleanupExpiredBookings";
 import { startAutoGeneratePricesJob } from "./jobs/autoGeneratePrices";
+import { startAutoCancelNoShowBookingsJob } from "./jobs/autoCancelNoShowBookings";
 import { adminErrorHandler } from "./middleware/admin.middleware";
 const cors = require('cors');
 import cookieParser from "cookie-parser";
@@ -34,7 +35,8 @@ app.use("/api/admin", adminErrorHandler);
 
 startCleanupJob()
 startCleanupExpiredBookingsJob();
-startAutoGeneratePricesJob(); 
+startAutoGeneratePricesJob();
+startAutoCancelNoShowBookingsJob(); 
 
 // ✅ Initialize Sequelize and start server
 (async () => {
@@ -49,4 +51,6 @@ startAutoGeneratePricesJob();
     process.exit(1);
   }
 })();
+
+
 

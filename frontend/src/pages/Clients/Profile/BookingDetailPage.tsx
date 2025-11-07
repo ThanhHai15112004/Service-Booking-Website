@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import MainLayout from '../../layouts/MainLayout';
-import { getBookingById, cancelBooking } from '../../services/bookingService';
-import { getHotelDetail } from '../../services/hotelService';
-import api from '../../api/axiosClient';
+import MainLayout from '../../../layouts/MainLayout';
+import { getBookingById, cancelBooking } from '../../../services/bookingService';
+import { getHotelDetail } from '../../../services/hotelService';
+import api from '../../../api/axiosClient';
 import {
   ArrowLeft,
   Calendar,
@@ -133,12 +133,19 @@ function BookingDetailPage() {
           icon: Clock,
           description: 'Đơn đặt chỗ đã được tạo, chờ thanh toán'
         };
-      case 'PAID':
+      case 'PENDING_CONFIRMATION':
         return {
-          label: 'Đã thanh toán',
-          color: 'bg-purple-100 text-purple-800',
-          icon: CreditCard,
-          description: 'Đã thanh toán, chờ xác nhận'
+          label: 'Chờ xác nhận',
+          color: 'bg-yellow-100 text-yellow-800',
+          icon: Clock,
+          description: 'Đã thanh toán, đang chờ admin xác nhận'
+        };
+      case 'PAID': // Legacy status, giữ để backward compatibility
+        return {
+          label: 'Chờ xác nhận',
+          color: 'bg-yellow-100 text-yellow-800',
+          icon: Clock,
+          description: 'Đã thanh toán, đang chờ admin xác nhận'
         };
       case 'CONFIRMED':
         return {
@@ -147,12 +154,19 @@ function BookingDetailPage() {
           icon: CheckCircle2,
           description: 'Đơn đặt chỗ đã được xác nhận'
         };
-      case 'CANCELLED':
+      case 'CHECKED_IN':
         return {
-          label: 'Đã hủy',
-          color: 'bg-red-100 text-red-800',
-          icon: XCircle,
-          description: 'Đơn đặt chỗ đã bị hủy'
+          label: 'Đã check-in',
+          color: 'bg-blue-100 text-blue-800',
+          icon: CheckCircle2,
+          description: 'Đã nhận phòng và check-in'
+        };
+      case 'CHECKED_OUT':
+        return {
+          label: 'Đã check-out',
+          color: 'bg-purple-100 text-purple-800',
+          icon: CheckCircle2,
+          description: 'Đã trả phòng và check-out'
         };
       case 'COMPLETED':
         return {
@@ -160,6 +174,13 @@ function BookingDetailPage() {
           color: 'bg-gray-100 text-gray-800',
           icon: CheckCircle2,
           description: 'Đã hoàn thành chuyến đi'
+        };
+      case 'CANCELLED':
+        return {
+          label: 'Đã hủy',
+          color: 'bg-red-100 text-red-800',
+          icon: XCircle,
+          description: 'Đơn đặt chỗ đã bị hủy'
         };
       default:
         return {
@@ -760,7 +781,7 @@ function BookingDetailPage() {
                     {/* Payment Status */}
                     <div className="flex items-start gap-3">
                       <CheckCircle2 className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                        booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                        booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT'
                           ? 'text-green-600'
                           : booking.status === 'CANCELLED'
                           ? 'text-red-600'
@@ -769,13 +790,13 @@ function BookingDetailPage() {
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Trạng thái thanh toán</p>
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
-                          booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                          booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT'
                             ? 'bg-green-100 text-green-800'
                             : booking.status === 'CANCELLED'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'
+                          {booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT'
                             ? 'Đã thanh toán'
                             : booking.status === 'CANCELLED'
                             ? 'Đã hủy'
@@ -862,7 +883,7 @@ function BookingDetailPage() {
                   </div>
 
                   {/* Payment Date */}
-                  {booking.updated_at && (booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') && (
+                  {booking.updated_at && (booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock className="w-4 h-4" />
@@ -903,53 +924,61 @@ function BookingDetailPage() {
                 Trạng thái đơn đặt chỗ
               </h2>
                 {(() => {
-                  // Define all possible status steps
+                  // Define all possible status steps - Flow đúng: CREATED -> PENDING_CONFIRMATION -> CONFIRMED -> CHECKED_IN -> CHECKED_OUT -> COMPLETED
                   const allSteps = [
                     { 
                       key: 'CREATED', 
                       label: 'Đã tạo đơn', 
                       icon: FileText,
-                      description: 'Đơn đặt chỗ đã được tạo'
+                      description: 'Đơn đặt chỗ đã được tạo',
+                      getDate: () => booking.created_at
                     },
                     { 
-                      key: 'PAID', 
-                      label: 'Đã thanh toán', 
+                      key: 'PENDING_CONFIRMATION', 
+                      label: 'Chờ xác nhận', 
                       icon: CreditCard,
-                      description: 'Đã hoàn tất thanh toán'
+                      description: 'Đã thanh toán, chờ admin xác nhận',
+                      getDate: () => booking.status === 'PENDING_CONFIRMATION' || booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED' ? booking.updated_at : null
                     },
                     { 
                       key: 'CONFIRMED', 
                       label: 'Đã xác nhận', 
                       icon: CheckCircle2,
-                      description: 'Khách sạn đã xác nhận đơn đặt chỗ'
+                      description: 'Khách sạn đã xác nhận đơn đặt chỗ',
+                      getDate: () => booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED' ? booking.updated_at : null
                     },
                     { 
                       key: 'CHECKED_IN', 
                       label: 'Đã nhận phòng', 
                       icon: Calendar,
-                      description: 'Đã check-in và nhận phòng'
+                      description: 'Đã check-in và nhận phòng',
+                      getDate: () => booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED' ? booking.updated_at : null
                     },
                     { 
                       key: 'CHECKED_OUT', 
                       label: 'Đã trả phòng', 
                       icon: Calendar,
-                      description: 'Đã check-out và trả phòng'
+                      description: 'Đã check-out và trả phòng',
+                      getDate: () => booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED' ? booking.updated_at : null
                     },
                     { 
                       key: 'COMPLETED', 
                       label: 'Hoàn thành', 
                       icon: CheckCircle2,
-                      description: 'Chuyến đi đã hoàn thành'
+                      description: 'Chuyến đi đã hoàn thành',
+                      getDate: () => booking.status === 'COMPLETED' ? booking.updated_at : null
                     }
                   ];
 
-                  // Determine current status index (0-based, indicating which step is completed)
-                  const getCompletedStepIndex = () => {
+                  // Determine current status index (0-based, indicating which step is current/active)
+                  const getCurrentStepIndex = () => {
                     if (booking.status === 'CANCELLED') return -1; // Special case
+                    
                     const statusMap: { [key: string]: number } = {
-                      'CREATED': 0,  // Step 0 (CREATED) is completed
-                      'PAID': 1,     // Step 0, 1 (CREATED, PAID) are completed
-                      'CONFIRMED': 2, // Step 0, 1, 2 are completed
+                      'CREATED': 0,
+                      'PENDING_CONFIRMATION': 1,
+                      'PAID': 1, // Legacy - tương đương PENDING_CONFIRMATION
+                      'CONFIRMED': 2,
                       'CHECKED_IN': 3,
                       'CHECKED_OUT': 4,
                       'COMPLETED': 5
@@ -957,25 +986,20 @@ function BookingDetailPage() {
                     return statusMap[booking.status] ?? 0;
                   };
 
-                  const completedStepIndex = getCompletedStepIndex();
+                  const currentStepIndex = getCurrentStepIndex();
                   const isCancelled = booking.status === 'CANCELLED';
 
-                  // Filter steps based on booking status - show completed + next 2 steps
-                  let activeSteps = [];
-                  if (isCancelled) {
-                    // Show only CREATED step for cancelled bookings
-                    activeSteps = allSteps.slice(0, 1);
-                  } else {
-                    // Show up to current completed step + next 2 pending steps (or until end)
-                    const endIndex = Math.min(completedStepIndex + 3, allSteps.length);
-                    activeSteps = allSteps.slice(0, endIndex);
-                  }
+                  // Filter steps - loại bỏ PAID nếu có, chỉ giữ các steps chính
+                  const filteredSteps = allSteps.filter(step => step.key !== 'PAID' || booking.status === 'PAID');
 
-                  // Calculate progress percentage
+                  // Show all steps if not cancelled, otherwise show only CREATED
+                  const activeSteps = isCancelled ? filteredSteps.slice(0, 1) : filteredSteps;
+
+                  // Calculate progress percentage based on current step
                   const progressPercentage = isCancelled 
                     ? 0 
                     : activeSteps.length > 0 
-                      ? ((completedStepIndex + 1) / allSteps.length) * 100 
+                      ? ((currentStepIndex + 1) / activeSteps.length) * 100 
                       : 0;
 
                   return (
@@ -986,7 +1010,7 @@ function BookingDetailPage() {
                         {!isCancelled && (
                           <div 
                             className="h-full bg-blue-600 rounded-full transition-all duration-500"
-                            style={{ width: `${progressPercentage}%` }}
+                            style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                           />
                         )}
                         {isCancelled && (
@@ -998,37 +1022,40 @@ function BookingDetailPage() {
                       <div className="relative flex justify-between">
                         {activeSteps.map((step, index) => {
                           const StepIcon = step.icon;
-                          const isCompleted = !isCancelled && index <= completedStepIndex;
-                          const isCurrent = !isCancelled && index === completedStepIndex + 1;
+                          const stepDate = step.getDate();
+                          const isCompleted = !isCancelled && index < currentStepIndex;
+                          const isCurrent = !isCancelled && index === currentStepIndex;
 
                           return (
-                            <div key={step.key} className="flex flex-col items-center flex-1">
+                            <div key={step.key} className="flex flex-col items-center flex-1" style={{ minWidth: '120px' }}>
                               {/* Icon Circle */}
                               <div
                                 className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
                                   isCancelled
                                     ? 'bg-red-100 border-red-500'
-                                    : isCompleted
-                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : isCompleted && stepDate
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
                                     : isCurrent
-                                    ? 'bg-yellow-400 border-yellow-400 text-white'
+                                    ? 'bg-yellow-400 border-yellow-400 text-white shadow-lg'
                                     : 'bg-white border-gray-300 text-gray-400'
                                 }`}
                               >
-                                <StepIcon className="w-6 h-6" />
-                                {isCompleted && (
+                                <StepIcon className={`w-6 h-6 ${isCompleted && stepDate ? 'text-white' : isCurrent ? 'text-white' : 'text-gray-400'}`} />
+                                {isCompleted && stepDate && (
                                   <CheckCircle2 className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-600 text-white rounded-full border-2 border-white" />
                                 )}
                               </div>
                               
                               {/* Label */}
-                              <div className="mt-4 text-center max-w-[120px]">
+                              <div className="mt-4 text-center max-w-[140px]">
                                 <p
                                   className={`text-sm font-semibold ${
                                     isCancelled
                                       ? 'text-red-600'
-                                      : isCompleted || isCurrent
-                                      ? 'text-gray-900'
+                                      : isCompleted && stepDate
+                                      ? 'text-blue-600'
+                                      : isCurrent
+                                      ? 'text-yellow-600'
                                       : 'text-gray-500'
                                   }`}
                                 >
@@ -1037,25 +1064,50 @@ function BookingDetailPage() {
                                 <p className="text-xs text-gray-500 mt-1">{step.description}</p>
                                 
                                 {/* Status Date/Time */}
-                                {(isCompleted || isCurrent) && booking.created_at && (
+                                {stepDate && (isCompleted || isCurrent) && (
                                   <p className="text-xs text-gray-400 mt-1">
-                                    {index === 0 && formatDateTime(booking.created_at)}
+                                    {formatDateTime(stepDate)}
+                                  </p>
+                                )}
+                                {!stepDate && isCurrent && (
+                                  <p className="text-xs text-yellow-600 mt-1 font-medium">
+                                    Đang chờ...
                                   </p>
                                 )}
                               </div>
+                              
+                              {/* Connector Line - chỉ hiển thị giữa các steps */}
+                              {index < activeSteps.length - 1 && !isCancelled && (
+                                <div className="absolute top-6 left-[60%] w-[40%] h-0.5 -z-10">
+                                  <div 
+                                    className={`h-full transition-all duration-300 ${
+                                      isCompleted && stepDate 
+                                        ? 'bg-blue-600' 
+                                        : isCurrent
+                                        ? 'bg-yellow-400'
+                                        : 'bg-gray-200'
+                                    }`}
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         })}
 
                         {/* Cancelled Status (if applicable) */}
                         {isCancelled && (
-                          <div className="flex flex-col items-center flex-1">
+                          <div className="flex flex-col items-center flex-1" style={{ minWidth: '120px' }}>
                             <div className="relative z-10 w-12 h-12 rounded-full flex items-center justify-center border-4 bg-red-100 border-red-500">
                               <XCircle className="w-6 h-6 text-red-600" />
                             </div>
-                            <div className="mt-4 text-center max-w-[120px]">
+                            <div className="mt-4 text-center max-w-[140px]">
                               <p className="text-sm font-semibold text-red-600">Đã hủy</p>
                               <p className="text-xs text-gray-500 mt-1">Đơn đặt chỗ đã bị hủy</p>
+                              {booking.updated_at && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {formatDateTime(booking.updated_at)}
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1084,7 +1136,7 @@ function BookingDetailPage() {
                   </div>
 
                   {/* Thanh toán */}
-                  {(booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') && (
+                  {(booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') && (
                     <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
                       <div className="w-2 h-2 rounded-full bg-green-600 mt-2"></div>
                       <div className="flex-1">
@@ -1097,11 +1149,37 @@ function BookingDetailPage() {
                   )}
 
                   {/* Xác nhận */}
-                  {(booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') && (
+                  {(booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') && (
                     <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
                       <div className="w-2 h-2 rounded-full bg-green-600 mt-2"></div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Khách sạn xác nhận đơn đặt chỗ</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {booking.updated_at ? formatDateTime(booking.updated_at) : formatDateTime(booking.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Check-in */}
+                  {(booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED') && (
+                    <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+                      <div className="w-2 h-2 rounded-full bg-blue-600 mt-2"></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">Đã check-in</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {booking.updated_at ? formatDateTime(booking.updated_at) : formatDateTime(booking.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Check-out */}
+                  {(booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED') && (
+                    <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+                      <div className="w-2 h-2 rounded-full bg-purple-600 mt-2"></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">Đã check-out</p>
                         <p className="text-xs text-gray-500 mt-1">
                           {booking.updated_at ? formatDateTime(booking.updated_at) : formatDateTime(booking.created_at)}
                         </p>
@@ -1125,7 +1203,7 @@ function BookingDetailPage() {
                   {/* Hoàn thành */}
                   {booking.status === 'COMPLETED' && (
                     <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-600 mt-2"></div>
+                      <div className="w-2 h-2 rounded-full bg-gray-600 mt-2"></div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Hoàn thành chuyến đi</p>
                         <p className="text-xs text-gray-500 mt-1">
@@ -1223,7 +1301,7 @@ function BookingDetailPage() {
                 </div>
 
                 {/* Cancel Button */}
-                {(booking.status === 'CREATED' || booking.status === 'PAID') && (
+                {(booking.status === 'CREATED' || booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION') && (
                   <button
                     onClick={() => setShowCancelModal(true)}
                     className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"

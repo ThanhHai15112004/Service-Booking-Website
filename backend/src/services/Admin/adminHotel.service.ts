@@ -347,5 +347,355 @@ export class AdminHotelService {
       return { success: false, message: error.message || "Lỗi khi lấy thống kê" };
     }
   }
+
+  // ========== Hotel Bookings Management ==========
+  
+  // Lấy danh sách bookings của hotel
+  async getHotelBookings(hotelId: string, filters: {
+    status?: string;
+    accountId?: string;
+    accountName?: string;
+    accountEmail?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    checkinFrom?: string;
+    checkinTo?: string;
+    sortBy?: string;
+    sortOrder?: "ASC" | "DESC";
+    page?: number;
+    limit?: number;
+  }): Promise<{ success: boolean; data?: { bookings: any[]; total: number; page: number; limit: number; totalPages: number }; message?: string }> {
+    try {
+      const page = filters.page || 1;
+      const limit = filters.limit || 10;
+      const result = await this.repo.getHotelBookings(hotelId, { ...filters, page, limit });
+
+      return {
+        success: true,
+        data: {
+          bookings: result.bookings,
+          total: result.total,
+          page,
+          limit,
+          totalPages: Math.ceil(result.total / limit),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy danh sách booking",
+      };
+    }
+  }
+
+  // Lấy chi tiết booking của hotel
+  async getHotelBookingDetail(hotelId: string, bookingId: string): Promise<{ success: boolean; data?: any; message?: string }> {
+    try {
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking",
+        };
+      }
+      return {
+        success: true,
+        data: booking,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy chi tiết booking",
+      };
+    }
+  }
+
+  // Cập nhật trạng thái booking
+  async updateBookingStatus(hotelId: string, bookingId: string, status: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const validStatuses = [
+        "CREATED",              // Đặt phòng
+        "PENDING_CONFIRMATION",  // Chờ xác nhận (sau khi thanh toán)
+        "CONFIRMED",            // Đã xác nhận (admin xác nhận)
+        "CHECKED_IN",           // Đã check-in
+        "CHECKED_OUT",          // Đã check-out
+        "COMPLETED",            // Hoàn tất
+        "CANCELLED"             // Đã hủy
+      ];
+      if (!validStatuses.includes(status)) {
+        return {
+          success: false,
+          message: "Trạng thái không hợp lệ",
+        };
+      }
+
+      // Kiểm tra booking tồn tại và lấy status hiện tại
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking để cập nhật",
+        };
+      }
+
+      // Kiểm tra xem status có thay đổi không
+      if (booking.status === status) {
+        return {
+          success: false,
+          message: "Trạng thái không thay đổi. Booking hiện tại đã có trạng thái này.",
+        };
+      }
+
+      const updated = await this.repo.updateBookingStatus(bookingId, hotelId, status);
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật trạng thái booking",
+        };
+      }
+
+      return {
+        success: true,
+        message: "Cập nhật trạng thái booking thành công",
+      };
+    } catch (error: any) {
+      console.error("[AdminHotelService] Error updating booking status:", error);
+      return {
+        success: false,
+        message: error.message || "Lỗi khi cập nhật trạng thái booking",
+      };
+    }
+  }
+
+  // Check-in booking
+  async checkInBooking(hotelId: string, bookingId: string, staffName?: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Kiểm tra booking tồn tại và thuộc hotel
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking",
+        };
+      }
+
+      // Chỉ cho phép check-in khi status là CONFIRMED
+      if (booking.status !== 'CONFIRMED') {
+        return {
+          success: false,
+          message: `Không thể check-in. Booking hiện tại có trạng thái: ${booking.status}. Chỉ có thể check-in khi booking đã được xác nhận (CONFIRMED).`,
+        };
+      }
+
+      // Cập nhật status thành CHECKED_IN
+      const updated = await this.repo.updateBookingStatus(bookingId, hotelId, 'CHECKED_IN');
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật trạng thái booking",
+        };
+      }
+
+      return {
+        success: true,
+        message: "Check-in thành công",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi check-in booking",
+      };
+    }
+  }
+
+  // Check-out booking
+  async checkOutBooking(hotelId: string, bookingId: string, staffName?: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Kiểm tra booking tồn tại và thuộc hotel
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking",
+        };
+      }
+
+      // Chỉ cho phép check-out khi status là CHECKED_IN
+      if (booking.status !== 'CHECKED_IN') {
+        return {
+          success: false,
+          message: `Không thể check-out. Booking hiện tại có trạng thái: ${booking.status}. Chỉ có thể check-out khi đã check-in (CHECKED_IN).`,
+        };
+      }
+
+      // Cập nhật status thành CHECKED_OUT
+      const updated = await this.repo.updateBookingStatus(bookingId, hotelId, 'CHECKED_OUT');
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật trạng thái booking",
+        };
+      }
+
+      // Tự động chuyển sang COMPLETED sau khi check-out
+      // (Có thể thêm delay hoặc job để xử lý sau, nhưng để đơn giản ta làm ngay)
+      setTimeout(async () => {
+        try {
+          await this.repo.updateBookingStatus(bookingId, hotelId, 'COMPLETED');
+        } catch (error) {
+          console.error("[AdminHotelService] Failed to auto-complete booking after check-out:", error);
+        }
+      }, 1000); // Delay 1 giây để đảm bảo check-out đã được lưu
+
+      return {
+        success: true,
+        message: "Check-out thành công. Booking sẽ tự động chuyển sang trạng thái hoàn tất.",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi check-out booking",
+      };
+    }
+  }
+
+  // Lấy thống kê bookings của hotel
+  async getHotelBookingStats(hotelId: string): Promise<{ success: boolean; data?: any; message?: string }> {
+    try {
+      const stats = await this.repo.getHotelBookingStats(hotelId);
+      return {
+        success: true,
+        data: stats,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy thống kê booking",
+      };
+    }
+  }
+
+  // Cập nhật admin note cho booking
+  async updateBookingAdminNote(hotelId: string, bookingId: string, adminNote: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Kiểm tra booking tồn tại
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking",
+        };
+      }
+
+      // Lấy special_requests hiện tại
+      let specialRequests = booking.special_requests || "";
+      
+      // Tách admin note ra khỏi special requests nếu có (xử lý trong code)
+      const adminNoteRegex = /--- ADMIN NOTE ---\n([\s\S]*?)\n--- END NOTE ---/g;
+      specialRequests = specialRequests.replace(adminNoteRegex, "").trim();
+      
+      // Thêm admin note mới vào cuối nếu có
+      if (adminNote && adminNote.trim()) {
+        if (specialRequests) {
+          specialRequests += "\n\n";
+        }
+        specialRequests += `--- ADMIN NOTE ---\n${adminNote}\n--- END NOTE ---`;
+      }
+      
+      // Update special_requests qua repository
+      const updated = await this.repo.updateBookingAdminNote(hotelId, bookingId, specialRequests);
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật ghi chú",
+        };
+      }
+      
+      return {
+        success: true,
+        message: "Cập nhật ghi chú thành công",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi cập nhật ghi chú",
+      };
+    }
+  }
+
+  // Cập nhật special requests cho booking
+  async updateBookingSpecialRequests(hotelId: string, bookingId: string, specialRequests: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Kiểm tra booking tồn tại
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking",
+        };
+      }
+
+      // Update special_requests qua repository
+      const updated = await this.repo.updateBookingSpecialRequests(hotelId, bookingId, specialRequests);
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật yêu cầu đặc biệt",
+        };
+      }
+      
+      return {
+        success: true,
+        message: "Cập nhật yêu cầu đặc biệt thành công",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi cập nhật yêu cầu đặc biệt",
+      };
+    }
+  }
+
+  // Lấy activity log cho booking
+  async getBookingActivityLog(hotelId: string, bookingId: string): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    try {
+      // Kiểm tra booking tồn tại và thuộc hotel
+      const booking = await this.repo.getHotelBookingDetail(hotelId, bookingId);
+      if (!booking) {
+        return {
+          success: false,
+          message: "Không tìm thấy booking hoặc booking không thuộc hotel này",
+        };
+      }
+      
+      const logs = await this.repo.getBookingActivityLog(hotelId, bookingId);
+      return {
+        success: true,
+        data: logs || [],
+      };
+    } catch (error: any) {
+      console.error("[AdminHotelService] Error getting booking activity log:", error);
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy lịch sử hoạt động",
+      };
+    }
+  }
+
+  // Lấy tổng số booking đang chờ xác nhận
+  async getTotalPendingBookingCount(): Promise<{ success: boolean; data?: number; message?: string }> {
+    try {
+      const count = await this.repo.getTotalPendingBookingCount();
+      return {
+        success: true,
+        data: count,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy số lượng booking chờ xác nhận",
+      };
+    }
+  }
 }
 

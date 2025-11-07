@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { Star, X, Send, Bold, Italic, Image as ImageIcon, Loader, Underline, Heading1, Heading2, List, ListOrdered, Link as LinkIcon, Quote, Strikethrough } from 'lucide-react';
-import { createReview, updateReview, uploadImage } from '../../services/profileService';
+import { useState, useEffect } from 'react';
+import { Star, X, Send } from 'lucide-react';
+import { createReview, updateReview } from '../../services/profileService';
 import { useAuth } from '../../contexts/AuthContext';
+import { RichTextEditor } from '../common';
 
 interface WriteReviewFormProps {
   hotelId: string;
@@ -48,9 +49,6 @@ export default function WriteReviewForm({
   const [comment, setComment] = useState<string>(initialComment);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialRating) setRating(initialRating);
@@ -62,132 +60,9 @@ export default function WriteReviewForm({
     if (initialTitle) setTitle(initialTitle);
     if (initialComment) {
       setComment(initialComment);
-      if (editorRef.current) {
-        editorRef.current.innerHTML = initialComment;
-      }
     }
   }, [initialRating, initialLocationRating, initialFacilitiesRating, initialServiceRating, initialCleanlinessRating, initialValueRating, initialTitle, initialComment]);
 
-  // Format HTML từ contentEditable
-  const getFormattedHTML = (): string => {
-    if (editorRef.current) {
-      return editorRef.current.innerHTML;
-    }
-    return comment;
-  };
-
-  // Apply formatting commands
-  const execCommand = (command: string, value: string | boolean = false) => {
-    document.execCommand(command, false, value as string);
-    editorRef.current?.focus();
-  };
-
-  const handleBold = () => {
-    execCommand('bold');
-  };
-
-  const handleItalic = () => {
-    execCommand('italic');
-  };
-
-  const handleUnderline = () => {
-    execCommand('underline');
-  };
-
-  const handleStrikethrough = () => {
-    execCommand('strikethrough');
-  };
-
-  const handleHeading = (level: number) => {
-    execCommand('formatBlock', `h${level}`);
-  };
-
-  const handleList = (ordered: boolean = false) => {
-    execCommand(ordered ? 'insertOrderedList' : 'insertUnorderedList');
-  };
-
-  const handleQuote = () => {
-    execCommand('formatBlock', 'blockquote');
-  };
-
-  const handleLink = () => {
-    const url = prompt('Nhập URL liên kết:');
-    if (url) {
-      execCommand('createLink', url);
-    }
-  };
-
-  const handleImageClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file
-    if (!file.type.startsWith('image/')) {
-      setError('Chỉ chấp nhận file ảnh');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Kích thước ảnh không được vượt quá 5MB');
-      return;
-    }
-
-    setUploadingImage(true);
-    setError('');
-
-    try {
-      const response = await uploadImage(file);
-      if (response.success && response.data?.imageUrl) {
-        const imageUrl = response.data.imageUrl.startsWith('http') 
-          ? response.data.imageUrl 
-          : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${response.data.imageUrl}`;
-        
-        // Insert image into editor
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          const img = document.createElement('img');
-          img.src = imageUrl;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          img.style.borderRadius = '8px';
-          img.style.margin = '8px 0';
-          img.className = 'review-image';
-          range.insertNode(img);
-        } else if (editorRef.current) {
-          // Insert at end if no selection
-          const img = document.createElement('img');
-          img.src = imageUrl;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          img.style.borderRadius = '8px';
-          img.style.margin = '8px 0';
-          img.className = 'review-image';
-          editorRef.current.appendChild(img);
-        }
-        editorRef.current?.focus();
-      } else {
-        setError(response.message || 'Upload ảnh thất bại');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi upload ảnh');
-    } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleEditorChange = () => {
-    if (editorRef.current) {
-      setComment(editorRef.current.innerHTML);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +80,7 @@ export default function WriteReviewForm({
       return;
     }
 
-    const formattedComment = getFormattedHTML();
+    const formattedComment = comment;
     if (!formattedComment.trim() || formattedComment === '<br>' || formattedComment === '<div><br></div>') {
       setError('Vui lòng nhập nội dung đánh giá');
       return;
@@ -254,9 +129,6 @@ export default function WriteReviewForm({
           setValueRating(0);
           setTitle('');
           setComment('');
-          if (editorRef.current) {
-            editorRef.current.innerHTML = '';
-          }
         }
         setError('');
         if (onSuccess) {
@@ -371,204 +243,15 @@ export default function WriteReviewForm({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Nội dung đánh giá *
           </label>
-          
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-1 p-2 border border-gray-300 rounded-t-lg bg-gray-50">
-            {/* Text Formatting */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-1">
-              <button
-                type="button"
-                onClick={handleBold}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Chữ đậm (Ctrl+B)"
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleItalic}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Chữ nghiêng (Ctrl+I)"
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleUnderline}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Gạch chân (Ctrl+U)"
-              >
-                <Underline className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleStrikethrough}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Gạch ngang"
-              >
-                <Strikethrough className="w-4 h-4" />
-              </button>
-            </div>
-            
-            {/* Headings */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-1">
-              <button
-                type="button"
-                onClick={() => handleHeading(1)}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Tiêu đề 1"
-              >
-                <Heading1 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleHeading(2)}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Tiêu đề 2"
-              >
-                <Heading2 className="w-4 h-4" />
-              </button>
-            </div>
-            
-            {/* Lists */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-1">
-              <button
-                type="button"
-                onClick={() => handleList(false)}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Danh sách gạch đầu dòng"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleList(true)}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Danh sách đánh số"
-              >
-                <ListOrdered className="w-4 h-4" />
-              </button>
-            </div>
-            
-            {/* Other */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-1">
-              <button
-                type="button"
-                onClick={handleQuote}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Trích dẫn"
-              >
-                <Quote className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleLink}
-                className="p-2 hover:bg-gray-200 rounded transition-colors"
-                title="Thêm liên kết"
-              >
-                <LinkIcon className="w-4 h-4" />
-              </button>
-            </div>
-            
-            {/* Image */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleImageClick}
-                disabled={uploadingImage}
-                className="p-2 hover:bg-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Thêm ảnh"
-              >
-                {uploadingImage ? (
-                  <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ImageIcon className="w-4 h-4" />
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-          
-          {/* WYSIWYG Editor */}
-          <div
-            ref={editorRef}
-            contentEditable
-            onInput={handleEditorChange}
-            className="w-full min-h-[150px] px-4 py-2 border-x border-b border-gray-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-y-auto"
-            style={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}
-            data-placeholder="Chia sẻ trải nghiệm của bạn về khách sạn này..."
+          <RichTextEditor
+            value={comment}
+            onChange={(value: string) => setComment(value)}
+            placeholder="Chia sẻ trải nghiệm của bạn về khách sạn này..."
+            minHeight="150px"
+            uploadEndpoint="/api/upload/single"
+            uploadFieldName="image"
+            onUploadError={(errorMsg: string) => setError(errorMsg)}
           />
-          <style>{`
-            [contenteditable][data-placeholder]:empty:before {
-              content: attr(data-placeholder);
-              color: #9ca3af;
-              pointer-events: none;
-            }
-            .review-image {
-              max-width: 100%;
-              height: auto;
-              border-radius: 8px;
-              margin: 8px 0;
-            }
-            [contenteditable] h1 {
-              font-size: 1.5rem;
-              font-weight: 700;
-              margin: 12px 0 8px 0;
-              line-height: 1.3;
-            }
-            [contenteditable] h2 {
-              font-size: 1.25rem;
-              font-weight: 600;
-              margin: 10px 0 6px 0;
-              line-height: 1.3;
-            }
-            [contenteditable] h3 {
-              font-size: 1.125rem;
-              font-weight: 600;
-              margin: 8px 0 4px 0;
-              line-height: 1.3;
-            }
-            [contenteditable] ul,
-            [contenteditable] ol {
-              margin: 8px 0;
-              padding-left: 24px;
-            }
-            [contenteditable] ul {
-              list-style-type: disc;
-            }
-            [contenteditable] ol {
-              list-style-type: decimal;
-            }
-            [contenteditable] li {
-              margin: 4px 0;
-            }
-            [contenteditable] blockquote {
-              border-left: 4px solid #3b82f6;
-              padding-left: 16px;
-              margin: 12px 0;
-              font-style: italic;
-              color: #6b7280;
-              background-color: #f9fafb;
-              padding: 12px 16px;
-              border-radius: 4px;
-            }
-            [contenteditable] a {
-              color: #2563eb;
-              text-decoration: underline;
-            }
-            [contenteditable] a:hover {
-              color: #1d4ed8;
-            }
-          `}</style>
         </div>
 
         {/* Error Message */}

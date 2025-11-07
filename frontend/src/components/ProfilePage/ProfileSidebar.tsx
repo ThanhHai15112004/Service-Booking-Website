@@ -77,7 +77,10 @@ export default function ProfileSidebar({ activeTab, onTabChange, user }: Profile
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onTabChange(item.id);
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm'

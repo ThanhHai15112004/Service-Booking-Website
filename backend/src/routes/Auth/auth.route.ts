@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {  Register,  verifyEmailController,  resendVerificationController,  Login,  Logout,  forgotPasswordController,  verifyResetTokenController,  resetPasswordController,  refreshAccessToken,  checkEmailExistsController,  googleLoginController,} from "../../controllers/Auth/auth.controller";
+import {  Register,  verifyEmailController,  resendVerificationController,  Login,  Logout,  forgotPasswordController,  verifyResetTokenController,  resetPasswordController,  refreshAccessToken,  checkRefreshToken,  checkEmailExistsController,  googleLoginController,} from "../../controllers/Auth/auth.controller";
 
 const router = Router();
 
@@ -14,6 +14,7 @@ router.post("/resend-verification", resendVerificationController);
 // Đăng nhập / refresh / logout
 router.post("/login", Login);
 router.post("/refresh-token", refreshAccessToken);
+router.post("/check-refresh-token", checkRefreshToken);
 router.post("/logout", Logout);
 
 // Đăng nhập bằng Google

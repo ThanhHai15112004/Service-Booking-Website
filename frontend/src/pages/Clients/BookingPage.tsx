@@ -806,6 +806,15 @@ export default function BookingPage() {
       const confirmResult = await confirmBooking(temporaryBookingId, confirmPaymentMethod);
 
       if (!confirmResult.success) {
+        // ✅ Nếu confirmBooking fail, cancel booking để unlock rooms
+        if (temporaryBookingId) {
+          try {
+            await cancelBooking(temporaryBookingId);
+            console.log('✅ [BookingPage] Auto-cancelled booking after confirmBooking failed');
+          } catch (cancelErr) {
+            console.error('❌ [BookingPage] Error auto-cancelling booking:', cancelErr);
+          }
+        }
         alert(confirmResult.message || 'Không thể tạo payment. Vui lòng thử lại.');
         setIsLoading(false);
         return;
@@ -815,6 +824,17 @@ export default function BookingPage() {
       setCurrentStep(2);
     } catch (err: any) {
       console.error('Error creating payment:', err);
+      
+      // ✅ Nếu có exception, cancel booking để unlock rooms
+      if (temporaryBookingId) {
+        try {
+          await cancelBooking(temporaryBookingId);
+          console.log('✅ [BookingPage] Auto-cancelled booking after confirmBooking exception');
+        } catch (cancelErr) {
+          console.error('❌ [BookingPage] Error auto-cancelling booking:', cancelErr);
+        }
+      }
+      
       alert('Có lỗi xảy ra khi tạo payment. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
@@ -933,10 +953,42 @@ export default function BookingPage() {
         return;
       }
 
-      // ✅ Cập nhật booking info (payment đã được tạo trong handleStep1Next)
+      // ✅ CRITICAL: Cập nhật booking info và payment status
+      // Backend sẽ tự động update payment status thành SUCCESS và booking status thành PENDING_CONFIRMATION
+      console.log(`[BookingPage] handleStep2Confirm: Calling createBooking for booking ${temporaryBookingId}`);
       const createBookingResult = await createBooking(bookingRequest);
 
       if (createBookingResult.success && createBookingResult.data) {
+        console.log(`[BookingPage] createBooking success. Response status: ${createBookingResult.data.status}`);
+        
+        // ✅ CRITICAL: Fetch lại booking từ backend để lấy status mới nhất (sau khi payment được update thành SUCCESS)
+        // Backend đã update payment status thành SUCCESS và booking status thành PENDING_CONFIRMATION
+        let finalBookingStatus = createBookingResult.data.status;
+        let finalBookingData = createBookingResult.data;
+        
+        if (temporaryBookingId) {
+          try {
+            console.log(`[BookingPage] Fetching latest booking status from backend for ${temporaryBookingId}`);
+            const latestBookingResult = await getBookingById(temporaryBookingId);
+            
+            if (latestBookingResult.success && latestBookingResult.data) {
+              finalBookingStatus = latestBookingResult.data.status;
+              finalBookingData = latestBookingResult.data;
+              console.log(`[BookingPage] Latest booking status from backend: ${finalBookingStatus}`);
+              
+              // ✅ Verify: Nếu status vẫn là CREATED, có thể payment chưa được update
+              if (finalBookingStatus === 'CREATED') {
+                console.warn(`[BookingPage] WARNING: Booking status is still CREATED after createBooking. Payment may not have been updated.`);
+                // Có thể cần retry hoặc thông báo lỗi
+              }
+            } else {
+              console.warn(`[BookingPage] Could not fetch latest booking status, using response status: ${finalBookingStatus}`);
+            }
+          } catch (fetchErr: any) {
+            console.error(`[BookingPage] Error fetching latest booking status:`, fetchErr);
+            // Continue with response data if fetch fails
+          }
+        }
 
         // ✅ CRITICAL FIX: Clear temporary booking state FIRST before setting bookingComplete
         setTemporaryBookingId(null);
@@ -949,11 +1001,12 @@ export default function BookingPage() {
         // ✅ Set bookingComplete AFTER clearing state to prevent useEffect from running
         setBookingComplete(true);
         
-        // ✅ Tạo booking confirmation từ data
+        // ✅ Tạo booking confirmation từ data mới nhất
+        // finalBookingData có thể là BookingConfirmation hoặc booking data từ database
         const confirmationData = {
           bookingId: temporaryBookingId,
-          bookingCode: `BK${temporaryBookingId.slice(-8).padStart(8, '0')}`,
-          status: createBookingResult.data.status || 'CONFIRMED',
+          bookingCode: (finalBookingData as any).booking_code || (finalBookingData as any).bookingCode || `BK${temporaryBookingId.slice(-8).padStart(8, '0')}`,
+          status: finalBookingStatus || 'PENDING_CONFIRMATION', // ✅ Sử dụng status mới nhất từ backend
           hotel: {
             id: hotel?.hotel_id || '',
             name: hotel?.name || '',
@@ -966,12 +1019,12 @@ export default function BookingPage() {
             type: room?.bedType || '',
             roomNumber: room?.roomNumber || null
           },
-          checkIn: bookingData.checkIn,
-          checkOut: bookingData.checkOut,
-          nights: nights,
-          rooms: bookingData.rooms,
-          adults: bookingData.guests,
-          children: bookingData.children,
+          checkIn: (finalBookingData as any).checkin_date || (finalBookingData as any).checkIn || bookingData.checkIn,
+          checkOut: (finalBookingData as any).checkout_date || (finalBookingData as any).checkOut || bookingData.checkOut,
+          nights: (finalBookingData as any).number_of_nights || (finalBookingData as any).nights || nights,
+          rooms: (finalBookingData as any).number_of_rooms || (finalBookingData as any).rooms || bookingData.rooms,
+          adults: (finalBookingData as any).number_of_guests || (finalBookingData as any).adults || bookingData.guests,
+          children: (finalBookingData as any).number_of_children || (finalBookingData as any).children || bookingData.children,
           guestInfo: {
             firstName: bookingData.guestFirstName || bookingData.guestName.split(' ').slice(1).join(' ') || '',
             lastName: bookingData.guestLastName || bookingData.guestName.split(' ')[0] || '',
@@ -980,13 +1033,13 @@ export default function BookingPage() {
             country: bookingData.country || 'Việt Nam'
           },
           priceBreakdown: {
-            subtotal: subtotal,
-            taxAmount: tax,
-            discountAmount: 0,
-            totalPrice: total
+            subtotal: (finalBookingData as any).subtotal || (finalBookingData as any).priceBreakdown?.subtotal || subtotal,
+            taxAmount: (finalBookingData as any).tax_amount || (finalBookingData as any).priceBreakdown?.taxAmount || tax,
+            discountAmount: (finalBookingData as any).discount_amount || (finalBookingData as any).priceBreakdown?.discountAmount || 0,
+            totalPrice: (finalBookingData as any).total_amount || (finalBookingData as any).priceBreakdown?.totalPrice || total
           },
           paymentMethod: bookingData.paymentMethod === 'online_payment' ? 'VNPAY' : (bookingData.paymentMethod === 'pay_at_hotel' ? 'CASH' : 'BANK_TRANSFER'),
-          paymentStatus: 'pending',
+          paymentStatus: (finalBookingStatus === 'PENDING_CONFIRMATION' || finalBookingStatus === 'CONFIRMED' || finalBookingStatus === 'CHECKED_IN' || finalBookingStatus === 'CHECKED_OUT' || finalBookingStatus === 'COMPLETED') ? 'paid' : 'pending', // ✅ Update payment status based on latest booking status
           specialRequests: bookingData.specialRequests,
           createdAt: new Date()
         };
@@ -997,6 +1050,26 @@ export default function BookingPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 100);
       } else {
+        // ✅ Nếu createBooking fail, cancel booking để unlock rooms và update payment status
+        if (temporaryBookingId) {
+          try {
+            const cancelResult = await cancelBooking(temporaryBookingId);
+            if (cancelResult.success) {
+              console.log('✅ [BookingPage] Auto-cancelled booking after createBooking failed');
+            } else {
+              console.error('⚠️ [BookingPage] Failed to auto-cancel booking:', cancelResult.message);
+            }
+          } catch (cancelErr: any) {
+            console.error('❌ [BookingPage] Error auto-cancelling booking:', cancelErr);
+          }
+        }
+        
+        // ✅ Clear state after cancelling
+        setTemporaryBookingId(null);
+        setBookingExpiresAt(null);
+        localStorage.removeItem('temporaryBookingId');
+        localStorage.removeItem('temporaryBookingExpiresAt');
+        
         // ✅ Show failure page instead of alert
         setFailedBookingId(temporaryBookingId);
         setBookingFailed(true);
@@ -1004,6 +1077,27 @@ export default function BookingPage() {
       }
     } catch (err: any) {
       console.error('Error creating booking:', err);
+      
+      // ✅ Nếu có exception, cancel booking để unlock rooms và update payment status
+      if (temporaryBookingId) {
+        try {
+          const cancelResult = await cancelBooking(temporaryBookingId);
+          if (cancelResult.success) {
+            console.log('✅ [BookingPage] Auto-cancelled booking after exception');
+          } else {
+            console.error('⚠️ [BookingPage] Failed to auto-cancel booking:', cancelResult.message);
+          }
+        } catch (cancelErr: any) {
+          console.error('❌ [BookingPage] Error auto-cancelling booking:', cancelErr);
+        }
+      }
+      
+      // ✅ Clear state after cancelling
+      setTemporaryBookingId(null);
+      setBookingExpiresAt(null);
+      localStorage.removeItem('temporaryBookingId');
+      localStorage.removeItem('temporaryBookingExpiresAt');
+      
       // ✅ Show failure page instead of alert
       setFailedBookingId(temporaryBookingId);
       setBookingFailed(true);
@@ -1087,6 +1181,7 @@ export default function BookingPage() {
               total={bookingConfirmation?.priceBreakdown?.totalPrice || total}
               bookingCode={bookingConfirmation?.bookingCode}
               bookingId={bookingConfirmation?.bookingId}
+              status={bookingConfirmation?.status} // ✅ Pass status to BookingSuccess
             />
           </div>
         </div>

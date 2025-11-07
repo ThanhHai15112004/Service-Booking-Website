@@ -188,11 +188,21 @@ export default function PersonalInfoTab({ user, onUpdate, saving, showToast }: P
     }
     
     // Update profile with all data including avatar URL
-    await onUpdate({
+    // ✅ Chỉ gửi phone_number nếu có giá trị (không bắt buộc)
+    const updateData: any = {
       full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-      phone_number: formData.phone_number,
       avatar_url: finalAvatarUrl
-    });
+    };
+    
+    // ✅ Chỉ thêm phone_number nếu có giá trị
+    if (formData.phone_number && formData.phone_number.trim()) {
+      updateData.phone_number = formData.phone_number.trim();
+    } else {
+      // Nếu rỗng, gửi null để xóa số điện thoại
+      updateData.phone_number = null;
+    }
+    
+    await onUpdate(updateData);
   };
 
   return (

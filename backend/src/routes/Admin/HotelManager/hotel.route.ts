@@ -26,6 +26,16 @@ import {
   deleteHotelImage,
   getHotelReviews,
   getHotelStatistics,
+  getHotelBookings,
+  getHotelBookingDetail,
+  updateHotelBookingStatus,
+  checkInBooking,
+  checkOutBooking,
+  getHotelBookingStats,
+  updateBookingAdminNote,
+  updateBookingSpecialRequests,
+  getBookingActivityLog,
+  getTotalPendingBookingCount,
 } from "../../../controllers/Admin/HotelManager/hotel.controller";
 
 const router = Router();
@@ -35,6 +45,9 @@ router.get("/dashboard/stats", authenticateJWT, requireAdmin, asyncHandler(getDa
 
 // Reports
 router.get("/reports", authenticateJWT, requireAdmin, asyncHandler(getReportData));
+
+// Bookings - Must be before /:hotelId routes to avoid route conflicts
+router.get("/bookings/pending-count", authenticateJWT, requireAdmin, asyncHandler(getTotalPendingBookingCount));
 
 // List hotels
 router.get("/", authenticateJWT, requireAdmin, asyncHandler(getHotels));
@@ -80,5 +93,15 @@ router.get("/:hotelId/reviews", authenticateJWT, requireAdmin, asyncHandler(getH
 // Hotel Statistics
 router.get("/:hotelId/statistics", authenticateJWT, requireAdmin, asyncHandler(getHotelStatistics));
 
-export default router;
+// Hotel Bookings Management
+router.get("/:hotelId/bookings", authenticateJWT, requireAdmin, asyncHandler(getHotelBookings));
+router.get("/:hotelId/bookings/stats", authenticateJWT, requireAdmin, asyncHandler(getHotelBookingStats));
+router.get("/:hotelId/bookings/:bookingId", authenticateJWT, requireAdmin, asyncHandler(getHotelBookingDetail));
+router.put("/:hotelId/bookings/:bookingId/status", authenticateJWT, requireAdmin, asyncHandler(updateHotelBookingStatus));
+router.post("/:hotelId/bookings/:bookingId/checkin", authenticateJWT, requireAdmin, asyncHandler(checkInBooking));
+router.post("/:hotelId/bookings/:bookingId/checkout", authenticateJWT, requireAdmin, asyncHandler(checkOutBooking));
+router.put("/:hotelId/bookings/:bookingId/admin-note", authenticateJWT, requireAdmin, asyncHandler(updateBookingAdminNote));
+router.put("/:hotelId/bookings/:bookingId/special-requests", authenticateJWT, requireAdmin, asyncHandler(updateBookingSpecialRequests));
+router.get("/:hotelId/bookings/:bookingId/activity-log", authenticateJWT, requireAdmin, asyncHandler(getBookingActivityLog));
 
+export default router;

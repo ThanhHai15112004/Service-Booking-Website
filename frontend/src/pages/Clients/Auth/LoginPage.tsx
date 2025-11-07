@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MainLayout from '../../layouts/MainLayout';
+import MainLayout from '../../../layouts/MainLayout';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { login as loginAPI } from '../../services/authService';
-import Toast from '../../components/Toast';
-import Loading from '../../components/Loading';
-import { useAuth } from '../../contexts/AuthContext'; 
+import { login as loginAPI } from '../../../services/authService';
+import Toast from '../../../components/Toast';
+import Loading from '../../../components/Loading';
+import { useAuth } from '../../../contexts/AuthContext'; 
 import { GoogleLogin } from '@react-oauth/google';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoggedIn, user, isLoading } = useAuth();
+  const { login, isLoggedIn, user, isLoading, googleLoginHandler } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -20,12 +20,11 @@ function LoginPage() {
     rememberMe: false
   });
 
-  // ✅ Redirect nếu đã đăng nhập - ADMIN/STAFF → admin, USER → homepage
+  // ✅ Redirect nếu đã đăng nhập - chỉ USER
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
-      if (user.role === 'ADMIN' || user.role === 'STAFF') {
-        navigate('/admin/reports', { replace: true });
-      } else {
+      // Chỉ redirect nếu là USER
+      if (user.role === 'USER') {
         navigate('/', { replace: true });
       }
     }
@@ -71,6 +70,8 @@ function LoginPage() {
     try {
       const res = await loginAPI(formData.email, formData.password);
       
+      console.log('Login response:', res); // Debug log
+      
       if (res.success && res.data?.user && res.data?.tokens?.access_token) {
         if (formData.rememberMe) {
           localStorage.setItem('loginCredentials', JSON.stringify({
@@ -81,30 +82,49 @@ function LoginPage() {
           localStorage.removeItem('loginCredentials');
         }
 
-        // Update context ngay lập tức
+        // Update context ngay lập tức - chỉ cho USER
+        const userRole = res.data.user.role;
+        if (userRole !== 'USER') {
+          showToast({ 
+            type: "error", 
+            message: "Vui lòng đăng nhập tại trang admin để truy cập quản trị." 
+          });
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Calling login function with:', { 
+          user: res.data.user, 
+          accessToken: res.data.tokens.access_token?.substring(0, 20) + '...',
+          refreshToken: res.data.tokens.refresh_token?.substring(0, 20) + '...'
+        }); // Debug log
+        
+        // ✅ Update AuthContext với user data và tokens
         login(res.data.user, res.data.tokens.access_token, res.data.tokens.refresh_token);
         
+        console.log('Login function called, checking localStorage:', {
+          userAccessToken: localStorage.getItem('userAccessToken')?.substring(0, 20) + '...',
+          userRefreshToken: localStorage.getItem('userRefreshToken')?.substring(0, 20) + '...',
+          userInfo: localStorage.getItem('userInfo')
+        }); // Debug log
+        
+        setLoading(false);
         showToast({ type: "success", message: "Đăng nhập thành công!" });
         
-        // ✅ Redirect theo role - ADMIN/STAFF → admin reports, USER → homepage
-        const userRole = res.data.user.role;
-        if (userRole === 'ADMIN' || userRole === 'STAFF') {
-          navigate('/admin/reports', { replace: true });
-        } else {
+        // ✅ Delay redirect một chút để đảm bảo state được update
+        setTimeout(() => {
           navigate('/', { replace: true });
-        }
+        }, 100);
       } else {
         setLoading(false);
         showToast({ type: "error", message: res.message || "Đăng nhập thất bại!" });
       }
     } catch (error: any) {
       setLoading(false);
+      console.error('Login error:', error); // Debug log
       showToast({ type: "error", message: error.response?.data?.message || "Lỗi đăng nhập. Vui lòng thử lại!" });
     }
   };
-
-  const { googleLoginHandler } = useAuth(); 
-
 
   const handleRememberMeChange = (checked: boolean) => {
     setFormData(prev => ({ ...prev, rememberMe: checked }));
@@ -225,30 +245,46 @@ function LoginPage() {
 
             {/* Social Login */}
             <div className="space-y-3">
-              
-
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                if (!credentialResponse.credential) {
-                  showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
-                  return;
-                }
-                try {
-                  await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
-                  showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
-                  // ✅ Redirect theo role sau khi đăng nhập Google
-                  const user = JSON.parse(localStorage.getItem('user') || '{}');
-                  if (user.role === 'ADMIN' || user.role === 'STAFF') {
-                    navigate('/admin/reports', { replace: true });
-                  } else {
-                    navigate('/', { replace: true });
-                  }
-                } catch (error: any) {
-                  showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
-                }
-              }}
-              onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
-            />
+              {/* ✅ Chỉ hiển thị GoogleLogin nếu có clientId */}
+              {(import.meta.env.VITE_GOOGLE_CLIENT_ID || import.meta.env.GOOGLE_CLIENT_ID) ? (
+                <GoogleLogin
+                  onSuccess={async (credentialResponse) => {
+                    if (!credentialResponse.credential) {
+                      showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
+                      return;
+                    }
+                    try {
+                      await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
+                      showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
+                      // ✅ Redirect theo role sau khi đăng nhập Google
+                      const storedUser = localStorage.getItem('userInfo') || localStorage.getItem('user');
+                      if (storedUser) {
+                        try {
+                          const user = JSON.parse(storedUser);
+                          if (user.role === 'ADMIN' || user.role === 'STAFF') {
+                            navigate('/admin/reports', { replace: true });
+                          } else {
+                            navigate('/', { replace: true });
+                          }
+                        } catch (error) {
+                          navigate('/', { replace: true });
+                        }
+                      } else {
+                        navigate('/', { replace: true });
+                      }
+                    } catch (error: any) {
+                      showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
+                    }
+                  }}
+                  onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
+                />
+              ) : (
+                <div className="w-full p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                  <p className="text-xs text-yellow-800">
+                    ⚠️ Google Login chưa được cấu hình. Vui lòng liên hệ admin.
+                  </p>
+                </div>
+              )}
 
 
 

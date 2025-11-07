@@ -33,7 +33,11 @@ interface DashboardStats {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-const Dashboard = () => {
+interface DashboardProps {
+  onSelectHotel?: (hotelId: string) => void;
+}
+
+const Dashboard = ({ onSelectHotel: _onSelectHotel }: DashboardProps = {}) => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);

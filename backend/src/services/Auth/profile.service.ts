@@ -46,11 +46,17 @@ export class ProfileService {
   // Hàm cập nhật profile
   async updateUserProfile(accountId: string, data: any) {
     const { full_name, phone_number, avatar_url } = data;
-    if (!full_name || !phone_number) {
-      throw new Error("Thiếu thông tin cần cập nhật.");
+    // ✅ Chỉ bắt buộc full_name, phone_number và avatar_url là optional
+    if (!full_name) {
+      throw new Error("Họ tên là bắt buộc.");
     }
-    const updateData: any = { full_name, phone_number };
-    if (avatar_url) {
+    const updateData: any = { full_name };
+    // ✅ Chỉ thêm phone_number nếu có giá trị (không bắt buộc)
+    if (phone_number !== undefined && phone_number !== null) {
+      updateData.phone_number = phone_number.trim() || null;
+    }
+    // ✅ Chỉ thêm avatar_url nếu có giá trị
+    if (avatar_url !== undefined && avatar_url !== null) {
       updateData.avatar_url = avatar_url;
     }
     await this.repo.updateProfile(accountId, updateData);

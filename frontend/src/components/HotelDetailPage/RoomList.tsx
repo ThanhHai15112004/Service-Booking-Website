@@ -156,11 +156,25 @@ function RoomCard({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAllFacilities, setShowAllFacilities] = useState(false);
 
+  // Helper function to format image URL
+  const formatImageUrl = (url: string | null | undefined): string => {
+    if (!url) return 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Relative path - add base URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+  };
+
   const roomImages = room.images && room.images.length > 0
-    ? room.images
+    ? room.images.map(img => ({
+        ...img,
+        imageUrl: formatImageUrl(img.imageUrl)
+      }))
     : [{
         imageId: 'default',
-        imageUrl: room.roomImage || 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg',
+        imageUrl: formatImageUrl(room.roomImage),
         imageAlt: room.roomName,
         isPrimary: true,
         sortOrder: 0
@@ -210,6 +224,9 @@ function RoomCard({
                   src={mainImage.imageUrl}
                   alt={mainImage.imageAlt || room.roomName}
                   className="w-full h-48 object-cover group-hover:opacity-90 transition-opacity"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg';
+                  }}
                 />
               </div>
 
@@ -237,6 +254,9 @@ function RoomCard({
                       src={image.imageUrl}
                       alt={image.imageAlt || `${room.roomName} - ${index + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg';
+                      }}
                     />
                   </button>
                 ))}
@@ -263,6 +283,9 @@ function RoomCard({
                         src={otherImages[2]?.imageUrl || roomImages[3]?.imageUrl}
                         alt="More"
                         className="absolute inset-0 w-full h-full object-cover opacity-40"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                       <div className="relative z-10 flex flex-col items-center">
                         <ImageIcon className="w-3 h-3 text-gray-700" />

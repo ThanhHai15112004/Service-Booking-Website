@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAdminAuth } from '../contexts/AdminAuthContext';
 import Loading from './Loading';
 
 interface ProtectedAdminRouteProps {
@@ -12,7 +12,7 @@ const ProtectedAdminRoute: React.FC<ProtectedAdminRouteProps> = ({
   children, 
   requireAdmin = true 
 }) => {
-  const { isLoggedIn, user, accessToken, isLoading } = useAuth();
+  const { isLoggedIn, user, accessToken, isLoading } = useAdminAuth();
   const location = useLocation();
 
   // ✅ Nếu đang loading (chưa load xong từ localStorage), hiển thị loading

@@ -317,10 +317,10 @@ export class BookingService {
           };
         }
 
-        // Cho phép update booking khi status là CREATED hoặc PAID
-        // CREATED → CONFIRMED (nếu chưa có payment)
-        // PAID → CONFIRMED (khi user xác nhận ở Step 2)
-        if (existingBooking.status !== 'CREATED' && existingBooking.status !== 'PAID') {
+        // Cho phép update booking khi status là CREATED hoặc PENDING_CONFIRMATION
+        // CREATED → PENDING_CONFIRMATION (khi thanh toán thành công)
+        // PENDING_CONFIRMATION → CONFIRMED (khi admin xác nhận)
+        if (existingBooking.status !== 'CREATED' && existingBooking.status !== 'PENDING_CONFIRMATION') {
           console.error("[BookingService] Cannot update booking with status:", existingBooking.status);
           return {
             success: false,
@@ -643,7 +643,7 @@ export class BookingService {
       }
 
       // Cập nhật booking status và payment status khi user xác nhận ở Step 2
-      // Booking status → CONFIRMED
+      // Booking status → PENDING_CONFIRMATION (sẽ được cập nhật bởi payment.service khi payment SUCCESS)
       // Payment status → SUCCESS
       let finalBookingStatus: BookingStatus = existingBooking ? existingBooking.status : 'CREATED';
       let paymentUpdated = false;
@@ -655,22 +655,77 @@ export class BookingService {
         const existingPayment = await paymentRepo.getPaymentByBookingId(existingBooking.booking_id);
         
         if (existingPayment) {
-          // Cập nhật payment status thành SUCCESS khi user xác nhận ở Step 2
+          // ✅ CRITICAL: Cập nhật payment status thành SUCCESS khi user xác nhận ở Step 2
+          // Payment service sẽ tự động cập nhật booking status thành PENDING_CONFIRMATION
           const { PaymentService } = await import("../Payment/payment.service");
           const paymentService = new PaymentService();
-          const paymentUpdateResult = await paymentService.updatePaymentStatus(
-            existingPayment.payment_id,
-            'SUCCESS',
-            existingPayment.amount_due // amountPaid = amountDue vì đã xác nhận
-          );
           
-          if (paymentUpdateResult.success) {
-            paymentUpdated = true;
+          console.log(`[BookingService] Updating payment ${existingPayment.payment_id} to SUCCESS for booking ${existingBooking.booking_id}`);
+          try {
+            const paymentUpdateResult = await paymentService.updatePaymentStatus(
+              existingPayment.payment_id,
+              'SUCCESS',
+              existingPayment.amount_due // amountPaid = amountDue vì đã xác nhận
+            );
+            
+            if (paymentUpdateResult.success) {
+              paymentUpdated = true;
+              // ✅ Booking status đã được cập nhật thành PENDING_CONFIRMATION bởi payment.service
+              // Lấy lại booking từ DB để đảm bảo có status mới nhất
+              const updatedBooking = await this.bookingRepo.getBookingById(existingBooking.booking_id);
+              if (updatedBooking) {
+                console.log(`[BookingService] Payment updated to SUCCESS, booking status is now: ${updatedBooking.status}`);
+                finalBookingStatus = updatedBooking.status; // ✅ Sử dụng status từ DB (đã được cập nhật bởi payment.service)
+              } else {
+                console.warn(`[BookingService] Could not fetch updated booking, using fallback PENDING_CONFIRMATION`);
+                finalBookingStatus = 'PENDING_CONFIRMATION'; // Fallback
+              }
+            } else {
+              console.error(`[BookingService] Failed to update payment status: ${paymentUpdateResult.message}`);
+              // ✅ Nếu update payment status fail do constraint error, thử update booking status trực tiếp
+              if (paymentUpdateResult.message?.includes('CONSTRAINT') || paymentUpdateResult.message?.includes('constraint')) {
+                console.warn(`[BookingService] Payment update failed due to constraint error. Attempting to update booking status directly...`);
+                try {
+                  const directUpdate = await this.bookingRepo.updateBooking(existingBooking.booking_id, {
+                    status: 'PENDING_CONFIRMATION'
+                  });
+                  if (directUpdate) {
+                    console.log(`✅ [BookingService] Successfully updated booking status directly to PENDING_CONFIRMATION`);
+                    finalBookingStatus = 'PENDING_CONFIRMATION';
+                    paymentUpdated = true; // Mark as updated even though payment service failed
+                  } else {
+                    console.error(`❌ [BookingService] Failed to update booking status directly`);
+                  }
+                } catch (directUpdateErr: any) {
+                  console.error(`❌ [BookingService] Error updating booking status directly: ${directUpdateErr.message}`);
+                }
+              }
+            }
+          } catch (paymentUpdateErr: any) {
+            console.error(`[BookingService] Exception updating payment status: ${paymentUpdateErr.message}`);
+            // ✅ Nếu exception do constraint error, thử update booking status trực tiếp
+            if (paymentUpdateErr.message?.includes('CONSTRAINT') || paymentUpdateErr.message?.includes('constraint')) {
+              console.warn(`[BookingService] Payment update exception due to constraint error. Attempting to update booking status directly...`);
+              try {
+                const directUpdate = await this.bookingRepo.updateBooking(existingBooking.booking_id, {
+                  status: 'PENDING_CONFIRMATION'
+                });
+                if (directUpdate) {
+                  console.log(`✅ [BookingService] Successfully updated booking status directly to PENDING_CONFIRMATION after exception`);
+                  finalBookingStatus = 'PENDING_CONFIRMATION';
+                  paymentUpdated = true;
+                } else {
+                  console.error(`❌ [BookingService] Failed to update booking status directly after exception`);
+                }
+              } catch (directUpdateErr: any) {
+                console.error(`❌ [BookingService] Error updating booking status directly after exception: ${directUpdateErr.message}`);
+              }
+            }
           }
         }
         
-        // Cập nhật booking status thành CONFIRMED khi user xác nhận ở Step 2
-        finalBookingStatus = 'CONFIRMED';
+        // Nếu chưa có payment, booking status vẫn giữ CREATED
+        // (sẽ được cập nhật khi tạo payment và payment SUCCESS)
         
         // ✅ CRITICAL: Khi confirm booking, đảm bảo tất cả phòng đã được lock
         // Nếu dates không thay đổi, phòng đã được lock từ temporary booking
@@ -694,8 +749,9 @@ export class BookingService {
                              existingCheckOut !== request.checkOut;
         
         if (!datesChanged) {
-          // ✅ Khi confirm booking (CONFIRMED), đảm bảo tất cả phòng đã được lock
-          console.log(`[BookingService] Confirming booking ${bookingId} (status: CREATED → CONFIRMED), ensuring all rooms are locked...`);
+          // ✅ Khi confirm booking, đảm bảo tất cả phòng đã được lock
+          // Booking status sẽ là PENDING_CONFIRMATION (sau khi payment SUCCESS)
+          console.log(`[BookingService] Confirming booking ${bookingId} (status: CREATED → PENDING_CONFIRMATION), ensuring all rooms are locked...`);
           for (const roomId of selectedRoomIds) {
             try {
               // Lock lại phòng để đảm bảo chắc chắn
@@ -734,10 +790,24 @@ export class BookingService {
         const datesChanged = existingBooking.checkin_date !== request.checkIn || 
                              existingBooking.checkout_date !== request.checkOut;
 
+        // ✅ CRITICAL: Chỉ update status nếu payment chưa được update thành SUCCESS
+        // Nếu payment đã được update thành SUCCESS, booking status đã là PENDING_CONFIRMATION rồi (bởi payment.service)
+        // Không nên overwrite lại với finalBookingStatus
         const updateBookingData: any = {
-          status: finalBookingStatus, // CONFIRMED khi xác nhận ở Step 2
           special_requests: request.specialRequests || null
         };
+        
+        // ✅ Chỉ cập nhật status nếu payment chưa được update (paymentUpdated = false)
+        // Nếu payment đã được update thành SUCCESS, booking status đã là PENDING_CONFIRMATION rồi, không cần update nữa
+        if (!paymentUpdated) {
+          // Payment chưa được update, giữ nguyên status hiện tại hoặc dùng finalBookingStatus
+          updateBookingData.status = finalBookingStatus;
+          console.log(`[BookingService] Updating booking ${bookingId} status to ${finalBookingStatus} (payment not updated yet)`);
+        } else {
+          // Payment đã được update thành SUCCESS, booking status đã là PENDING_CONFIRMATION rồi
+          // Không update status nữa để tránh overwrite
+          console.log(`[BookingService] Payment already updated to SUCCESS, booking status is already PENDING_CONFIRMATION, skipping status update`);
+        }
 
         if (datesChanged) {
           updateBookingData.subtotal = totalSubtotal;
@@ -746,7 +816,16 @@ export class BookingService {
           updateBookingData.total_amount = totalAmount;
         }
 
+        // ✅ CRITICAL: Verify booking status trước khi update
+        const bookingBeforeUpdate = await this.bookingRepo.getBookingById(bookingId);
+        console.log(`[BookingService] Booking ${bookingId} status before updateBooking call: ${bookingBeforeUpdate?.status || 'UNKNOWN'}`);
+        console.log(`[BookingService] updateBookingData:`, JSON.stringify(updateBookingData, null, 2));
+        
         const updated = await this.bookingRepo.updateBooking(bookingId, updateBookingData);
+        
+        // ✅ Verify booking status sau khi update
+        const bookingAfterUpdate = await this.bookingRepo.getBookingById(bookingId);
+        console.log(`[BookingService] Booking ${bookingId} status after updateBooking call: ${bookingAfterUpdate?.status || 'UNKNOWN'}`);
 
         if (!updated) {
           if (datesChanged) {
@@ -984,7 +1063,7 @@ export class BookingService {
           totalPrice: totalAmount
         },
         paymentMethod: request.paymentMethod,
-        paymentStatus: 'pending', // Booking vẫn ở trạng thái CREATED, chưa confirm nên payment status là pending
+          paymentStatus: paymentUpdated ? 'paid' : 'pending', // ✅ Payment status = 'paid' nếu đã SUCCESS
         paymentDeadline: paymentDeadline,
         specialRequests: request.specialRequests,
         createdAt: new Date()
@@ -1256,6 +1335,15 @@ export class BookingService {
         };
       }
 
+      // ✅ Không cho phép cancel khi đã COMPLETED hoặc CHECKED_OUT (đã hoàn tất)
+      if (booking.status === 'COMPLETED' || booking.status === 'CHECKED_OUT') {
+        return {
+          success: false,
+          message: "Không thể hủy booking đã hoàn tất"
+        };
+      }
+
+      // ✅ Cho phép cancel ở các status: CREATED, PENDING_CONFIRMATION, CONFIRMED, CHECKED_IN
       // Cancel booking
       const cancelled = await this.bookingRepo.cancelBooking(bookingId);
       if (!cancelled) {

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Star, Filter, Edit2, Trash2, Clock, Hotel } from 'lucide-react';
-import { getReviews, deleteReview } from '../../services/profileService';
+import { useNavigate } from 'react-router-dom';
+import { Star, Filter, Edit2, Trash2, Clock, Hotel, Check, X, Loader } from 'lucide-react';
+import { getReviews, deleteReview, updateReview } from '../../services/profileService';
+import { RichTextEditor } from '../common';
 
 interface Review {
   id: string;
@@ -12,7 +14,13 @@ interface Review {
   hotelImage?: string;
   hotel_image?: string;
   rating: number;
+  title?: string;
   comment: string;
+  location_rating?: number | null;
+  facilities_rating?: number | null;
+  service_rating?: number | null;
+  cleanliness_rating?: number | null;
+  value_rating?: number | null;
   createdAt: string;
   created_at: string;
 }
@@ -22,12 +30,26 @@ interface MyReviewsTabProps {
 }
 
 export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviewsTabProps) {
+  const navigate = useNavigate();
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [loading, setLoading] = useState(true);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  
+  // Inline editing state
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editComment, setEditComment] = useState<string>('');
+  const [editLocationRating, setEditLocationRating] = useState<number>(0);
+  const [editFacilitiesRating, setEditFacilitiesRating] = useState<number>(0);
+  const [editServiceRating, setEditServiceRating] = useState<number>(0);
+  const [editCleanlinessRating, setEditCleanlinessRating] = useState<number>(0);
+  const [editValueRating, setEditValueRating] = useState<number>(0);
+  const [hoverRatings, setHoverRatings] = useState<{ [key: string]: number }>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>('');
 
-  // Fetch reviews from API
+  // Fetch reviews from API - chỉ chạy 1 lần khi component mount
   useEffect(() => {
     const fetchReviews = async () => {
       setLoading(true);
@@ -44,8 +66,14 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
             hotel_name: r.hotel_name || 'Khách sạn',
             hotelImage: r.hotel_image || undefined,
             hotel_image: r.hotel_image || undefined,
-            rating: r.rating, // Backend uses 1-5, frontend displays as 1-5 stars
+            rating: r.rating || 0, // Backend uses 1-5
+            title: r.title || '',
             comment: r.comment || '',
+            location_rating: r.location_rating || null,
+            facilities_rating: r.facilities_rating || null,
+            service_rating: r.service_rating || null,
+            cleanliness_rating: r.cleanliness_rating || null,
+            value_rating: r.value_rating || null,
             createdAt: r.created_at,
             created_at: r.created_at
           }));
@@ -58,13 +86,16 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
       }
     };
 
-    // Only fetch if no initial reviews provided
-    if (initialReviews.length === 0) {
+    // Chỉ fetch nếu không có initial reviews hoặc initial reviews rỗng
+    if (!initialReviews || initialReviews.length === 0) {
       fetchReviews();
     } else {
+      // Nếu có initial reviews, set vào state và không loading
+      setReviews(initialReviews);
       setLoading(false);
     }
-  }, [initialReviews]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - chỉ chạy khi component mount
 
   const filteredAndSortedReviews = reviews
     .filter(review => ratingFilter === null || review.rating === ratingFilter)
@@ -90,6 +121,109 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
     }
   };
 
+  const handleStartEdit = (review: Review) => {
+    const reviewId = review.id || review.review_id;
+    setEditingReviewId(reviewId);
+    setEditTitle(review.title || '');
+    setEditComment(review.comment || '');
+    setEditLocationRating(review.location_rating || 0);
+    setEditFacilitiesRating(review.facilities_rating || 0);
+    setEditServiceRating(review.service_rating || 0);
+    setEditCleanlinessRating(review.cleanliness_rating || 0);
+    setEditValueRating(review.value_rating || 0);
+    setError('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReviewId(null);
+    setEditTitle('');
+    setEditComment('');
+    setEditLocationRating(0);
+    setEditFacilitiesRating(0);
+    setEditServiceRating(0);
+    setEditCleanlinessRating(0);
+    setEditValueRating(0);
+    setHoverRatings({});
+    setError('');
+  };
+
+  const handleSaveEdit = async (reviewId: string) => {
+    // Validate
+    if (!editTitle.trim()) {
+      setError('Vui lòng nhập tiêu đề đánh giá');
+      return;
+    }
+
+    const formattedComment = editComment;
+    if (!formattedComment.trim() || formattedComment === '<br>' || formattedComment === '<div><br></div>') {
+      setError('Vui lòng nhập nội dung đánh giá');
+      return;
+    }
+
+    // Validate: Phải có ít nhất 1 category rating
+    const hasAnyRating = editLocationRating > 0 || editFacilitiesRating > 0 || editServiceRating > 0 || 
+                         editCleanlinessRating > 0 || editValueRating > 0;
+    if (!hasAnyRating) {
+      setError('Vui lòng chọn đánh giá cho ít nhất một hạng mục');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const reviewData: any = {
+        title: editTitle.trim(),
+        comment: formattedComment
+      };
+
+      // Add category ratings if provided
+      if (editLocationRating > 0) reviewData.location_rating = editLocationRating;
+      if (editFacilitiesRating > 0) reviewData.facilities_rating = editFacilitiesRating;
+      if (editServiceRating > 0) reviewData.service_rating = editServiceRating;
+      if (editCleanlinessRating > 0) reviewData.cleanliness_rating = editCleanlinessRating;
+      if (editValueRating > 0) reviewData.value_rating = editValueRating;
+
+      const response = await updateReview(reviewId, reviewData);
+
+      if (response.success) {
+        // Reload reviews to get updated data
+        const response = await getReviews();
+        if (response.success && response.data) {
+          const normalizedReviews: Review[] = response.data.map((r: any) => ({
+            id: r.review_id,
+            review_id: r.review_id,
+            hotelId: r.hotel_id,
+            hotel_id: r.hotel_id,
+            hotelName: r.hotel_name || 'Khách sạn',
+            hotel_name: r.hotel_name || 'Khách sạn',
+            hotelImage: r.hotel_image || undefined,
+            hotel_image: r.hotel_image || undefined,
+            rating: r.rating || 0,
+            title: r.title || '',
+            comment: r.comment || '',
+            location_rating: r.location_rating || null,
+            facilities_rating: r.facilities_rating || null,
+            service_rating: r.service_rating || null,
+            cleanliness_rating: r.cleanliness_rating || null,
+            value_rating: r.value_rating || null,
+            createdAt: r.created_at,
+            created_at: r.created_at
+          }));
+          setReviews(normalizedReviews);
+        }
+        setEditingReviewId(null);
+      } else {
+        setError(response.message || 'Không thể cập nhật đánh giá');
+      }
+    } catch (error) {
+      console.error('Error updating review:', error);
+      setError('Có lỗi xảy ra khi cập nhật đánh giá');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('vi-VN', {
@@ -99,17 +233,85 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
     });
   };
 
+  // Sanitize HTML
+  const sanitizeHTML = (html: string): string => {
+    if (!html) return '';
+    return html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
+  };
+
+  const renderCategoryRating = (
+    reviewId: string,
+    key: string,
+    label: string,
+    rating: number,
+    setRating: (value: number) => void
+  ) => {
+    const isEditing = editingReviewId === reviewId;
+    const currentRating = isEditing ? rating : (0);
+    const hoverRating = hoverRatings[key] || 0;
+    const displayRating = hoverRating || currentRating;
+
+    return (
+      <div className="flex items-center gap-2 mb-2">
+        <label className="text-xs text-gray-700 w-24 flex-shrink-0">{label}</label>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              onClick={() => isEditing && setRating(star)}
+              onMouseEnter={() => isEditing && setHoverRatings(prev => ({ ...prev, [key]: star }))}
+              onMouseLeave={() => isEditing && setHoverRatings(prev => ({ ...prev, [key]: 0 }))}
+              disabled={!isEditing}
+              className={`focus:outline-none transition-transform ${isEditing ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+            >
+              <Star
+                className={`w-4 h-4 ${
+                  star <= displayRating
+                    ? 'text-yellow-400 fill-yellow-400'
+                    : 'text-gray-300'
+                }`}
+              />
+            </button>
+          ))}
+          {currentRating > 0 && (
+            <span className="ml-2 text-xs text-gray-500">
+              {currentRating === 1 && 'Rất tệ'}
+              {currentRating === 2 && 'Tệ'}
+              {currentRating === 3 && 'Bình thường'}
+              {currentRating === 4 && 'Tốt'}
+              {currentRating === 5 && 'Rất tốt'}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }).map((_, index) => (
-      <Star
-        key={index}
-        className={`w-5 h-5 ${
-          index < rating
-            ? 'text-yellow-400 fill-yellow-400'
-            : 'text-gray-300'
-        }`}
-      />
-    ));
+    // Convert 1-5 to display (show as 1-10 scale visually)
+    const displayRating = rating * 2; // Convert to 1-10 for display
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }).map((_, index) => {
+          const starRating = (index + 1) * 2; // 2, 4, 6, 8, 10
+          return (
+            <Star
+              key={index}
+              className={`w-4 h-4 ${
+                starRating <= displayRating
+                  ? 'text-yellow-400 fill-yellow-400'
+                  : 'text-gray-300'
+              }`}
+            />
+          );
+        })}
+        <span className="ml-1 text-sm font-medium text-gray-700">{displayRating.toFixed(1)}/10</span>
+      </div>
+    );
   };
 
   return (
@@ -172,72 +374,185 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
             <p className="mt-2 text-gray-600">Đang tải đánh giá...</p>
           </div>
         ) : filteredAndSortedReviews.length > 0 ? (
-          <div className="space-y-4">
-            {filteredAndSortedReviews.map((review) => (
-              <div
-                key={review.id}
-                className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex gap-4">
-                  {/* Hotel Image */}
-                  <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200">
-                    {(review.hotelImage || review.hotel_image) ? (
-                      <img
-                        src={review.hotelImage || review.hotel_image}
-                        alt={review.hotelName || review.hotel_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Hotel className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
+          <div className="space-y-6">
+            {filteredAndSortedReviews.map((review) => {
+              const reviewId = review.id || review.review_id;
+              const isEditing = editingReviewId === reviewId;
 
-                  {/* Review Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg mb-1">
-                          {review.hotelName || review.hotel_name}
-                        </h3>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex items-center gap-1">
-                            {renderStars(review.rating)}
+              return (
+                <div
+                  key={reviewId}
+                  className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex gap-4">
+                    {/* Hotel Image */}
+                    <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200">
+                      {(review.hotelImage || review.hotel_image) ? (
+                        <img
+                          src={review.hotelImage || review.hotel_image}
+                          alt={review.hotelName || review.hotel_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Hotel className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Review Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 text-lg mb-1">
+                            {review.hotelName || review.hotel_name}
+                          </h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            {renderStars(review.rating || 0)}
+                            <span className="text-sm text-gray-500">
+                              <Clock className="w-4 h-4 inline mr-1" />
+                              {formatDate(review.createdAt || review.created_at)}
+                            </span>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            <Clock className="w-4 h-4 inline mr-1" />
-                            {formatDate(review.createdAt || review.created_at)}
-                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveEdit(reviewId)}
+                                disabled={saving}
+                                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                                title="Lưu"
+                              >
+                                {saving ? (
+                                  <>
+                                    <Loader className="w-4 h-4 animate-spin" />
+                                    Đang lưu...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4" />
+                                    Lưu
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                disabled={saving}
+                                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+                                title="Hủy"
+                              >
+                                <X className="w-4 h-4" />
+                                Hủy
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  const hotelId = review.hotelId || review.hotel_id;
+                                  if (hotelId) {
+                                    navigate(`/hotel/${hotelId}`);
+                                  }
+                                }}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                title="Xem khách sạn"
+                              >
+                                <Hotel className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleStartEdit(review)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                title="Chỉnh sửa"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(reviewId)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                title="Xóa đánh giá"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => {
-                            const hotelId = review.hotelId || review.hotel_id;
-                            if (hotelId) {
-                              window.location.href = `/hotels/${hotelId}`;
-                            }
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          title="Xem khách sạn"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(review.id || review.review_id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          title="Xóa đánh giá"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+
+                      {/* Rating Breakdown - Chỉ hiển thị khi đang edit */}
+                      {isEditing && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2">Đánh giá chi tiết:</h4>
+                          {renderCategoryRating(reviewId, `${reviewId}-location`, 'Vị trí', 
+                            editLocationRating,
+                            setEditLocationRating)}
+                          {renderCategoryRating(reviewId, `${reviewId}-facilities`, 'Cơ sở vật chất', 
+                            editFacilitiesRating,
+                            setEditFacilitiesRating)}
+                          {renderCategoryRating(reviewId, `${reviewId}-service`, 'Dịch vụ', 
+                            editServiceRating,
+                            setEditServiceRating)}
+                          {renderCategoryRating(reviewId, `${reviewId}-cleanliness`, 'Độ sạch sẽ', 
+                            editCleanlinessRating,
+                            setEditCleanlinessRating)}
+                          {renderCategoryRating(reviewId, `${reviewId}-value`, 'Đáng giá tiền', 
+                            editValueRating,
+                            setEditValueRating)}
+                        </div>
+                      )}
+
+                      {/* Title */}
+                      {isEditing ? (
+                        <div className="mb-3">
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            placeholder="Nhập tiêu đề đánh giá..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            maxLength={100}
+                            disabled={saving}
+                          />
+                        </div>
+                      ) : review.title ? (
+                        <h4 className="text-lg font-bold text-gray-900 mb-2">
+                          {review.title}
+                        </h4>
+                      ) : null}
+
+                      {/* Comment */}
+                      {isEditing ? (
+                        <div className="mb-3">
+                          <RichTextEditor
+                            key={reviewId}
+                            value={editComment}
+                            onChange={(value) => setEditComment(value)}
+                            placeholder="Chia sẻ trải nghiệm của bạn..."
+                            minHeight="120px"
+                            uploadEndpoint="/api/upload/single"
+                            uploadFieldName="image"
+                            onUploadError={(errorMsg) => setError(errorMsg)}
+                          />
+                        </div>
+                      ) : (
+                        <div 
+                          className="text-gray-700 leading-relaxed review-content"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
+                          style={{ wordBreak: 'break-word' }}
+                        />
+                      )}
+
+                      {/* Error Message */}
+                      {isEditing && error && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-xs text-red-600">{error}</p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-gray-700 leading-relaxed">{review.comment}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
@@ -252,34 +567,86 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
         )}
       </div>
 
-      {/* Statistics */}
-      {reviews.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê đánh giá</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[5, 4, 3, 2, 1].map((rating) => {
-              const count = reviews.filter(r => r.rating === rating).length;
-              const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
-              return (
-                <div key={rating} className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-2">
-                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                    <span className="font-bold text-gray-900">{rating}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{count}</p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-yellow-400 h-2 rounded-full"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Styles for HTML content */}
+      <style>{`
+        .review-content {
+          line-height: 1.6;
+        }
+        .review-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 12px 0;
+          border: 1px solid #e5e7eb;
+          cursor: pointer;
+          transition: opacity 0.2s;
+        }
+        .review-content img:hover {
+          opacity: 0.9;
+        }
+        .review-content strong {
+          font-weight: 600;
+        }
+        .review-content em {
+          font-style: italic;
+        }
+        .review-content u {
+          text-decoration: underline;
+        }
+        .review-content s,
+        .review-content strike {
+          text-decoration: line-through;
+        }
+        .review-content h1 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 12px 0 8px 0;
+          line-height: 1.3;
+        }
+        .review-content h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin: 10px 0 6px 0;
+          line-height: 1.3;
+        }
+        .review-content h3 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin: 8px 0 4px 0;
+          line-height: 1.3;
+        }
+        .review-content ul,
+        .review-content ol {
+          margin: 8px 0;
+          padding-left: 24px;
+        }
+        .review-content ul {
+          list-style-type: disc;
+        }
+        .review-content ol {
+          list-style-type: decimal;
+        }
+        .review-content li {
+          margin: 4px 0;
+        }
+        .review-content blockquote {
+          border-left: 4px solid #3b82f6;
+          padding-left: 16px;
+          margin: 12px 0;
+          font-style: italic;
+          color: #6b7280;
+          background-color: #f9fafb;
+          padding: 12px 16px;
+          border-radius: 4px;
+        }
+        .review-content a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        .review-content a:hover {
+          color: #1d4ed8;
+        }
+      `}</style>
     </div>
   );
 }
-

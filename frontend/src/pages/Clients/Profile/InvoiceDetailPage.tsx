@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import MainLayout from '../../layouts/MainLayout';
-import { getBookingById } from '../../services/bookingService';
-import { getHotelDetail } from '../../services/hotelService';
-import api from '../../api/axiosClient';
+import MainLayout from '../../../layouts/MainLayout';
+import { getBookingById } from '../../../services/bookingService';
+import { getHotelDetail } from '../../../services/hotelService';
+import api from '../../../api/axiosClient';
 import {
   ArrowLeft,
   Download,
@@ -98,14 +98,81 @@ function InvoiceDetailPage() {
     });
   };
 
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'CREATED':
+        return {
+          label: 'Đã tạo',
+          color: 'bg-blue-100 text-blue-800',
+          description: 'Đơn đặt chỗ đã được tạo, chờ thanh toán'
+        };
+      case 'PENDING_CONFIRMATION':
+        return {
+          label: 'Chờ xác nhận',
+          color: 'bg-yellow-100 text-yellow-800',
+          description: 'Đã thanh toán, đang chờ admin xác nhận'
+        };
+      case 'PAID': // Legacy status
+        return {
+          label: 'Chờ xác nhận',
+          color: 'bg-yellow-100 text-yellow-800',
+          description: 'Đã thanh toán, chờ xác nhận'
+        };
+      case 'CONFIRMED':
+        return {
+          label: 'Đã xác nhận',
+          color: 'bg-green-100 text-green-800',
+          description: 'Đơn đặt chỗ đã được xác nhận'
+        };
+      case 'CHECKED_IN':
+        return {
+          label: 'Đã check-in',
+          color: 'bg-blue-100 text-blue-800',
+          description: 'Đã nhận phòng và check-in'
+        };
+      case 'CHECKED_OUT':
+        return {
+          label: 'Đã check-out',
+          color: 'bg-purple-100 text-purple-800',
+          description: 'Đã trả phòng và check-out'
+        };
+      case 'COMPLETED':
+        return {
+          label: 'Hoàn thành',
+          color: 'bg-gray-100 text-gray-800',
+          description: 'Đã hoàn thành chuyến đi'
+        };
+      case 'CANCELLED':
+        return {
+          label: 'Đã hủy',
+          color: 'bg-red-100 text-red-800',
+          description: 'Đơn đặt chỗ đã bị hủy'
+        };
+      default:
+        return {
+          label: status || 'Không xác định',
+          color: 'bg-gray-100 text-gray-800',
+          description: ''
+        };
+    }
+  };
+
+  const getPaymentStatusText = (status: string) => {
+    switch (status) {
+      case 'CREATED':
+        return 'Chờ thanh toán';
+      case 'PENDING_CONFIRMATION':
+      case 'PAID':
+      case 'CONFIRMED':
+      case 'CHECKED_IN':
+      case 'CHECKED_OUT':
+      case 'COMPLETED':
+        return 'Đã thanh toán';
+      case 'CANCELLED':
+        return 'Đã hủy';
+      default:
+        return 'Chưa xác định';
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -167,6 +234,8 @@ function InvoiceDetailPage() {
                             paymentMethod === 'MOMO' ? 'MoMo' :
                             paymentMethod === 'CASH' ? 'Tiền mặt' :
                             paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : paymentMethod;
+  const statusConfig = getStatusConfig(booking.status || 'CREATED');
+  const paymentStatusText = getPaymentStatusText(booking.status || 'CREATED');
 
   return (
     <MainLayout>
@@ -198,6 +267,12 @@ function InvoiceDetailPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">HÓA ĐƠN</h1>
                   <p className="text-gray-600">Mã đơn: <span className="font-semibold">{bookingCode}</span></p>
+                  {/* Booking Status Badge */}
+                  <div className="mt-2">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
                 </div>
                 <div className="text-right">
                   <FileText className="w-12 h-12 text-blue-600 mx-auto mb-2" />
@@ -279,6 +354,18 @@ function InvoiceDetailPage() {
               <h3 className="text-lg font-bold text-gray-900 mb-4">Chi tiết thanh toán</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
+                  <span className="text-gray-600">Trạng thái thanh toán:</span>
+                  <span className={`font-semibold ${
+                    booking.status === 'PENDING_CONFIRMATION' || booking.status === 'PAID' || booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT' || booking.status === 'COMPLETED'
+                      ? 'text-green-600'
+                      : booking.status === 'CANCELLED'
+                      ? 'text-red-600'
+                      : 'text-yellow-600'
+                  }`}>
+                    {paymentStatusText}
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-600">Phương thức thanh toán:</span>
                   <span className="font-semibold text-gray-900">{paymentMethodText}</span>
                 </div>
@@ -319,6 +406,9 @@ function InvoiceDetailPage() {
             <div className="pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
               <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</p>
               <p className="mt-2">Hóa đơn được tạo tự động vào {formatDateTime(invoiceDate)}</p>
+              {statusConfig.description && (
+                <p className="mt-2 text-xs italic">{statusConfig.description}</p>
+              )}
             </div>
           </div>
         </div>

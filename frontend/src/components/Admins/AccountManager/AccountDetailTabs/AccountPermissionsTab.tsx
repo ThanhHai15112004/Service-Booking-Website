@@ -145,7 +145,7 @@ const AccountPermissionsTab = ({ account, onUpdate }: AccountPermissionsTabProps
                 {account.is_verified ? "Email đã được xác thực" : "Email chưa được xác thực"}
               </p>
             </div>
-            {!account.is_verified && (
+            {account.status === "PENDING" && (
               <button
                 onClick={handleForceVerify}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"

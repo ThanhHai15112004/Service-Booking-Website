@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAdminAuth } from "../../contexts/AdminAuthContext";
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
 import Loading from "../Loading";
@@ -11,7 +11,7 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
-  const { user, logout, isLoggedIn, isLoading } = useAuth();
+  const { user, logout, isLoggedIn, isLoading } = useAdminAuth();
 
   // ✅ Double check: Nếu chưa đăng nhập (sau khi đã load xong), redirect về admin login
   useEffect(() => {

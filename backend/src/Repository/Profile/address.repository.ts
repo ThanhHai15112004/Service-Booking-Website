@@ -162,5 +162,32 @@ export class AddressRepository {
       [addressId, accountId]
     );
   }
+
+  // Đặt địa chỉ mặc định
+  async setDefaultAddress(addressId: string, accountId: string): Promise<void> {
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Bỏ default của tất cả địa chỉ khác
+      await conn.query(
+        `UPDATE user_address SET is_default = 0 WHERE account_id = ? AND address_id != ?`,
+        [accountId, addressId]
+      );
+
+      // Đặt địa chỉ này làm default
+      await conn.query(
+        `UPDATE user_address SET is_default = 1, updated_at = NOW() WHERE address_id = ? AND account_id = ?`,
+        [addressId, accountId]
+      );
+
+      await conn.commit();
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
+  }
 }
 

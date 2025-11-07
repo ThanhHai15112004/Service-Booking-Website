@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Star, LogOut, User, Heart, Wallet, List } from 'lucide-react';
 import { logout as logoutAPI } from '../../services/authService';
+import { getProfile } from '../../services/profileService';
 import Loading from '../Loading';
 import { useAuth } from '../../contexts/AuthContext';
 import defaultAvatar from '../../assets/imgs/avatars/user.png';
@@ -19,7 +20,70 @@ export default function UserAccountStatus() {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [logoutLoading, setLogoutLoading] = useState(false);
-  const { logout: logoutContext, user: authUser } = useAuth();
+  const { logout: logoutContext, user: authUser, login, accessToken } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string>(defaultAvatar);
+  const [isLoadingAvatar, setIsLoadingAvatar] = useState(false);
+
+  // Fetch user profile from database to ensure avatar is up-to-date
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      // ✅ Chỉ fetch khi có user và accessToken
+      if (!authUser || !accessToken) return;
+      
+      try {
+        setIsLoadingAvatar(true);
+        const response = await getProfile();
+        if (response.success && response.data) {
+          // Update avatar URL from database
+          const dbAvatarUrl = response.data.avatar_url;
+          
+          // Normalize avatar URL: if it's a relative path, add base URL
+          if (dbAvatarUrl && dbAvatarUrl.trim() !== '') {
+            let normalizedUrl = dbAvatarUrl.trim();
+            
+            // If it's a relative path (starts with /), add base URL
+            if (normalizedUrl.startsWith('/')) {
+              const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+              normalizedUrl = `${baseUrl}${normalizedUrl}`;
+            }
+            // If it's already a full URL (http:// or https://), use as is
+            // If it's a Google avatar URL or external URL, use as is
+            
+            setAvatarUrl(normalizedUrl);
+            
+            // Also update context if avatar changed
+            if (authUser.avatar_url !== dbAvatarUrl && accessToken) {
+              const updatedUser = { ...authUser, avatar_url: dbAvatarUrl };
+              const storedRefreshToken = localStorage.getItem('userRefreshToken');
+              if (storedRefreshToken) {
+                login(updatedUser, accessToken, storedRefreshToken);
+              }
+            }
+          } else {
+            // No avatar in database, use default
+            setAvatarUrl(defaultAvatar);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Fallback to avatar from context if API fails
+        if (authUser.avatar_url && authUser.avatar_url.trim() !== '') {
+          let normalizedUrl = authUser.avatar_url.trim();
+          if (normalizedUrl.startsWith('/')) {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+            normalizedUrl = `${baseUrl}${normalizedUrl}`;
+          }
+          setAvatarUrl(normalizedUrl);
+        } else {
+          setAvatarUrl(defaultAvatar);
+        }
+      } finally {
+        setIsLoadingAvatar(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [authUser, login, accessToken]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,7 +99,7 @@ export default function UserAccountStatus() {
   const handleLogout = async () => {
     try {
       setLogoutLoading(true);
-      const refreshToken = localStorage.getItem('refreshToken') || '';
+      const refreshToken = localStorage.getItem('userRefreshToken') || '';
 
       // Gọi API logout
       await logoutAPI(refreshToken);
@@ -54,12 +118,7 @@ export default function UserAccountStatus() {
 
   if (!authUser) return null;
 
-  const avatarUrl =
-    ((authUser.avatar_url ?? '').trim() !== '')
-      ? (authUser.avatar_url as string)
-      : defaultAvatar;
-
-  const initials = authUser.full_name.charAt(0).toUpperCase();
+  const initials = authUser.full_name?.charAt(0)?.toUpperCase() || 'U';
 
   return (
     <div className="relative" ref={ref}>
@@ -70,7 +129,11 @@ export default function UserAccountStatus() {
         onClick={() => setOpen((v) => !v)}
       >
         <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gray-200">
-          {avatarUrl === defaultAvatar ? (
+          {isLoadingAvatar ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : avatarUrl === defaultAvatar || !avatarUrl ? (
             <span
               className="text-white font-bold text-lg w-full h-full flex items-center justify-center"
               style={{ background: userDisplayDefaults.avatarColor }}
@@ -83,6 +146,12 @@ export default function UserAccountStatus() {
               alt="Avatar"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                // If image fails to load, fallback to default avatar
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                setAvatarUrl(defaultAvatar);
+              }}
             />
           )}
         </div>

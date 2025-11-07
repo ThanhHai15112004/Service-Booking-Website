@@ -1,4 +1,4 @@
-import api from "../api/axiosClient";
+import api from '../api/axiosClient';
 
 // Gửi lại email xác thực
 export async function resendVerificationEmail(email: string) {
@@ -25,22 +25,28 @@ export const registerAccount = async (data: {
   return res.data;
 };
 
-
-
 export const login = async (email: string, password: string) => {
   const res = await api.post('/api/auth/login', { email, password });
-  // Nếu đăng nhập thành công, lưu accessToken vào localStorage
-  if (res.data.success && res.data.data?.tokens?.access_token) {
-    localStorage.setItem("accessToken", res.data.data.tokens.access_token);
-    localStorage.setItem("refreshToken", res.data.data.tokens.refresh_token);
-    localStorage.setItem("user", JSON.stringify(res.data.data.user));
-  }
+  // Không tự động lưu vào localStorage - để AuthContext xử lý
   return res.data;
 };
 
 export const logout = async (refreshToken: string) => {
   const res = await api.post('/api/auth/logout', { refresh_token: refreshToken });
   return res.data;
+};
+
+// Check refresh token validity
+export const checkRefreshToken = async (refreshToken: string) => {
+  try {
+    const res = await api.post('/api/auth/check-refresh-token', { refresh_token: refreshToken });
+    return res.data;
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Refresh token không hợp lệ'
+    };
+  }
 };
 
 // Quên mật khẩu - Gửi email reset

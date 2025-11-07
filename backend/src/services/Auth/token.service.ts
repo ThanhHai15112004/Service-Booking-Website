@@ -12,8 +12,8 @@ export class TokenService {
 
   // Hàm lưu refresh token với role để set expiration khác nhau
   async saveRefreshToken(accountId: string, token: string, role?: string) {
-    // ADMIN/STAFF: 6 hours, USER: default (7 days hoặc từ env)
-    const hours = role === 'ADMIN' || role === 'STAFF' ? 6 : undefined;
+    // ADMIN/STAFF: 6 hours, USER: 3 days (72 hours)
+    const hours = role === 'ADMIN' || role === 'STAFF' ? 6 : 72; // 3 days = 72 hours
     await this.repo.saveRefreshToken(accountId, token, hours);
   }
 
@@ -22,9 +22,14 @@ export class TokenService {
     await this.repo.revokeRefreshToken(token);
   }
 
-  // Hàm kiểm tra tính hợp lệ của refresh token
-  async isValid(token: string): Promise<boolean> {
-    return this.repo.isRefreshTokenValid(token);
+  // Hàm thu hồi tất cả refresh tokens của một account (chỉ cho phép 1 session)
+  async revokeAllRefreshTokens(accountId: string) {
+    await this.repo.revokeAllRefreshTokens(accountId);
+  }
+
+  // Hàm kiểm tra tính hợp lệ của refresh token (public để controller có thể gọi)
+  async checkRefreshTokenValidity(refreshToken: string): Promise<boolean> {
+    return this.repo.isRefreshTokenValid(refreshToken);
   }
 
   // Hàm tạo access token
@@ -34,10 +39,10 @@ export class TokenService {
 
   // Hàm tạo refresh token với role để set expiration khác nhau
   async generateRefreshToken(payload: object, role?: string): Promise<string> {
-    // ADMIN/STAFF: 6 hours, USER: default (7 days hoặc từ env)
+    // ADMIN/STAFF: 6 hours, USER: 3 days (72 hours)
     const expiresIn = role === 'ADMIN' || role === 'STAFF' 
       ? '6h' 
-      : this.REFRESH_EXPIRES;
+      : '3d'; // 3 days for USER
     return sign(payload, this.REFRESH_SECRET, { expiresIn });
   }
 

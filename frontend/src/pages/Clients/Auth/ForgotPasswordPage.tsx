@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MainLayout from '../../layouts/MainLayout';
+import MainLayout from '../../../layouts/MainLayout';
 import { Mail, ChevronLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
-import { forgotPassword, verifyResetToken, resetPassword } from '../../services/authService';
-import Toast from "../../components/Toast";
-import Loading from "../../components/Loading";
-import { useAuth } from '../../contexts/AuthContext';
+import { forgotPassword, verifyResetToken, resetPassword } from '../../../services/authService';
+import Toast from "../../../components/Toast";
+import Loading from "../../../components/Loading";
+import { useAuth } from '../../../contexts/AuthContext';
 
 type ForgotStep = 'email' | 'verify' | 'reset' | 'success';
 

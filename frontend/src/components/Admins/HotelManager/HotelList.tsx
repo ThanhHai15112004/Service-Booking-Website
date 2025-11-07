@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Eye, Edit, Trash2, Lock, Unlock, MoreVertical, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Search, Eye, Edit, Trash2, Lock, Unlock, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
 import { adminService } from "../../../services/adminService";
@@ -14,7 +14,8 @@ interface Hotel {
   avg_rating: number;
   status: "ACTIVE" | "INACTIVE" | "PENDING";
   booking_count: number;
-  main_image?: string;
+  pending_booking_count?: number;
+   main_image?: string;
   created_at: string;
 }
 
@@ -295,7 +296,19 @@ const HotelList = ({ onViewDetail }: HotelListProps = {}) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(hotel.status)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{hotel.booking_count}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-900">{hotel.booking_count}</span>
+                        {(hotel.pending_booking_count !== undefined && hotel.pending_booking_count > 0) && (
+                          <span 
+                            className="inline-flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 px-1.5 animate-pulse shadow-md border-2 border-white"
+                            title={`Có ${hotel.pending_booking_count} booking đang chờ xác nhận`}
+                          >
+                            {hotel.pending_booking_count > 99 ? "99+" : hotel.pending_booking_count}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(hotel.created_at).toLocaleDateString('vi-VN', {
                         year: 'numeric',

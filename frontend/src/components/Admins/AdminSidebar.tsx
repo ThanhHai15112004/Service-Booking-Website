@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import logo from "../../assets/imgs/logos/logo1.png";
+import { adminService } from "../../services/adminService";
 
 interface MenuItem {
   id: string;
@@ -20,11 +21,13 @@ interface MenuItem {
   icon: React.ReactNode;
   path?: string;
   subItems?: { label: string; path: string }[];
+  badge?: number;
 }
 
 const AdminSidebar = () => {
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [totalPendingBookings, setTotalPendingBookings] = useState(0);
 
   // Auto-expand menu items based on current route
   useEffect(() => {
@@ -52,7 +55,7 @@ const AdminSidebar = () => {
       shouldExpand.push("reviews");
     }
     if (location.pathname.startsWith("/admin/reports")) {
-      // Reports doesn't have sub-items, so we don't need to expand it
+      shouldExpand.push("reports");
     }
 
     // Only update if different to prevent unnecessary re-renders
@@ -66,12 +69,41 @@ const AdminSidebar = () => {
     });
   }, [location.pathname]);
 
+  // Fetch total pending bookings count
+  useEffect(() => {
+    const fetchPendingBookings = async () => {
+      try {
+        const response = await adminService.getTotalPendingBookingCount();
+        if (response.success && response.data !== undefined) {
+          setTotalPendingBookings(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching pending bookings count:", error);
+      }
+    };
+
+    fetchPendingBookings();
+    // Auto-refresh mỗi 60 giây - giảm tần suất để tránh spam log
+    const interval = setInterval(fetchPendingBookings, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const menuItems: MenuItem[] = [
     {
       id: "reports",
       label: "Dashboard & Báo cáo",
       icon: <BarChart3 size={20} />,
-      path: "/admin/reports",
+      subItems: [
+        { label: "Dashboard tổng quan", path: "/admin/reports?tab=main" },
+        { label: "Doanh thu", path: "/admin/reports?tab=revenue" },
+        { label: "Booking", path: "/admin/reports?tab=booking" },
+        { label: "Tỷ lệ lấp đầy", path: "/admin/reports?tab=occupancy" },
+        { label: "Khách hàng", path: "/admin/reports?tab=customer" },
+        { label: "Đánh giá", path: "/admin/reports?tab=review" },
+        { label: "Nhân viên", path: "/admin/reports?tab=staff" },
+        { label: "Gói tài khoản", path: "/admin/reports?tab=package" },
+        { label: "Xuất báo cáo", path: "/admin/reports?tab=export" },
+      ],
     },
     {
       id: "accounts",
@@ -93,6 +125,7 @@ const AdminSidebar = () => {
         { label: "Danh mục & Vị trí", path: "/admin/hotels/categories" },
         { label: "Thống kê & Báo cáo", path: "/admin/hotels/reports" },
       ],
+      badge: totalPendingBookings > 0 ? totalPendingBookings : undefined,
     },
     {
       id: "rooms",
@@ -170,10 +203,25 @@ const AdminSidebar = () => {
     );
   };
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path.includes("?tab=")) {
+      const [basePath, tabParam] = path.split("?tab=");
+      const currentTab = new URLSearchParams(location.search).get("tab");
+      return location.pathname === basePath && currentTab === tabParam;
+    }
+    return location.pathname === path;
+  };
 
   const isParentActive = (subItems?: { path: string }[]) => {
-    return subItems?.some((item) => location.pathname === item.path);
+    if (!subItems) return false;
+    return subItems.some((item) => {
+      if (item.path.includes("?tab=")) {
+        const [basePath, tabParam] = item.path.split("?tab=");
+        const currentTab = new URLSearchParams(location.search).get("tab");
+        return location.pathname === basePath && currentTab === tabParam;
+      }
+      return location.pathname === item.path;
+    });
   };
 
   return (
@@ -210,6 +258,14 @@ const AdminSidebar = () => {
                   <div className="flex items-center gap-3">
                     {item.icon}
                     <span className="font-medium">{item.label}</span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="relative inline-flex items-center justify-center">
+                        <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                          {item.badge > 99 ? "99+" : item.badge}
+                        </span>
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                      </span>
+                    )}
                   </div>
                   {expandedItems.includes(item.id) ? (
                     <ChevronDown size={16} />

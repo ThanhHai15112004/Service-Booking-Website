@@ -4,13 +4,13 @@ import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { login as loginAPI } from '../../services/authService';
 import Toast from '../../components/Toast';
 import Loading from '../../components/Loading';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAdminAuth } from '../../contexts/AdminAuthContext';
 import { Link } from 'react-router-dom';
 
 function AdminLoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isLoggedIn, user, isLoading } = useAuth();
+  const { login, isLoggedIn, user, isLoading } = useAdminAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -19,16 +19,11 @@ function AdminLoginPage() {
     password: ''
   });
 
-  // ✅ Redirect nếu đã đăng nhập và là ADMIN/STAFF
+  // ✅ Redirect nếu đã đăng nhập admin
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
-      if (user.role === 'ADMIN' || user.role === 'STAFF') {
-        const from = (location.state as any)?.from?.pathname || '/admin/reports';
-        navigate(from, { replace: true });
-      } else {
-        // Nếu là USER thường, redirect về trang chủ
-        navigate('/', { replace: true });
-      }
+      const from = (location.state as any)?.from?.pathname || '/admin/reports';
+      navigate(from, { replace: true });
     }
   }, [isLoggedIn, user, isLoading, navigate, location.state]);
 
@@ -67,8 +62,8 @@ function AdminLoginPage() {
           return;
         }
 
-        // Update context ngay lập tức
-        login(res.data.user, res.data.tokens.access_token, res.data.tokens.refresh_token);
+        // Update admin context với user data (cast để phù hợp với AdminUser type)
+        login(res.data.user as any, res.data.tokens.access_token, res.data.tokens.refresh_token);
         
         showToast({ type: "success", message: "Đăng nhập thành công!" });
         

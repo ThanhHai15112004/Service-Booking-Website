@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MainLayout from '../../layouts/MainLayout';
-import { getMyBookings, cancelBooking } from '../../services/bookingService';
+import MainLayout from '../../../layouts/MainLayout';
+import { getMyBookings, cancelBooking } from '../../../services/bookingService';
 import { 
   Calendar, 
   MapPin, 
@@ -18,7 +18,7 @@ import {
 
 interface Booking {
   booking_id: string;
-  status: 'CREATED' | 'PAID' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: 'CREATED' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'COMPLETED' | 'CANCELLED' | 'PAID'; // PAID là legacy
   total_amount: number;
   subtotal?: number;
   tax_amount?: number;
@@ -51,10 +51,21 @@ function MyBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadBookings();
   }, []);
+
+  // Scroll to top of content when filter changes
+  useEffect(() => {
+    if (contentRef.current) {
+      // Smooth scroll to top of content area
+      contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Also scroll window to top in case content is above viewport
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [filterStatus]);
 
   const loadBookings = async () => {
     try {
@@ -102,12 +113,19 @@ function MyBookingsPage() {
     switch (status) {
       case 'CREATED':
         return {
-          label: 'Chờ xác nhận',
+          label: 'Chờ thanh toán',
           color: 'bg-yellow-100 text-yellow-800',
           icon: Clock,
           description: 'Đơn đặt chỗ đã được tạo, chờ thanh toán'
         };
-      case 'PAID':
+      case 'PENDING_CONFIRMATION':
+        return {
+          label: 'Chờ xác nhận',
+          color: 'bg-yellow-100 text-yellow-800',
+          icon: Clock,
+          description: 'Đã thanh toán, đang chờ admin xác nhận'
+        };
+      case 'PAID': // Legacy status
         return {
           label: 'Chờ xác nhận',
           color: 'bg-yellow-100 text-yellow-800',
@@ -121,12 +139,19 @@ function MyBookingsPage() {
           icon: CheckCircle2,
           description: 'Đơn đặt chỗ đã được xác nhận'
         };
-      case 'CANCELLED':
+      case 'CHECKED_IN':
         return {
-          label: 'Đã hủy',
-          color: 'bg-red-100 text-red-800',
-          icon: XCircle,
-          description: 'Đơn đặt chỗ đã bị hủy'
+          label: 'Đã check-in',
+          color: 'bg-blue-100 text-blue-800',
+          icon: CheckCircle2,
+          description: 'Đã nhận phòng và check-in'
+        };
+      case 'CHECKED_OUT':
+        return {
+          label: 'Đã check-out',
+          color: 'bg-purple-100 text-purple-800',
+          icon: CheckCircle2,
+          description: 'Đã trả phòng và check-out'
         };
       case 'COMPLETED':
         return {
@@ -134,6 +159,13 @@ function MyBookingsPage() {
           color: 'bg-gray-100 text-gray-800',
           icon: CheckCircle2,
           description: 'Đã hoàn thành chuyến đi'
+        };
+      case 'CANCELLED':
+        return {
+          label: 'Đã hủy',
+          color: 'bg-red-100 text-red-800',
+          icon: XCircle,
+          description: 'Đơn đặt chỗ đã bị hủy'
         };
       default:
         return {
@@ -165,12 +197,12 @@ function MyBookingsPage() {
   const filteredBookings = filterStatus === 'all' 
     ? bookings 
     : filterStatus === 'pending'
-    ? bookings.filter(b => b.status === 'CREATED' || b.status === 'PAID')
+    ? bookings.filter(b => b.status === 'CREATED' || b.status === 'PAID' || b.status === 'PENDING_CONFIRMATION')
     : bookings.filter(b => b.status === filterStatus);
 
   const statusCounts = {
     all: bookings.length,
-    pending: bookings.filter(b => b.status === 'CREATED' || b.status === 'PAID').length,
+    pending: bookings.filter(b => b.status === 'CREATED' || b.status === 'PAID' || b.status === 'PENDING_CONFIRMATION').length,
     CONFIRMED: bookings.filter(b => b.status === 'CONFIRMED').length,
     COMPLETED: bookings.filter(b => b.status === 'COMPLETED').length,
     CANCELLED: bookings.filter(b => b.status === 'CANCELLED').length
@@ -241,7 +273,10 @@ function MyBookingsPage() {
                       return (
                         <button
                           key={status}
-                          onClick={() => setFilterStatus(status)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setFilterStatus(status);
+                          }}
                           className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                             filterStatus === status
                               ? 'bg-blue-600 text-white'
@@ -276,7 +311,10 @@ function MyBookingsPage() {
                       return (
                         <button
                           key={status}
-                          onClick={() => setFilterStatus(status)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setFilterStatus(status);
+                          }}
                           className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                             filterStatus === status
                               ? 'bg-blue-600 text-white'
@@ -303,7 +341,7 @@ function MyBookingsPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0">
+            <div ref={contentRef} className="flex-1 min-w-0">
 
               {/* Bookings List */}
               {filteredBookings.length === 0 ? (
@@ -516,7 +554,7 @@ function MyBookingsPage() {
                                 <Eye className="w-4 h-4" />
                                 Xem chi tiết
                               </button>
-                              {(booking.status === 'CREATED' || booking.status === 'PAID') && (
+                              {(booking.status === 'CREATED' || booking.status === 'PAID' || booking.status === 'PENDING_CONFIRMATION') && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -600,4 +638,3 @@ function MyBookingsPage() {
 }
 
 export default MyBookingsPage;
-

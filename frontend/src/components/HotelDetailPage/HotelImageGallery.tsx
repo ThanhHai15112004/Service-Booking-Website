@@ -32,6 +32,17 @@ export default function HotelImageGallery({
   const [showGridView, setShowGridView] = useState(false);
   const [activeRoomIndex, setActiveRoomIndex] = useState(0); // Track which room tab is active
 
+  // Helper function to format image URL
+  const formatImageUrl = (url: string | null | undefined): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Relative path - add base URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+  };
+
   const handleClose = () => {
     setShowAllPhotos(false);
     if (onClose) {
@@ -48,8 +59,8 @@ export default function HotelImageGallery({
     );
   }
   
-  // Combine hotel and room images
-  const hotelImagesList = images || [];
+  // Combine hotel and room images - format all URLs
+  const hotelImagesList = (images || []).map(img => formatImageUrl(img));
   
   // Nếu có allRooms (từ HotelHeaderSection), sử dụng tất cả room images
   // Nếu không, sử dụng roomImages của 1 room cụ thể (từ RoomList)
@@ -60,18 +71,26 @@ export default function HotelImageGallery({
     // Từ HotelHeaderSection: Có tất cả rooms
     allRooms.forEach(room => {
       if (room.images && room.images.length > 0) {
-        roomsData.push({ name: room.roomName, images: room.images });
-        allRoomImages = [...allRoomImages, ...room.images];
+        const formattedImages = room.images.map((img: any) => ({
+          ...img,
+          imageUrl: formatImageUrl(typeof img === 'string' ? img : img.imageUrl)
+        }));
+        roomsData.push({ name: room.roomName, images: formattedImages });
+        allRoomImages = [...allRoomImages, ...formattedImages];
       }
     });
   } else if (roomImages.length > 0) {
     // Từ RoomList: Chỉ có 1 room
-    roomsData.push({ name: roomName, images: roomImages });
-    allRoomImages = roomImages;
+    const formattedImages = roomImages.map((img: any) => ({
+      ...img,
+      imageUrl: formatImageUrl(typeof img === 'string' ? img : img.imageUrl)
+    }));
+    roomsData.push({ name: roomName, images: formattedImages });
+    allRoomImages = formattedImages;
   }
   
-  const roomImagesList = allRoomImages.map(img => typeof img === 'string' ? img : img.imageUrl);
-  const allImages = [...hotelImagesList, ...roomImagesList];
+  const roomImagesList = allRoomImages.map(img => typeof img === 'string' ? formatImageUrl(img) : formatImageUrl(img.imageUrl));
+  const allImages = [...hotelImagesList, ...roomImagesList].filter(url => url); // Filter out empty URLs
 
   // Build categories dynamically
   const categories: Array<{ key: ImageCategory; label: string; count: number; roomIndex?: number }> = [];
@@ -97,7 +116,7 @@ export default function HotelImageGallery({
     if (activeCategory === 'room') {
       // Nếu có nhiều rooms, lấy images của room đang active
       if (roomsData.length > 0 && roomsData[activeRoomIndex]) {
-        return roomsData[activeRoomIndex].images.map(img => img.imageUrl);
+        return roomsData[activeRoomIndex].images.map(img => formatImageUrl(img.imageUrl));
       }
       return roomImagesList;
     }
@@ -225,6 +244,9 @@ export default function HotelImageGallery({
                       src={img}
                       alt={`${activeCategory === 'room' ? roomName : hotelName} ${index + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Error';
+                      }}
                     />
                   </div>
                 ))}
@@ -315,6 +337,9 @@ export default function HotelImageGallery({
                 src={currentImages[selectedPhotoIndex]}
                 alt={`${activeCategory === 'room' ? roomName : hotelName} ${selectedPhotoIndex + 1}`}
                 className="max-h-[50vh] max-w-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x600?text=Image+Error';
+                }}
               />
               
               {/* Image Counter */}

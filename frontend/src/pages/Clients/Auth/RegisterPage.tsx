@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import MainLayout from '../../layouts/MainLayout';
+import MainLayout from '../../../layouts/MainLayout';
 import { Mail, ChevronLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { checkEmailExists, registerAccount, resendVerificationEmail } from '../../services/authService';
-import Toast from "../../components/Toast";
-import Loading from "../../components/Loading";
-import { useAuth } from '../../contexts/AuthContext';
+import { checkEmailExists, registerAccount, resendVerificationEmail } from '../../../services/authService';
+import Toast from "../../../components/Toast";
+import Loading from "../../../components/Loading";
+import { useAuth } from '../../../contexts/AuthContext';
 import { GoogleLogin } from "@react-oauth/google";
 import { useNavigate } from 'react-router-dom';
 
@@ -288,22 +288,30 @@ function RegisterPage() {
 
                 <div className="space-y-2 md:space-y-3 mb-4 md:mb-6">
                   {/* Google */}
-                 <GoogleLogin
-                    onSuccess={async (credentialResponse) => {
-                      if (!credentialResponse.credential) {
-                        showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
-                        return;
-                      }
-                      try {
-                        await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
-                        showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
-                        navigate('/');
-                      } catch (error: any) {
-                        showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
-                      }
-                    }}
-                    onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
-                  />
+                  {(import.meta.env.VITE_GOOGLE_CLIENT_ID || import.meta.env.GOOGLE_CLIENT_ID) ? (
+                    <GoogleLogin
+                      onSuccess={async (credentialResponse) => {
+                        if (!credentialResponse.credential) {
+                          showToast({ type: 'error', message: 'Không nhận được ID token từ Google.' });
+                          return;
+                        }
+                        try {
+                          await googleLoginHandler(credentialResponse.credential); // gửi token JWT về BE
+                          showToast({ type: 'success', message: 'Đăng nhập Google thành công!' });
+                          navigate('/');
+                        } catch (error: any) {
+                          showToast({ type: 'error', message: error.message || 'Đăng nhập Google thất bại!' });
+                        }
+                      }}
+                      onError={() => showToast({ type: 'error', message: 'Đăng nhập Google thất bại!' })}
+                    />
+                  ) : (
+                    <div className="w-full p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                      <p className="text-xs text-yellow-800">
+                        ⚠️ Google Login chưa được cấu hình. Vui lòng liên hệ admin.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Facebook */}
                   <button

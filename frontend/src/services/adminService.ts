@@ -1,4 +1,4 @@
-import api from "../api/axiosClient";
+import adminApi from "../api/adminAxiosClient";
 
 export interface Account {
   account_id: string;
@@ -65,13 +65,13 @@ export interface CreateUserAccountData {
 export const adminService = {
   // Lấy danh sách accounts
   getAccounts: async (params: GetAccountsParams): Promise<GetAccountsResponse> => {
-    const response = await api.get("/api/admin/accounts", { params });
+    const response = await adminApi.get("/api/admin/accounts", { params });
     return response.data;
   },
 
   // Lấy chi tiết account
   getAccountDetail: async (accountId: string): Promise<AccountDetailResponse> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}`);
     return response.data;
   },
 
@@ -80,19 +80,19 @@ export const adminService = {
     accountId: string,
     data: UpdateAccountData
   ): Promise<{ success: boolean; message: string; data: Account }> => {
-    const response = await api.put(`/api/admin/accounts/${accountId}`, data);
+    const response = await adminApi.put(`/api/admin/accounts/${accountId}`, data);
     return response.data;
   },
 
   // Xóa account (soft delete)
   deleteAccount: async (accountId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.delete(`/api/admin/accounts/${accountId}`);
+    const response = await adminApi.delete(`/api/admin/accounts/${accountId}`);
     return response.data;
   },
 
   // Force verify email
   forceVerifyEmail: async (accountId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post(`/api/admin/accounts/${accountId}/verify`);
+    const response = await adminApi.post(`/api/admin/accounts/${accountId}/verify`);
     return response.data;
   },
 
@@ -101,7 +101,7 @@ export const adminService = {
     accountId: string,
     newPassword: string
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post(`/api/admin/accounts/${accountId}/reset-password`, {
+    const response = await adminApi.post(`/api/admin/accounts/${accountId}/reset-password`, {
       newPassword,
     });
     return response.data;
@@ -111,7 +111,7 @@ export const adminService = {
   createUserAccount: async (
     data: CreateUserAccountData
   ): Promise<{ success: boolean; message: string; data: Account }> => {
-    const response = await api.post("/api/admin/accounts/user/create", data);
+    const response = await adminApi.post("/api/admin/accounts/user/create", data);
     return response.data;
   },
 
@@ -124,9 +124,66 @@ export const adminService = {
         role?: "ADMIN" | "STAFF";
         avatar_url?: string;
       }): Promise<{ success: boolean; message: string; data: Account }> => {
-        const response = await api.post("/api/admin/accounts/create", data);
+        const response = await adminApi.post("/api/admin/accounts/create", data);
         return response.data;
       },
+
+  // Main Dashboard Stats (Comprehensive)
+  getMainDashboardStats: async (): Promise<{
+    success: boolean;
+    data?: {
+      bookings: {
+        today: number;
+        week: number;
+        month: number;
+        total: number;
+      };
+      revenue: {
+        today: number;
+        week: number;
+        month: number;
+        total: number;
+      };
+      newUsers: number;
+      totalHotels: number;
+      activeRooms: number;
+      occupancyRate: number;
+      cancellationRate: number;
+      revenueByDate: Array<{ date: string; revenue: number }>;
+      bookingsByStatus: Array<{ status: string; count: number; percentage: string }>;
+      topBookedHotels: Array<{ hotel_id: string; hotel_name: string; bookings: number }>;
+      newUsersTrend: Array<{ date: string; count: number }>;
+      recentBookings: Array<{
+        booking_id: string;
+        customer_name: string;
+        hotel_name: string;
+        status: string;
+        created_at: string;
+      }>;
+      upcomingCheckIns: Array<{
+        booking_id: string;
+        customer_name: string;
+        hotel_name: string;
+        check_in_date: string;
+      }>;
+      maintenanceRooms: Array<{
+        room_id: string;
+        room_number: string;
+        hotel_name: string;
+        room_type: string;
+        maintenance_start: string;
+      }>;
+      pendingRequests: {
+        newReviews: number;
+        refunds: number;
+        emailVerifications: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/dashboard/main/stats");
+    return response.data;
+  },
 
   // Dashboard Stats
   getDashboardStats: async (): Promise<{
@@ -156,7 +213,7 @@ export const adminService = {
       }>;
     };
   }> => {
-    const response = await api.get("/api/admin/dashboard/stats");
+    const response = await adminApi.get("/api/admin/dashboard/stats");
     return response.data;
   },
 
@@ -172,12 +229,12 @@ export const adminService = {
       limit?: number;
     }
   ): Promise<{ success: boolean; data: any[]; total: number }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/bookings`, { params });
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/bookings`, { params });
     return response.data;
   },
 
   getBookingDetail: async (bookingId: string): Promise<{ success: boolean; data: any }> => {
-    const response = await api.get(`/api/admin/bookings/${bookingId}`);
+    const response = await adminApi.get(`/api/admin/bookings/${bookingId}`);
     return response.data;
   },
 
@@ -192,7 +249,7 @@ export const adminService = {
       limit?: number;
     }
   ): Promise<{ success: boolean; data: any[]; total: number }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/reviews`, { params });
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/reviews`, { params });
     return response.data;
   },
 
@@ -200,18 +257,18 @@ export const adminService = {
     reviewId: string,
     status: "ACTIVE" | "HIDDEN"
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await api.put(`/api/admin/reviews/${reviewId}/visibility`, { status });
+    const response = await adminApi.put(`/api/admin/reviews/${reviewId}/visibility`, { status });
     return response.data;
   },
 
   deleteReview: async (reviewId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.delete(`/api/admin/reviews/${reviewId}`);
+    const response = await adminApi.delete(`/api/admin/reviews/${reviewId}`);
     return response.data;
   },
 
   // Account Addresses
   getAccountAddresses: async (accountId: string): Promise<{ success: boolean; data: any[] }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/addresses`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/addresses`);
     return response.data;
   },
 
@@ -228,7 +285,7 @@ export const adminService = {
       is_default?: boolean;
     }
   ): Promise<{ success: boolean; message: string; data: any }> => {
-    const response = await api.post(`/api/admin/accounts/${accountId}/addresses`, data);
+    const response = await adminApi.post(`/api/admin/accounts/${accountId}/addresses`, data);
     return response.data;
   },
 
@@ -246,7 +303,7 @@ export const adminService = {
       is_default?: boolean;
     }
   ): Promise<{ success: boolean; message: string; data: any }> => {
-    const response = await api.put(`/api/admin/accounts/${accountId}/addresses/${addressId}`, data);
+    const response = await adminApi.put(`/api/admin/accounts/${accountId}/addresses/${addressId}`, data);
     return response.data;
   },
 
@@ -254,7 +311,7 @@ export const adminService = {
     accountId: string,
     addressId: string
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await api.delete(`/api/admin/accounts/${accountId}/addresses/${addressId}`);
+    const response = await adminApi.delete(`/api/admin/accounts/${accountId}/addresses/${addressId}`);
     return response.data;
   },
 
@@ -262,7 +319,7 @@ export const adminService = {
     accountId: string,
     addressId: string
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post(`/api/admin/accounts/${accountId}/addresses/${addressId}/set-default`);
+    const response = await adminApi.post(`/api/admin/accounts/${accountId}/addresses/${addressId}/set-default`);
     return response.data;
   },
 
@@ -274,17 +331,17 @@ export const adminService = {
       currentSubscription: any;
     };
   }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/packages`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/packages`);
     return response.data;
   },
 
   getAccountSubscriptions: async (accountId: string): Promise<{ success: boolean; data: any[] }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/subscriptions`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/subscriptions`);
     return response.data;
   },
 
   getAccountPaymentCards: async (accountId: string): Promise<{ success: boolean; data: any[] }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/payment-cards`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/payment-cards`);
     return response.data;
   },
 
@@ -299,7 +356,7 @@ export const adminService = {
       limit?: number;
     }
   ): Promise<{ success: boolean; data: any[]; total: number }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/payments`, { params });
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/payments`, { params });
     return response.data;
   },
 
@@ -317,7 +374,7 @@ export const adminService = {
       bookingRate: number;
     };
   }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/activity/stats`);
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/activity/stats`);
     return response.data;
   },
 
@@ -325,7 +382,7 @@ export const adminService = {
     accountId: string,
     period: "7" | "30" | "90" = "30"
   ): Promise<{ success: boolean; data: any[] }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/activity/chart`, {
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/activity/chart`, {
       params: { period },
     });
     return response.data;
@@ -341,7 +398,7 @@ export const adminService = {
       limit?: number;
     }
   ): Promise<{ success: boolean; data: any[]; total: number }> => {
-    const response = await api.get(`/api/admin/accounts/${accountId}/activity/history`, { params });
+    const response = await adminApi.get(`/api/admin/accounts/${accountId}/activity/history`, { params });
     return response.data;
   },
 
@@ -367,7 +424,7 @@ export const adminService = {
     };
     message?: string;
   }> => {
-    const response = await api.get("/api/admin/hotels", { params });
+    const response = await adminApi.get("/api/admin/hotels", { params });
     return response.data;
   },
 
@@ -376,7 +433,7 @@ export const adminService = {
     data?: any;
     message?: string;
   }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}`);
     return response.data;
   },
 
@@ -400,7 +457,7 @@ export const adminService = {
       main_image?: string;
     }
   ): Promise<{ success: boolean; message?: string; data?: any }> => {
-    const response = await api.put(`/api/admin/hotels/${hotelId}`, data);
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}`, data);
     return response.data;
   },
 
@@ -408,7 +465,7 @@ export const adminService = {
     hotelId: string,
     status: "ACTIVE" | "INACTIVE" | "PENDING"
   ): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.put(`/api/admin/hotels/${hotelId}/status`, { status });
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}/status`, { status });
     return response.data;
   },
 
@@ -416,7 +473,7 @@ export const adminService = {
     hotelId: string,
     hardDelete: boolean = false
   ): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/hotels/${hotelId}`, {
+    const response = await adminApi.delete(`/api/admin/hotels/${hotelId}`, {
       params: { hardDelete },
     });
     return response.data;
@@ -450,7 +507,7 @@ export const adminService = {
     };
     message?: string;
   }> => {
-    const response = await api.get("/api/admin/hotels/dashboard/stats");
+    const response = await adminApi.get("/api/admin/hotels/dashboard/stats");
     return response.data;
   },
 
@@ -489,39 +546,39 @@ export const adminService = {
     };
     message?: string;
   }> => {
-    const response = await api.get("/api/admin/hotels/reports", { params });
+    const response = await adminApi.get("/api/admin/hotels/reports", { params });
     return response.data;
   },
 
   // ========== Categories APIs ==========
   getCategories: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get("/api/admin/categories");
+    const response = await adminApi.get("/api/admin/categories");
     return response.data;
   },
   getCategoryById: async (categoryId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.get(`/api/admin/categories/${categoryId}`);
+    const response = await adminApi.get(`/api/admin/categories/${categoryId}`);
     return response.data;
   },
   createCategory: async (data: { category_id: string; name: string; description?: string; icon?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.post("/api/admin/categories", data);
+    const response = await adminApi.post("/api/admin/categories", data);
     return response.data;
   },
   updateCategory: async (categoryId: string, data: { name?: string; description?: string; icon?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.put(`/api/admin/categories/${categoryId}`, data);
+    const response = await adminApi.put(`/api/admin/categories/${categoryId}`, data);
     return response.data;
   },
   deleteCategory: async (categoryId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/categories/${categoryId}`);
+    const response = await adminApi.delete(`/api/admin/categories/${categoryId}`);
     return response.data;
   },
 
   // ========== Locations APIs ==========
   getLocations: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get("/api/admin/locations");
+    const response = await adminApi.get("/api/admin/locations");
     return response.data;
   },
   getLocationById: async (locationId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.get(`/api/admin/locations/${locationId}`);
+    const response = await adminApi.get(`/api/admin/locations/${locationId}`);
     return response.data;
   },
   createLocation: async (data: {
@@ -537,7 +594,7 @@ export const adminService = {
     description?: string;
     is_hot?: boolean;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.post("/api/admin/locations", data);
+    const response = await adminApi.post("/api/admin/locations", data);
     return response.data;
   },
   updateLocation: async (locationId: string, data: {
@@ -552,79 +609,79 @@ export const adminService = {
     description?: string;
     is_hot?: boolean;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.put(`/api/admin/locations/${locationId}`, data);
+    const response = await adminApi.put(`/api/admin/locations/${locationId}`, data);
     return response.data;
   },
   deleteLocation: async (locationId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/locations/${locationId}`);
+    const response = await adminApi.delete(`/api/admin/locations/${locationId}`);
     return response.data;
   },
 
   // ========== Hotel Facilities APIs ==========
   getHotelFacilities: async (hotelId: string): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/facilities`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/facilities`);
     return response.data;
   },
   addHotelFacility: async (hotelId: string, facilityId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.post(`/api/admin/hotels/${hotelId}/facilities`, { facilityId });
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/facilities`, { facilityId });
     return response.data;
   },
   removeHotelFacility: async (hotelId: string, facilityId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/hotels/${hotelId}/facilities/${facilityId}`);
+    const response = await adminApi.delete(`/api/admin/hotels/${hotelId}/facilities/${facilityId}`);
     return response.data;
   },
 
   // ========== Hotel Highlights APIs ==========
   getAllHighlights: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get("/api/admin/hotels/highlights/all");
+    const response = await adminApi.get("/api/admin/hotels/highlights/all");
     return response.data;
   },
   getHotelHighlights: async (hotelId: string): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/highlights`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/highlights`);
     return response.data;
   },
   addHotelHighlight: async (hotelId: string, data: { highlightId: string; customText?: string; sortOrder?: number }): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.post(`/api/admin/hotels/${hotelId}/highlights`, data);
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/highlights`, data);
     return response.data;
   },
   updateHotelHighlight: async (hotelId: string, highlightId: string, data: { customText?: string; sortOrder?: number }): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.put(`/api/admin/hotels/${hotelId}/highlights/${highlightId}`, data);
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}/highlights/${highlightId}`, data);
     return response.data;
   },
   removeHotelHighlight: async (hotelId: string, highlightId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/hotels/${hotelId}/highlights/${highlightId}`);
+    const response = await adminApi.delete(`/api/admin/hotels/${hotelId}/highlights/${highlightId}`);
     return response.data;
   },
 
   // ========== Hotel Policies APIs ==========
   getPolicyTypes: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get("/api/admin/hotels/policies/types");
+    const response = await adminApi.get("/api/admin/hotels/policies/types");
     return response.data;
   },
   getHotelPolicies: async (hotelId: string): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/policies`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/policies`);
     return response.data;
   },
   setHotelPolicy: async (hotelId: string, policyKey: string, value: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.post(`/api/admin/hotels/${hotelId}/policies`, { policyKey, value });
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/policies`, { policyKey, value });
     return response.data;
   },
   removeHotelPolicy: async (hotelId: string, policyKey: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/hotels/${hotelId}/policies/${policyKey}`);
+    const response = await adminApi.delete(`/api/admin/hotels/${hotelId}/policies/${policyKey}`);
     return response.data;
   },
 
   // ========== Hotel Images APIs ==========
   getHotelImages: async (hotelId: string): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/images`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/images`);
     return response.data;
   },
   addHotelImage: async (hotelId: string, data: { imageUrl: string; sortOrder?: number; isPrimary?: boolean }): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.post(`/api/admin/hotels/${hotelId}/images`, data);
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/images`, data);
     return response.data;
   },
   deleteHotelImage: async (imageId: string): Promise<{ success: boolean; message?: string }> => {
-    const response = await api.delete(`/api/admin/hotels/images/${imageId}`);
+    const response = await adminApi.delete(`/api/admin/hotels/images/${imageId}`);
     return response.data;
   },
 
@@ -643,13 +700,578 @@ export const adminService = {
     total?: number;
     message?: string;
   }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/reviews`, { params: filters });
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/reviews`, { params: filters });
     return response.data;
   },
 
   // ========== Hotel Statistics API ==========
   getHotelStatistics: async (hotelId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
-    const response = await api.get(`/api/admin/hotels/${hotelId}/statistics`);
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/statistics`);
+    return response.data;
+  },
+
+  // ========== Hotel Bookings APIs ==========
+  getHotelBookings: async (
+    hotelId: string,
+    filters?: {
+      status?: string;
+      accountId?: string;
+      accountName?: string;
+      accountEmail?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      checkinFrom?: string;
+      checkinTo?: string;
+      sortBy?: string;
+      sortOrder?: "ASC" | "DESC";
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    data?: {
+      bookings: any[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/bookings`, { params: filters });
+    return response.data;
+  },
+
+  getHotelBookingDetail: async (
+    hotelId: string,
+    bookingId: string
+  ): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/bookings/${bookingId}`);
+    return response.data;
+  },
+
+  updateHotelBookingStatus: async (
+    hotelId: string,
+    bookingId: string,
+    status: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/status`, { status });
+    return response.data;
+  },
+
+  // ========== Room Types Management APIs ==========
+  getRoomTypesByHotel: async (
+    hotelId: string,
+    params?: {
+      search?: string;
+      bedType?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    data?: {
+      roomTypes: Array<{
+        room_type_id: string;
+        hotel_id: string;
+        hotel_name: string;
+        name: string;
+        description?: string | null;
+        bed_type?: string | null;
+        area?: number | null;
+        image_url?: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/hotels/${hotelId}/room-types/list`, { params });
+    return response.data;
+  },
+
+  getRoomTypeById: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}`);
+    return response.data;
+  },
+
+  createRoomType: async (data: {
+    room_type_id: string;
+    hotel_id: string;
+    name: string;
+    description?: string;
+    bed_type?: string;
+    area?: number;
+    image_url?: string;
+  }): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post("/api/admin/rooms/room-types", data);
+    return response.data;
+  },
+
+  updateRoomType: async (
+    roomTypeId: string,
+    data: {
+      name?: string;
+      description?: string;
+      bed_type?: string;
+      area?: number;
+      image_url?: string;
+    }
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}`, data);
+    return response.data;
+  },
+
+  deleteRoomType: async (roomTypeId: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/rooms/room-types/${roomTypeId}`);
+    return response.data;
+  },
+
+  // ========== Rooms Management APIs ==========
+  getRoomsByHotel: async (
+    hotelId: string,
+    params?: {
+      roomTypeId?: string;
+      status?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    data?: {
+      rooms: Array<{
+        room_id: string;
+        room_type_id: string;
+        room_type_name: string;
+        hotel_id: string;
+        hotel_name: string;
+        room_number?: string | null;
+        capacity: number;
+        image_url?: string | null;
+        price_base?: number | null;
+        status: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+        created_at: string;
+        updated_at: string;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/hotels/${hotelId}/rooms`, { params });
+    return response.data;
+  },
+
+  getRoomsByRoomType: async (
+    roomTypeId: string,
+    params?: {
+      status?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    data?: {
+      rooms: Array<{
+        room_id: string;
+        room_type_id: string;
+        room_type_name: string;
+        hotel_id: string;
+        hotel_name: string;
+        room_number?: string | null;
+        capacity: number;
+        image_url?: string | null;
+        price_base?: number | null;
+        status: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+        created_at: string;
+        updated_at: string;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/rooms`, { params });
+    return response.data;
+  },
+
+  getRoomById: async (roomId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/rooms/${roomId}`);
+    return response.data;
+  },
+
+  createRoom: async (data: {
+    room_id: string;
+    room_type_id: string;
+    room_number?: string;
+    capacity: number;
+    image_url?: string;
+    price_base?: number;
+    status?: string;
+  }): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post("/api/admin/rooms/rooms", data);
+    return response.data;
+  },
+
+  updateRoom: async (
+    roomId: string,
+    data: {
+      room_number?: string;
+      capacity?: number;
+      image_url?: string;
+      price_base?: number;
+      status?: string;
+    }
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/rooms/${roomId}`, data);
+    return response.data;
+  },
+
+  deleteRoom: async (roomId: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/rooms/rooms/${roomId}`);
+    return response.data;
+  },
+
+  updateRoomStatus: async (roomId: string, status: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/rooms/${roomId}/status`, { status });
+    return response.data;
+  },
+
+  // Helper APIs
+  getBedTypes: async (): Promise<{ success: boolean; data?: string[]; message?: string }> => {
+    const response = await adminApi.get("/api/admin/rooms/bed-types");
+    return response.data;
+  },
+
+  getRoomTypesForHotel: async (hotelId: string): Promise<{
+    success: boolean;
+    data?: Array<{ room_type_id: string; name: string }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/hotels/${hotelId}/room-types`);
+    return response.data;
+  },
+
+  getHotelBookingStats: async (hotelId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/bookings/stats`);
+    return response.data;
+  },
+
+  checkInBooking: async (
+    hotelId: string,
+    bookingId: string,
+    staffName?: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/checkin`, { staffName });
+    return response.data;
+  },
+
+  checkOutBooking: async (
+    hotelId: string,
+    bookingId: string,
+    staffName?: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/checkout`, { staffName });
+    return response.data;
+  },
+
+  updateBookingAdminNote: async (
+    hotelId: string,
+    bookingId: string,
+    adminNote: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/admin-note`, { adminNote });
+    return response.data;
+  },
+
+  updateBookingSpecialRequests: async (
+    hotelId: string,
+    bookingId: string,
+    specialRequests: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/special-requests`, { specialRequests });
+    return response.data;
+  },
+
+  getBookingActivityLog: async (
+    hotelId: string,
+    bookingId: string
+  ): Promise<{ success: boolean; data?: any[]; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/hotels/${hotelId}/bookings/${bookingId}/activity-log`);
+    return response.data;
+  },
+
+  getTotalPendingBookingCount: async (): Promise<{ success: boolean; data?: number; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/hotels/bookings/pending-count`);
+    return response.data;
+  },
+
+  // ========== ROOM IMAGES ==========
+  getRoomImages: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      image_id: string;
+      room_type_id: string;
+      image_url: string;
+      image_alt?: string | null;
+      is_primary: boolean;
+      sort_order: number;
+      created_at: string;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/images`);
+    return response.data;
+  },
+
+  addRoomImage: async (
+    roomTypeId: string,
+    imageUrl: string,
+    imageAlt?: string,
+    isPrimary?: boolean
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post(`/api/admin/rooms/room-types/${roomTypeId}/images`, {
+      imageUrl,
+      imageAlt,
+      isPrimary,
+    });
+    return response.data;
+  },
+
+  deleteRoomImage: async (imageId: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/rooms/images/${imageId}`);
+    return response.data;
+  },
+
+  setPrimaryRoomImage: async (
+    roomTypeId: string,
+    imageId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/images/${imageId}/primary`);
+    return response.data;
+  },
+
+  // ========== ROOM AMENITIES ==========
+  getRoomTypeAmenities: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      facility_id: string;
+      name: string;
+      category: string;
+      icon?: string | null;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/amenities`);
+    return response.data;
+  },
+
+  getAllFacilities: async (category?: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      facility_id: string;
+      name: string;
+      category: string;
+      icon?: string | null;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/facilities`, { params: { category } });
+    return response.data;
+  },
+
+  addRoomTypeAmenity: async (
+    roomTypeId: string,
+    facilityId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post(`/api/admin/rooms/room-types/${roomTypeId}/amenities`, { facilityId });
+    return response.data;
+  },
+
+  removeRoomTypeAmenity: async (
+    roomTypeId: string,
+    facilityId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/rooms/room-types/${roomTypeId}/amenities/${facilityId}`);
+    return response.data;
+  },
+
+  // ========== ROOM POLICIES ==========
+  getRoomTypePolicies: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      id: number;
+      policy_key: string;
+      name: string;
+      value: string;
+      data_type: string;
+      icon?: string | null;
+      updated_at: string;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/policies`);
+    return response.data;
+  },
+
+  getAllPolicyTypes: async (applicableTo?: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      policy_key: string;
+      name: string;
+      description?: string | null;
+      data_type: string;
+      applicable_to: string;
+      icon?: string | null;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/policy-types`, { params: { applicableTo } });
+    return response.data;
+  },
+
+  addRoomTypePolicy: async (
+    roomTypeId: string,
+    policyKey: string,
+    value: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.post(`/api/admin/rooms/room-types/${roomTypeId}/policies`, {
+      policyKey,
+      value,
+    });
+    return response.data;
+  },
+
+  updateRoomTypePolicy: async (
+    roomTypeId: string,
+    policyKey: string,
+    value: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/policies/${policyKey}`, {
+      value,
+    });
+    return response.data;
+  },
+
+  removeRoomTypePolicy: async (
+    roomTypeId: string,
+    policyKey: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/rooms/room-types/${roomTypeId}/policies/${policyKey}`);
+    return response.data;
+  },
+
+  // ========== ROOM PRICE SCHEDULES ==========
+  getRoomTypePriceSchedules: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      date: string;
+      avg_base_price: number;
+      min_base_price: number;
+      max_base_price: number;
+      avg_discount_percent: number;
+      total_available_rooms: number;
+      total_rooms: number;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/price-schedules`);
+    return response.data;
+  },
+
+  getRoomTypeBasePrice: async (roomTypeId: string): Promise<{
+    success: boolean;
+    data?: { basePrice: number | null };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/base-price`);
+    return response.data;
+  },
+
+  updateRoomTypeBasePrice: async (
+    roomTypeId: string,
+    basePrice: number
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/base-price`, {
+      basePrice,
+    });
+    return response.data;
+  },
+
+  updateRoomTypeDateDiscount: async (
+    roomTypeId: string,
+    date: string,
+    discountPercent: number
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/discount`, {
+      date,
+      discountPercent,
+    });
+    return response.data;
+  },
+
+  // Get policies for a specific date
+  getRoomTypeDatePolicies: async (
+    roomTypeId: string,
+    date: string
+  ): Promise<{
+    success: boolean;
+    data?: {
+      refundable: boolean;
+      pay_later: boolean;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/rooms/room-types/${roomTypeId}/date-policies`, {
+      params: { date },
+    });
+    return response.data;
+  },
+
+  // Update policies for a specific date
+  updateRoomTypeDatePolicies: async (
+    roomTypeId: string,
+    date: string,
+    refundable: boolean,
+    payLater: boolean
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/date-policies`, {
+      date,
+      refundable,
+      payLater,
+    });
+    return response.data;
+  },
+
+  // Update base price for a specific date
+  updateRoomTypeDateBasePrice: async (
+    roomTypeId: string,
+    date: string,
+    basePrice: number
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/date-base-price`, {
+      date,
+      basePrice,
+    });
     return response.data;
   },
 };

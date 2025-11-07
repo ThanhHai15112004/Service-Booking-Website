@@ -56,4 +56,9 @@ export class TokenRepository {
     );
     return rows.length ? (rows[0] as RefreshToken) : null;
   }
+
+  // Hàm thu hồi tất cả refresh tokens của một account (chỉ cho phép 1 session)
+  async revokeAllRefreshTokens(accountId: string): Promise<void> {
+    await pool.query(`DELETE FROM refresh_tokens WHERE account_id = ?`, [accountId]);
+  }
 }

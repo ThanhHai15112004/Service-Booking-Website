@@ -1,24 +1,25 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import HomePage from "../pages/Clients/HomePage";
 import HotelLandingPage from "../pages/Clients/HotelPage";
 import HotelsListPage from "../pages/Clients/HotelsListPage";
 import HotelDetailPage from "../pages/Clients/HotelDetailPage";
 import BookingPage from "../pages/Clients/BookingPage";
-import LoginPage from "../pages/Auth/LoginPage";
-import RegisterPage from "../pages/Auth/RegisterPage";
-import VerifyEmailPage from "../pages/Auth/VerifyEmailPage";
-import ForgotPasswordPage from "../pages/Auth/ForgotPasswordPage";
-import ProfilePage from "../pages/Profile/ProfilePage";
-import MyBookingsPage from "../pages/Profile/MyBookingsPage";
-import BookingDetailPage from "../pages/Profile/BookingDetailPage";
-import InvoiceDetailPage from "../pages/Profile/InvoiceDetailPage";
-import WishlistPage from "../pages/Profile/WishlistPage";
+import LoginPage from "../pages/Clients/Auth/LoginPage";
+import RegisterPage from "../pages/Clients/Auth/RegisterPage";
+import VerifyEmailPage from "../pages/Clients/Auth/VerifyEmailPage";
+import ForgotPasswordPage from "../pages/Clients/Auth/ForgotPasswordPage";
+import ProfilePage from "../pages/Clients/Profile/ProfilePage";
+import MyBookingsPage from "../pages/Clients/Profile/MyBookingsPage";
+import BookingDetailPage from "../pages/Clients/Profile/BookingDetailPage";
+import InvoiceDetailPage from "../pages/Clients/Profile/InvoiceDetailPage";
+import WishlistPage from "../pages/Clients/Profile/WishlistPage";
 import UnauthorizedPage from "../pages/Error/UnauthorizedPage";
 import AccountSuspendedPage from "../pages/Error/AccountSuspendedPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import ProtectedAdminRoute from "../components/ProtectedAdminRoute";
 import AdminLayout from "../components/Admins/AdminLayout";
 import AdminLoginPage from "../pages/Admin/AdminLoginPage";
+import AdminProfilePage from "../pages/Admin/AdminProfilePage";
 import UserList from "../pages/Admin/UserList";
 import { AccountDashboard, AccountList, CreateAccount } from "../components/Admins/AccountManager";
 import AccountDetail from "../components/Admins/AccountManager/AccountDetail";
@@ -28,6 +29,7 @@ import HotelDetail from "../components/Admins/HotelManager/HotelDetail";
 import EditHotel from "../components/Admins/HotelManager/EditHotel";
 import CategoriesAndLocations from "../components/Admins/HotelManager/CategoriesAndLocations";
 import HotelReports from "../components/Admins/HotelManager/HotelReports";
+import HotelBookingDetailPage from "../components/Admins/HotelManager/HotelBookingDetailPage";
 import RoomDashboard from "../components/Admins/RoomManager/Dashboard";
 import RoomTypesList from "../components/Admins/RoomManager/RoomTypesList";
 import RoomTypeDetail from "../components/Admins/RoomManager/RoomTypeDetail";
@@ -119,10 +121,15 @@ function AppRoutes() {
       
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin/profile" element={
+        <ProtectedAdminRoute requireAdmin={false}>
+          <AdminProfilePage />
+        </ProtectedAdminRoute>
+      } />
       {/* Redirect /admin to /admin/reports */}
       <Route path="/admin" element={
         <ProtectedAdminRoute requireAdmin={true}>
-          <Navigate to="/admin/reports" replace />
+          <Navigate to="/admin/reports?tab=main" replace />
         </ProtectedAdminRoute>
       } />
       <Route path="/admin/reports" element={
@@ -177,6 +184,11 @@ function AppRoutes() {
       <Route path="/admin/hotels/:hotelId/edit" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><EditHotel /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/hotels/:hotelId/bookings/:bookingId" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><HotelBookingDetailPage /></AdminLayout>
         </ProtectedAdminRoute>
       } />
       <Route path="/admin/hotels/categories" element={
@@ -385,21 +397,28 @@ function AppRoutes() {
       <Route path="/account-suspended" element={<AccountSuspendedPage />} />
       
       {/* 404 Route */}
-      <Route path="*" element={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <h1 className="text-6xl font-bold text-black mb-4">404</h1>
-            <p className="text-xl text-gray-600 mb-8">Không tìm thấy trang</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              Về trang chủ
-            </button>
-          </div>
-        </div>
-      } />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
+  );
+}
+
+// NotFoundPage component for 404 errors
+function NotFoundPage() {
+  const navigate = useNavigate();
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-6xl font-bold text-black mb-4">404</h1>
+        <p className="text-xl text-gray-600 mb-8">Không tìm thấy trang</p>
+        <button
+          onClick={() => navigate('/', { replace: true })}
+          className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
+        >
+          Về trang chủ
+        </button>
+      </div>
+    </div>
   );
 }
 

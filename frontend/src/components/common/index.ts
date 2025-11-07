@@ -25,3 +25,6 @@ export {
   PageError
 } from './ErrorState';
 
+// Rich Text Editor
+export { default as RichTextEditor } from './RichTextEditor';
+

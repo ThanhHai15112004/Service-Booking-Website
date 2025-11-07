@@ -1,16 +1,18 @@
 import { MapPin, Star, Heart, Wifi, Car, Coffee } from 'lucide-react';
 import { Hotel } from '../../types';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface HotelCardProps {
   hotel: Hotel;
 }
 
 export default function HotelCard({ hotel }: HotelCardProps) {
+  const navigate = useNavigate();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   const handleCardClick = () => {
-    window.location.href = `/hotel/${hotel.id}`;
+    navigate(`/hotel/${hotel.id}`);
   };
 
   const handleWishlistClick = (e: React.MouseEvent) => {

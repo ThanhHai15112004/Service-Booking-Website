@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   X,
+  Power,
 } from "lucide-react";
 import { adminService, Account } from "../../../services/adminService";
 import Toast from "../../Toast";
@@ -112,6 +113,17 @@ const AccountDetail = () => {
     }
   };
 
+  const handleActiveAccount = async () => {
+    if (!account) return;
+    try {
+      await adminService.updateAccount(account.account_id, { status: "ACTIVE" });
+      showToast("success", "Đã kích hoạt tài khoản thành công");
+      fetchAccountDetail();
+    } catch (error: any) {
+      showToast("error", error.response?.data?.message || "Lỗi khi kích hoạt tài khoản");
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       ACTIVE: "bg-green-100 text-green-800",
@@ -201,13 +213,22 @@ const AccountDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          {!account.is_verified && (
+          {account.status === "PENDING" && (
             <button
               onClick={handleForceVerify}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
             >
               <CheckCircle size={16} />
               Xác thực email
+            </button>
+          )}
+          {account.status !== "ACTIVE" && (
+            <button
+              onClick={handleActiveAccount}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+            >
+              <Power size={16} />
+              Kích hoạt tài khoản
             </button>
           )}
           <button

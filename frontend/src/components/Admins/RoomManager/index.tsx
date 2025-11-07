@@ -10,6 +10,7 @@ type ViewType = "dashboard" | "types" | "typeDetail" | "rooms" | "availability";
 const RoomManager = () => {
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
   const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string | null>(null);
+  const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
 
   const handleViewChange = (view: ViewType, roomTypeId?: string) => {
     setCurrentView(view);
@@ -18,14 +19,38 @@ const RoomManager = () => {
     }
   };
 
+  const handleHotelSelect = (hotelId: string) => {
+    setSelectedHotelId(hotelId);
+    // Tự động chuyển sang view types khi chọn hotel
+    setCurrentView("types");
+  };
+
   return (
     <div className="space-y-6">
-      {currentView === "dashboard" && <Dashboard />}
-      {currentView === "types" && <RoomTypesList onViewDetail={(id) => handleViewChange("typeDetail", id)} />}
-      {currentView === "typeDetail" && selectedRoomTypeId && (
-        <RoomTypeDetail roomTypeId={selectedRoomTypeId} onBack={() => handleViewChange("types")} />
+      {currentView === "dashboard" && (
+        <Dashboard 
+          onSelectHotel={handleHotelSelect}
+        />
       )}
-      {currentView === "rooms" && <RoomsList />}
+      {currentView === "types" && (
+        <RoomTypesList 
+          selectedHotelId={selectedHotelId}
+          onHotelChange={setSelectedHotelId}
+          onViewDetail={(id) => handleViewChange("typeDetail", id)} 
+        />
+      )}
+      {currentView === "typeDetail" && selectedRoomTypeId && (
+        <RoomTypeDetail 
+          roomTypeId={selectedRoomTypeId} 
+          onBack={() => handleViewChange("types")} 
+        />
+      )}
+      {currentView === "rooms" && (
+        <RoomsList 
+          selectedHotelId={selectedHotelId}
+          onHotelChange={setSelectedHotelId}
+        />
+      )}
       {currentView === "availability" && <Availability />}
     </div>
   );

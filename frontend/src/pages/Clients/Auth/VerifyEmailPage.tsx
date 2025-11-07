@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Loading from "../../components/Loading";
-import api from "../../api/axiosClient";
-import Header from "../../components/Header";
+import Loading from "../../../components/Loading";
+import api from "../../../api/axiosClient";
+import Header from "../../../components/Header";
 import { CheckCircle, AlertCircle } from "lucide-react";
-import Footer from "../../components/Footer";
-import { useAuth } from "../../contexts/AuthContext";
+import Footer from "../../../components/Footer";
+import { useAuth } from "../../../contexts/AuthContext";
 
 function VerifyEmailPage() {
   const location = useLocation();

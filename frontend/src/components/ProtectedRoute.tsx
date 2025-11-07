@@ -9,16 +9,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { isLoggedIn, user, accessToken } = useAuth();
+  const { isLoggedIn, user, accessToken, isLoading } = useAuth();
   const location = useLocation();
 
-  // Nếu đang loading (chưa xác định trạng thái auth)
-  if (accessToken === null && !isLoggedIn) {
+  // ✅ Nếu đang loading (chưa xác định trạng thái auth), hiển thị loading
+  if (isLoading) {
     return <Loading message="Đang kiểm tra xác thực..." />;
   }
 
-  // Nếu chưa đăng nhập, redirect đến login
-  if (!isLoggedIn || !user) {
+  // ✅ Nếu chưa đăng nhập, redirect đến login
+  if (!isLoggedIn || !user || !accessToken) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -27,8 +27,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Nếu tài khoản chưa được xác thực email
-  if (!user.is_verified) {
+  // ✅ Chỉ yêu cầu verify email khi status = PENDING (giống logic backend)
+  // Nếu status = ACTIVE thì không cần verify email (đã được verify hoặc login bằng Google/Facebook)
+  if (user.status === 'PENDING' && !user.is_verified) {
     return <Navigate to="/verify-email" replace />;
   }
 

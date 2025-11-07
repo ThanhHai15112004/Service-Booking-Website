@@ -124,6 +124,28 @@ export const Logout = async (req: Request, res: Response) => {
   }
 };
 
+// Hàm check refresh token validity
+export const checkRefreshToken = async (req: Request, res: Response) => {
+  try {
+    const { refresh_token } = req.body;
+    if (!refresh_token)
+      return res.status(400).json({ success: false, message: "Thiếu refresh token." });
+
+    const isValid = await tokenService.checkRefreshTokenValidity(refresh_token);
+    res.status(200).json({
+      success: true,
+      valid: isValid,
+      message: isValid ? "Refresh token hợp lệ." : "Refresh token không hợp lệ hoặc đã hết hạn.",
+    });
+  } catch (error: any) {
+    res.status(403).json({
+      success: false,
+      valid: false,
+      message: error.message || "Refresh token không hợp lệ hoặc đã hết hạn.",
+    });
+  }
+};
+
 // Hàm refresh access token
 export const refreshAccessToken = async (req: Request, res: Response) => {
   try {

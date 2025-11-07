@@ -44,13 +44,15 @@ export async function authenticateJWT(req: any, res: any, next: any) {
       email: decoded.email // Thêm email nếu cần
     };
     
-    // ✅ Debug: Log thông tin user đã authenticate
-    console.log("[authenticateJWT] User authenticated:", {
-      account_id: req.user.account_id,
-      email: req.user.email,
-      role: req.user.role,
-      roleFromToken: decoded.role
-    });
+    // ✅ Chỉ log trong development mode để tránh spam log
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH === 'true') {
+      console.log("[authenticateJWT] User authenticated:", {
+        account_id: req.user.account_id,
+        email: req.user.email,
+        role: req.user.role,
+        roleFromToken: decoded.role
+      });
+    }
     
     next();
   } catch (err: any) {
@@ -76,12 +78,14 @@ export function requireAdmin(req: any, res: any, next: any) {
     });
   }
   
-  // ✅ Debug: Log thông tin user để kiểm tra
-  console.log("[requireAdmin] Current user:", {
-    account_id: req.user.account_id,
-    email: req.user.email,
-    role: req.user.role
-  });
+  // ✅ Chỉ log trong development mode để tránh spam log
+  if (process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH === 'true') {
+    console.log("[requireAdmin] Current user:", {
+      account_id: req.user.account_id,
+      email: req.user.email,
+      role: req.user.role
+    });
+  }
   
   if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ 

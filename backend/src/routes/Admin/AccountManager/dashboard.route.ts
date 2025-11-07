@@ -2,12 +2,14 @@ import { Router } from "express";
 import { authenticateJWT, requireAdmin } from "../../../middleware/auth.middleware";
 import { asyncHandler } from "../../../middleware/admin.middleware";
 import { getDashboardStats } from "../../../controllers/Admin/AccountManager/dashboard.controller";
+import { getMainDashboardStats } from "../../../controllers/Admin/mainDashboard.controller";
 
 const router = Router();
 
 router.use(authenticateJWT);
 
 router.get("/stats", requireAdmin, asyncHandler(getDashboardStats));
+router.get("/main/stats", requireAdmin, asyncHandler(getMainDashboardStats));
 
 export default router;
 

@@ -28,8 +28,27 @@ export class AuthService {
     const countToday = await this.accountRepo.countAccountsCreatedToday();
     const today = new Date();
     const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
-    const nextNum = countToday + 1;
-    return `AC${datePart}${String(nextNum).padStart(4, "0")}`;
+    
+    // ✅ Loop để tìm ID chưa tồn tại (kể cả trong DELETED accounts)
+    let nextNum = countToday + 1;
+    let accountId = `AC${datePart}${String(nextNum).padStart(4, "0")}`;
+    let maxAttempts = 1000; // Giới hạn số lần thử để tránh infinite loop
+    
+    while (maxAttempts > 0) {
+      const existing = await this.accountRepo.findById(accountId);
+      if (!existing) {
+        // ID chưa tồn tại, có thể dùng
+        return accountId;
+      }
+      // ID đã tồn tại, thử số tiếp theo
+      nextNum++;
+      accountId = `AC${datePart}${String(nextNum).padStart(4, "0")}`;
+      maxAttempts--;
+    }
+    
+    // Nếu không tìm được ID sau nhiều lần thử, dùng timestamp-based ID
+    const timestamp = Date.now().toString().slice(-6);
+    return `AC${datePart}${timestamp}`;
   }
 
   // Hàm sinh token xác minh
@@ -75,7 +94,9 @@ export class AuthService {
       verify_expires_at: new Date(Date.now() + 3 * 60 * 1000), 
     });
 
-    await this.emailService.sendVerification(email, verify_token);
+    // Lấy thông tin account để gửi tên trong email
+    const account = await this.accountRepo.findById(account_id);
+    await this.emailService.sendVerification(email, verify_token, account?.full_name);
 
     return {
       success: true,
@@ -246,7 +267,8 @@ export class AuthService {
     if (!account) throw new Error("Email không tồn tại.");
     if (account.status === "BANNED") throw new Error("Tài khoản đã bị khóa.");
     if (account.status === "DELETED") throw new Error("Tài khoản đã bị xóa.");
-    if (!account.is_verified || account.status === "PENDING")
+    // ✅ Chỉ yêu cầu verify email khi status = PENDING, không yêu cầu khi status = ACTIVE
+    if (account.status === "PENDING")
       throw new Error("Vui lòng xác thực email trước khi đăng nhập.");
 
     const isMatch = await bcrypt.compare(password, account.password_hash);
@@ -260,6 +282,9 @@ export class AuthService {
   // Hàm đăng nhập (login)
   async login(email: string, password: string) {
     const user = await this.verifyLoginCredentials(email, password);
+    
+    // Không revoke tokens cũ - cho phép nhiều session cùng lúc (user và admin có thể đăng nhập riêng)
+    
     const payload = {
       account_id: user.account_id,
       email: user.email,

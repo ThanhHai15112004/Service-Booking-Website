@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, Trash2, Lock, Unlock, Image as ImageIcon, Settings, Star, MapPin, Phone, Mail, Globe, Clock } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Lock, Unlock, Image as ImageIcon, Settings, Star, MapPin, Phone, Mail, Calendar } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
 import { adminService } from "../../../services/adminService";
@@ -11,8 +11,9 @@ import HotelHighlightsTab from "./HotelDetailTabs/HotelHighlightsTab";
 import HotelPoliciesTab from "./HotelDetailTabs/HotelPoliciesTab";
 import HotelReviewsTab from "./HotelDetailTabs/HotelReviewsTab";
 import HotelStatsTab from "./HotelDetailTabs/HotelStatsTab";
+import HotelBookingsTab from "./HotelDetailTabs/HotelBookingsTab";
 
-type TabType = "info" | "images" | "facilities" | "highlights" | "policies" | "reviews" | "stats";
+type TabType = "info" | "images" | "facilities" | "highlights" | "policies" | "reviews" | "stats" | "bookings";
 
 interface Hotel {
   hotel_id: string;
@@ -50,13 +51,21 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>("info");
+  const [activeTab, setActiveTab] = useState<TabType>("bookings");
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingBookingCount, setPendingBookingCount] = useState(0);
 
   useEffect(() => {
     if (hotelId) {
       fetchHotelDetail();
+      fetchPendingBookingCount();
+      // Auto-refresh mỗi 60 giây để cập nhật số lượng booking chờ xác nhận
+      const interval = setInterval(() => {
+        fetchPendingBookingCount();
+      }, 60000); // 60 giây - giảm tần suất để tránh spam log
+
+      return () => clearInterval(interval);
     }
   }, [hotelId]);
 
@@ -75,6 +84,23 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
       navigate("/admin/hotels");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingBookingCount = async () => {
+    if (!hotelId) return;
+    try {
+      const response = await adminService.getHotelBookings(hotelId, {
+        status: "PENDING_CONFIRMATION",
+        page: 1,
+        limit: 1,
+      });
+      if (response.success && response.data) {
+        setPendingBookingCount(response.data.total || 0);
+      }
+    } catch (error) {
+      // Silently fail, không hiển thị lỗi
+      console.error("Error fetching pending booking count:", error);
     }
   };
 
@@ -140,6 +166,7 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
   }
 
   const tabs = [
+    { id: "bookings" as TabType, label: "Bookings", icon: Calendar },
     { id: "info" as TabType, label: "Thông tin cơ bản", icon: MapPin },
     { id: "images" as TabType, label: "Ảnh khách sạn", icon: ImageIcon },
     { id: "facilities" as TabType, label: "Tiện nghi", icon: Settings },
@@ -246,11 +273,18 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
           <nav className="flex -mb-px overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const showBadge = tab.id === "bookings" && pendingBookingCount > 0;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id === "bookings") {
+                      // Refresh booking count when switching to bookings tab
+                      fetchPendingBookingCount();
+                    }
+                  }}
+                  className={`relative flex items-center gap-2 px-6 py-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -258,6 +292,11 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
                 >
                   <Icon size={18} />
                   {tab.label}
+                  {showBadge && (
+                    <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {pendingBookingCount > 99 ? "99+" : pendingBookingCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -271,6 +310,14 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
           {activeTab === "highlights" && <HotelHighlightsTab hotelId={hotel.hotel_id} />}
           {activeTab === "policies" && <HotelPoliciesTab hotelId={hotel.hotel_id} />}
           {activeTab === "reviews" && <HotelReviewsTab hotelId={hotel.hotel_id} />}
+          {activeTab === "bookings" && (
+            <HotelBookingsTab 
+              hotelId={hotel.hotel_id} 
+              onBookingUpdate={() => {
+                fetchPendingBookingCount();
+              }}
+            />
+          )}
           {activeTab === "stats" && <HotelStatsTab hotelId={hotel.hotel_id} />}
         </div>
       </div>
@@ -305,4 +352,3 @@ const HotelDetail = ({ hotelId: propHotelId, onBack }: HotelDetailProps) => {
 };
 
 export default HotelDetail;
-

@@ -1,4 +1,5 @@
 import { XCircle, Calendar, Users, Home, MapPin, Phone, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Hotel {
   name: string;
@@ -31,6 +32,8 @@ export default function BookingFailure({
   stayType,
   onGoHome
 }: BookingFailureProps) {
+  const navigate = useNavigate();
+  
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
@@ -209,7 +212,7 @@ export default function BookingFailure({
             </button>
           ) : (
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={() => navigate('/', { replace: true })}
               className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               Về trang chủ

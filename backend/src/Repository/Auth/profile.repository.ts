@@ -157,23 +157,28 @@ export class ProfileRepository {
   // Hàm cập nhật thông tin user
   async updateProfile(
     accountId: string,
-    data: { full_name: string; phone_number: string; avatar_url?: string }
+    data: { full_name: string; phone_number?: string | null; avatar_url?: string | null }
   ): Promise<void> {
     const { full_name, phone_number, avatar_url } = data;
     
-    // Build dynamic update query
+    // Build dynamic update query - chỉ update các field có giá trị
     const updateFields: string[] = [];
     const updateValues: any[] = [];
     
+    // ✅ full_name luôn bắt buộc
     updateFields.push('full_name = ?');
     updateValues.push(full_name);
     
-    updateFields.push('phone_number = ?');
-    updateValues.push(phone_number);
+    // ✅ phone_number chỉ update nếu có giá trị (không bắt buộc)
+    if (phone_number !== undefined) {
+      updateFields.push('phone_number = ?');
+      updateValues.push(phone_number || null); // Cho phép null nếu empty string
+    }
     
+    // ✅ avatar_url chỉ update nếu có giá trị
     if (avatar_url !== undefined) {
       updateFields.push('avatar_url = ?');
-      updateValues.push(avatar_url);
+      updateValues.push(avatar_url || null); // Cho phép null nếu empty string
     }
     
     updateFields.push('updated_at = NOW()');

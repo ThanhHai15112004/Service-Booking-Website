@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, X, Copy } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
 
 interface Facility {
   facility_id: string;
   name: string;
-  icon?: string;
-  category: "ROOM";
+  icon?: string | null;
+  category: string;
 }
 
 interface RoomAmenitiesTabProps {
@@ -20,7 +21,6 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
   const [roomAmenities, setRoomAmenities] = useState<Facility[]>([]);
   const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showCopyModal, setShowCopyModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -29,37 +29,44 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // Mock data
-      setTimeout(() => {
-        setRoomAmenities([
-          { facility_id: "F016", name: "Điều hòa", icon: "❄️", category: "ROOM" },
-          { facility_id: "F017", name: "TV", icon: "📺", category: "ROOM" },
-          { facility_id: "F018", name: "Minibar", icon: "🍷", category: "ROOM" },
-        ]);
-        setAllFacilities([
-          { facility_id: "F016", name: "Điều hòa", icon: "❄️", category: "ROOM" },
-          { facility_id: "F017", name: "TV", icon: "📺", category: "ROOM" },
-          { facility_id: "F018", name: "Minibar", icon: "🍷", category: "ROOM" },
-          { facility_id: "F019", name: "Ban công", icon: "🌅", category: "ROOM" },
-          { facility_id: "F020", name: "Wi-Fi", icon: "📶", category: "ROOM" },
-        ]);
-        setLoading(false);
-      }, 500);
+      // Fetch room amenities and all facilities in parallel
+      const [amenitiesResponse, facilitiesResponse] = await Promise.all([
+        adminService.getRoomTypeAmenities(roomTypeId),
+        adminService.getAllFacilities("ROOM"),
+      ]);
+
+      if (amenitiesResponse.success && amenitiesResponse.data) {
+        setRoomAmenities(amenitiesResponse.data);
+      } else {
+        showToast("error", amenitiesResponse.message || "Không thể tải danh sách tiện nghi");
+        setRoomAmenities([]);
+      }
+
+      if (facilitiesResponse.success && facilitiesResponse.data) {
+        setAllFacilities(facilitiesResponse.data);
+      } else {
+        showToast("error", facilitiesResponse.message || "Không thể tải danh sách tiện nghi có sẵn");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu");
+      setRoomAmenities([]);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleAddAmenity = async (facilityId: string) => {
     try {
-      // TODO: API call
-      showToast("success", "Thêm tiện nghi thành công");
-      fetchData();
-      setShowAddModal(false);
+      const response = await adminService.addRoomTypeAmenity(roomTypeId, facilityId);
+      if (response.success) {
+        showToast("success", response.message || "Thêm tiện nghi thành công");
+        fetchData();
+        setShowAddModal(false);
+      } else {
+        showToast("error", response.message || "Không thể thêm tiện nghi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể thêm tiện nghi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể thêm tiện nghi");
     }
   };
 
@@ -67,11 +74,15 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
     if (!confirm("Bạn có chắc chắn muốn xóa tiện nghi này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa tiện nghi thành công");
-      fetchData();
+      const response = await adminService.removeRoomTypeAmenity(roomTypeId, facilityId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa tiện nghi thành công");
+        fetchData();
+      } else {
+        showToast("error", response.message || "Không thể xóa tiện nghi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa tiện nghi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa tiện nghi");
     }
   };
 
@@ -95,13 +106,14 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Quản lý tiện nghi phòng</h3>
         <div className="flex items-center gap-3">
-          <button
+          {/* TODO: Implement copy amenities from other room type */}
+          {/* <button
             onClick={() => setShowCopyModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <Copy size={18} />
             Copy từ room type khác
-          </button>
+          </button> */}
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -125,9 +137,19 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
               className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
             >
               <div className="flex items-center gap-3">
-                {amenity.icon && (
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-xl">
-                    {amenity.icon}
+                {amenity.icon ? (
+                  amenity.icon.startsWith("http://") || amenity.icon.startsWith("https://") ? (
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
+                      <img src={amenity.icon} alt={amenity.name} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-xl">
+                      {amenity.icon}
+                    </div>
+                  )
+                ) : (
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-bold text-lg">{amenity.name.charAt(0)}</span>
                   </div>
                 )}
                 <span className="font-medium text-gray-900">{amenity.name}</span>
@@ -166,7 +188,19 @@ const RoomAmenitiesTab = ({ roomTypeId }: RoomAmenitiesTabProps) => {
                     }}
                     className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors text-left"
                   >
-                    {facility.icon && <span className="text-xl">{facility.icon}</span>}
+                    {facility.icon ? (
+                      facility.icon.startsWith("http://") || facility.icon.startsWith("https://") ? (
+                        <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center overflow-hidden">
+                          <img src={facility.icon} alt={facility.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <span className="text-xl">{facility.icon}</span>
+                      )
+                    ) : (
+                      <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                        <span className="text-blue-600 font-bold">{facility.name.charAt(0)}</span>
+                      </div>
+                    )}
                     <span className="text-sm font-medium text-gray-900">{facility.name}</span>
                   </button>
                 ))}

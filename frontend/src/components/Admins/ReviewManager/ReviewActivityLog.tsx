@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Eye, History, User, Calendar, ChevronLeft, ChevronRight, Filter, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
@@ -15,6 +16,7 @@ interface ReviewActivityLog {
 }
 
 const ReviewActivityLog = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [logs, setLogs] = useState<ReviewActivityLog[]>([]);
@@ -313,7 +315,7 @@ const ReviewActivityLog = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => window.location.href = `/admin/reviews/${log.review_id}`}
+                        onClick={() => navigate(`/admin/reviews/${log.review_id}`)}
                         className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
                       >
                         {log.review_id}
@@ -330,7 +332,7 @@ const ReviewActivityLog = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => window.location.href = `/admin/reviews/${log.review_id}`}
+                        onClick={() => navigate(`/admin/reviews/${log.review_id}`)}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                         title="Xem review"
                       >

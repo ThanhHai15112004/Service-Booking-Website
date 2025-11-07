@@ -104,5 +104,35 @@ export class RoomRepository {
       return [];
     }
   }
+
+  // Hàm lấy phòng có thể đặt theo roomTypeId và date range
+  async getAvailableRoomsByRoomTypeId(
+    roomTypeId: string,
+    checkIn: string,
+    checkOut: string,
+    roomsNeeded: number = 1
+  ): Promise<any[]> {
+    try {
+      // Import AvailabilityRepository để sử dụng
+      const { AvailabilityRepository } = await import('./availability.repository');
+      const availabilityRepo = new AvailabilityRepository();
+      
+      const availableRooms = await availabilityRepo.getAvailableRoomsInType(
+        roomTypeId,
+        checkIn,
+        checkOut,
+        roomsNeeded
+      );
+
+      return availableRooms.map((room: any) => ({
+        roomId: room.room_id || room.roomId,
+        roomNumber: room.room_number || room.roomNumber,
+        minAvailable: room.minAvailable || 0
+      }));
+    } catch (error: any) {
+      console.error("[RoomRepository] getAvailableRoomsByRoomTypeId error:", error.message);
+      return [];
+    }
+  }
 }
 

@@ -1,82 +1,114 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, MapPin, Building2, X } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, X, AlertCircle, Building2 } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
+import SearchableHotelSelector from "./SearchableHotelSelector";
+import RoomModal from "./RoomModal";
 
 interface Room {
   room_id: string;
-  room_number: string;
+  room_number?: string | null;
   room_type_id: string;
   room_type_name: string;
   hotel_id: string;
   hotel_name: string;
-  floor?: number;
-  view?: string;
-  status: "AVAILABLE" | "MAINTENANCE" | "OUT_OF_SERVICE" | "OCCUPIED";
+  capacity: number;
+  image_url?: string | null;
+  price_base?: number | null;
+  status: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
   created_at: string;
+  updated_at: string;
 }
 
-const RoomsList = () => {
+interface RoomsListProps {
+  selectedHotelId?: string | null;
+  onHotelChange?: (hotelId: string) => void;
+}
+
+const RoomsList = ({ selectedHotelId, onHotelChange }: RoomsListProps = {}) => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomTypes, setRoomTypes] = useState<Array<{ room_type_id: string; name: string }>>([]);
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
-    hotel: "",
     roomType: "",
-    view: "",
     status: "",
   });
+  const [currentHotelId, setCurrentHotelId] = useState<string>(selectedHotelId || "");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("");
 
+  // Update current hotel when prop changes
   useEffect(() => {
-    fetchRooms();
-  }, []);
+    if (selectedHotelId) {
+      setCurrentHotelId(selectedHotelId);
+    }
+  }, [selectedHotelId]);
+
+  // Fetch room types when hotel changes
+  useEffect(() => {
+    if (currentHotelId) {
+      fetchRoomTypes();
+      fetchRooms();
+    } else {
+      setRooms([]);
+      setFilteredRooms([]);
+      setRoomTypes([]);
+    }
+  }, [currentHotelId, currentPage, itemsPerPage, filters.roomType, filters.status]);
 
   useEffect(() => {
     applyFilters();
   }, [rooms, searchTerm, filters]);
 
+  const fetchRoomTypes = async () => {
+    if (!currentHotelId) return;
+
+    try {
+      const response = await adminService.getRoomTypesForHotel(currentHotelId);
+      if (response.success && response.data) {
+        setRoomTypes(response.data);
+      }
+    } catch (error: any) {
+      console.error("Error fetching room types:", error);
+    }
+  };
+
   const fetchRooms = async () => {
+    if (!currentHotelId) return;
+
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setRooms([
-          {
-            room_id: "R001",
-            room_number: "101",
-            room_type_id: "RT001",
-            room_type_name: "Deluxe Sea View",
-            hotel_id: "H002",
-            hotel_name: "My Khe Beach Resort",
-            floor: 1,
-            view: "Sea View",
-            status: "AVAILABLE",
-            created_at: "2025-10-20",
-          },
-          {
-            room_id: "R002",
-            room_number: "201",
-            room_type_id: "RT002",
-            room_type_name: "Executive Suite",
-            hotel_id: "H004",
-            hotel_name: "Sofitel Metropole",
-            floor: 2,
-            view: "City View",
-            status: "OCCUPIED",
-            created_at: "2025-10-27",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getRoomsByHotel(currentHotelId, {
+        roomTypeId: filters.roomType || undefined,
+        status: filters.status || undefined,
+        search: searchTerm || undefined,
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+
+      if (response.success && response.data) {
+        setRooms(response.data.rooms);
+        setTotal(response.data.total);
+        setTotalPages(response.data.totalPages);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách phòng");
+        setRooms([]);
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải danh sách phòng");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải danh sách phòng");
+      setRooms([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -84,61 +116,72 @@ const RoomsList = () => {
   const applyFilters = () => {
     let result = [...rooms];
 
+    // Search filter (client-side for instant feedback)
     if (searchTerm) {
       result = result.filter(
         (room) =>
-          room.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (room.room_number && room.room_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
           room.room_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          room.hotel_name.toLowerCase().includes(searchTerm.toLowerCase())
+          room.room_type_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    if (filters.hotel) {
-      result = result.filter((room) => room.hotel_id === filters.hotel);
-    }
-
+    // Room type filter (already applied server-side, but keep for consistency)
     if (filters.roomType) {
       result = result.filter((room) => room.room_type_id === filters.roomType);
     }
 
-    if (filters.view) {
-      result = result.filter((room) => room.view === filters.view);
-    }
-
+    // Status filter (already applied server-side, but keep for consistency)
     if (filters.status) {
       result = result.filter((room) => room.status === filters.status);
     }
 
     setFilteredRooms(result);
+  };
+
+  const handleHotelChange = (hotelId: string) => {
+    setCurrentHotelId(hotelId);
     setCurrentPage(1);
+    setFilters({ roomType: "", status: "" });
+    if (onHotelChange) {
+      onHotelChange(hotelId);
+    }
   };
 
   const handleDelete = async (roomId: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa phòng này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa phòng thành công");
-      fetchRooms();
+      const response = await adminService.deleteRoom(roomId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa phòng thành công");
+        fetchRooms();
+      } else {
+        showToast("error", response.message || "Không thể xóa phòng");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa phòng");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa phòng");
     }
   };
 
   const handleToggleStatus = async (roomId: string, currentStatus: string) => {
     try {
       const statusMap: Record<string, string> = {
-        AVAILABLE: "MAINTENANCE",
-        MAINTENANCE: "AVAILABLE",
-        OUT_OF_SERVICE: "AVAILABLE",
-        OCCUPIED: "AVAILABLE",
+        ACTIVE: "MAINTENANCE",
+        MAINTENANCE: "ACTIVE",
+        INACTIVE: "ACTIVE",
       };
-      const newStatus = statusMap[currentStatus] || "AVAILABLE";
-      // TODO: API call
-      showToast("success", `Đã đổi trạng thái sang ${newStatus}`);
-      fetchRooms();
+      const newStatus = statusMap[currentStatus] || "ACTIVE";
+      
+      const response = await adminService.updateRoomStatus(roomId, newStatus);
+      if (response.success) {
+        showToast("success", response.message || `Đã đổi trạng thái sang ${newStatus}`);
+        fetchRooms();
+      } else {
+        showToast("error", response.message || "Không thể thay đổi trạng thái");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể thay đổi trạng thái");
+      showToast("error", error.response?.data?.message || error.message || "Không thể thay đổi trạng thái");
     }
   };
 
@@ -147,21 +190,18 @@ const RoomsList = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentRooms = filteredRooms.slice(startIndex, endIndex);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "AVAILABLE":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Còn trống</span>;
+      case "ACTIVE":
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Đang hoạt động</span>;
       case "MAINTENANCE":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Bảo trì</span>;
-      case "OUT_OF_SERVICE":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Ngừng phục vụ</span>;
-      case "OCCUPIED":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Đang sử dụng</span>;
+      case "INACTIVE":
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Không hoạt động</span>;
       default:
         return null;
     }
@@ -176,69 +216,111 @@ const RoomsList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Danh sách phòng vật lý</h1>
-          <p className="text-gray-600 mt-1">Quản lý các phòng thực tế trong hệ thống</p>
+          <p className="text-gray-600 mt-1">Quản lý các phòng thực tế theo khách sạn</p>
         </div>
         <button
-          onClick={() => {/* TODO: Navigate to create room */}}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          onClick={() => {
+            if (!currentHotelId) {
+              showToast("error", "Vui lòng chọn khách sạn trước");
+              return;
+            }
+            if (roomTypes.length === 0) {
+              showToast("error", "Khách sạn này chưa có loại phòng nào. Vui lòng tạo loại phòng trước");
+              return;
+            }
+            // Show room type selection or create modal
+            setShowCreateModal(true);
+          }}
+          disabled={!currentHotelId || roomTypes.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={20} />
           Thêm phòng
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo số phòng, ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      {/* Hotel Selection - Required */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-base font-semibold text-gray-900">Chọn khách sạn *</label>
+            {currentHotelId && (
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                Đã chọn
+              </span>
+            )}
           </div>
-
-          <select
-            value={filters.hotel}
-            onChange={(e) => setFilters({ ...filters, hotel: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Tất cả khách sạn</option>
-            <option value="H001">Hanoi Old Quarter Hotel</option>
-            <option value="H002">My Khe Beach Resort</option>
-            <option value="H003">Saigon Riverside Hotel</option>
-            <option value="H004">Sofitel Metropole</option>
-          </select>
-
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="AVAILABLE">Còn trống</option>
-            <option value="MAINTENANCE">Bảo trì</option>
-            <option value="OUT_OF_SERVICE">Ngừng phục vụ</option>
-            <option value="OCCUPIED">Đang sử dụng</option>
-          </select>
-
-          <select
-            value={filters.view}
-            onChange={(e) => setFilters({ ...filters, view: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Tất cả view</option>
-            <option value="Sea View">Sea View</option>
-            <option value="City View">City View</option>
-            <option value="Garden View">Garden View</option>
-          </select>
+          <SearchableHotelSelector
+            value={currentHotelId}
+            onChange={handleHotelChange}
+            placeholder="Tìm kiếm khách sạn theo tên hoặc ID..."
+            className="w-full"
+          />
+          {!currentHotelId && (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              <AlertCircle size={18} />
+              <span className="text-sm">Vui lòng chọn khách sạn để xem danh sách phòng</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Filters */}
+      {currentHotelId && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm theo số phòng, ID..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      fetchRooms();
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <select
+              value={filters.roomType}
+              onChange={(e) => {
+                setFilters({ ...filters, roomType: e.target.value });
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Tất cả loại phòng</option>
+              {roomTypes.map((roomType) => (
+                <option key={roomType.room_type_id} value={roomType.room_type_id}>
+                  {roomType.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.status}
+              onChange={(e) => {
+                setFilters({ ...filters, status: e.target.value });
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="MAINTENANCE">Bảo trì</option>
+              <option value="INACTIVE">Không hoạt động</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -246,20 +328,30 @@ const RoomsList = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ảnh</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã phòng</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại phòng</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách sạn</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số phòng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tầng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hướng nhìn</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sức chứa</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá cơ bản</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentRooms.length === 0 ? (
+              {!currentHotelId ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <Building2 className="text-gray-400" size={48} />
+                      <p className="text-lg font-medium">Vui lòng chọn khách sạn để xem danh sách phòng</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : currentRooms.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     Không tìm thấy phòng nào
                   </td>
                 </tr>
@@ -267,13 +359,31 @@ const RoomsList = () => {
                 currentRooms.map((room) => (
                   <tr key={room.room_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
+                      {room.image_url ? (
+                        <img
+                          src={room.image_url.startsWith("http") ? room.image_url : `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}${room.image_url}`}
+                          alt={room.room_number || room.room_id}
+                          className="w-16 h-16 rounded-lg object-cover border-2 border-gray-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://via.placeholder.com/64x64?text=No+Image";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-200">
+                          <span className="text-gray-400 text-xs">No image</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{room.room_id}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{room.room_type_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{room.hotel_name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{room.room_number}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{room.floor || "-"}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{room.view || "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{room.room_number || "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{room.capacity} người</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {room.price_base ? new Intl.NumberFormat("vi-VN").format(room.price_base) + " VNĐ" : "-"}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(room.status)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
@@ -288,7 +398,11 @@ const RoomsList = () => {
                           <Eye size={18} />
                         </button>
                         <button
-                          onClick={() => {/* TODO: Edit */}}
+                          onClick={() => {
+                            setSelectedRoom(room);
+                            setSelectedRoomTypeId(room.room_type_id);
+                            setShowEditModal(true);
+                          }}
                           className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                           title="Chỉnh sửa"
                         >
@@ -318,11 +432,11 @@ const RoomsList = () => {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {currentHotelId && totalPages > 1 && (
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredRooms.length)} trong tổng số {filteredRooms.length} phòng
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredRooms.length)} trong tổng số {total} phòng
               </span>
               <select
                 value={itemsPerPage}
@@ -334,6 +448,7 @@ const RoomsList = () => {
               >
                 <option value={10}>10 / trang</option>
                 <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
               </select>
             </div>
             <div className="flex items-center gap-2">
@@ -377,6 +492,20 @@ const RoomsList = () => {
             </div>
 
             <div className="space-y-4">
+              {/* Image */}
+              {selectedRoom.image_url && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh phòng</label>
+                  <img
+                    src={selectedRoom.image_url.startsWith("http") ? selectedRoom.image_url : `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}${selectedRoom.image_url}`}
+                    alt={selectedRoom.room_number || selectedRoom.room_id}
+                    className="w-full h-64 rounded-lg object-cover border-2 border-gray-200"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x256?text=Image+Error";
+                    }}
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mã phòng</label>
@@ -395,12 +524,14 @@ const RoomsList = () => {
                   <p className="text-gray-900">{selectedRoom.hotel_name}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tầng</label>
-                  <p className="text-gray-900">{selectedRoom.floor || "-"}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sức chứa</label>
+                  <p className="text-gray-900">{selectedRoom.capacity} người</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hướng nhìn</label>
-                  <p className="text-gray-900">{selectedRoom.view || "-"}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Giá cơ bản</label>
+                  <p className="text-gray-900">
+                    {selectedRoom.price_base ? new Intl.NumberFormat("vi-VN").format(selectedRoom.price_base) + " VNĐ" : "-"}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
@@ -426,8 +557,8 @@ const RoomsList = () => {
               <button
                 onClick={() => {
                   setShowDetailModal(false);
-                  setSelectedRoom(null);
-                  // TODO: Navigate to edit page
+                  setSelectedRoomTypeId(selectedRoom.room_type_id);
+                  setShowEditModal(true);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -436,6 +567,75 @@ const RoomsList = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Room Modal - Room Type Selection */}
+      {showCreateModal && !selectedRoomTypeId && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateModal(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Chọn loại phòng</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Vui lòng chọn loại phòng để thêm phòng vật lý:</p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {roomTypes.map((roomType) => (
+                <button
+                  key={roomType.room_type_id}
+                  onClick={() => {
+                    setSelectedRoomTypeId(roomType.room_type_id);
+                  }}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">{roomType.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">ID: {roomType.room_type_id}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 justify-end mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Room Modal */}
+      {selectedRoomTypeId && (showCreateModal || showEditModal) && (
+        <RoomModal
+          isOpen={showCreateModal || showEditModal}
+          onClose={() => {
+            setShowCreateModal(false);
+            setShowEditModal(false);
+            setSelectedRoom(null);
+            setSelectedRoomTypeId("");
+          }}
+          onSuccess={() => {
+            fetchRooms();
+            setShowCreateModal(false);
+            setShowEditModal(false);
+            setSelectedRoom(null);
+            setSelectedRoomTypeId("");
+          }}
+          roomTypeId={selectedRoomTypeId}
+          room={showEditModal ? selectedRoom : null}
+        />
       )}
     </div>
   );

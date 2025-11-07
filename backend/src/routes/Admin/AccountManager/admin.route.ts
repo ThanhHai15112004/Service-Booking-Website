@@ -11,6 +11,7 @@ import activityRoutes from "./activity.route";
 import hotelRoutes from "../HotelManager/hotel.route";
 import categoryRoutes from "../CategoryManager/category.route";
 import locationRoutes from "../CategoryManager/location.route";
+import roomRoutes from "../RoomManager/adminRoom.route";
 import { getBookingDetail } from "../../../controllers/Admin/AccountManager/booking.controller";
 import { toggleReviewVisibility, deleteReview } from "../../../controllers/Admin/AccountManager/review.controller";
 
@@ -52,5 +53,8 @@ router.use("/categories", categoryRoutes);
 
 // Location management
 router.use("/locations", locationRoutes);
+
+// Room management
+router.use("/rooms", roomRoutes);
 
 export default router;

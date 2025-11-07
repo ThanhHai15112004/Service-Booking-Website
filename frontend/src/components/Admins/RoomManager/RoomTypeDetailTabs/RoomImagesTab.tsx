@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { Upload, Trash2, Star, Image as ImageIcon, X } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
+import { adminService } from "../../../../services/adminService";
+import adminApi from "../../../../api/adminAxiosClient";
 
 interface RoomImage {
   image_id: string;
   image_url: string;
   is_primary: boolean;
-  caption?: string;
+  image_alt?: string | null;
   sort_order: number;
+  created_at: string;
 }
 
 interface RoomImagesTabProps {
@@ -30,29 +33,17 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
   const fetchImages = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setImages([
-          {
-            image_id: "RIMG001",
-            image_url: "https://via.placeholder.com/800x600",
-            is_primary: true,
-            caption: "Phòng ngủ chính",
-            sort_order: 1,
-          },
-          {
-            image_id: "RIMG002",
-            image_url: "https://via.placeholder.com/800x600",
-            is_primary: false,
-            caption: "Phòng tắm",
-            sort_order: 2,
-          },
-        ]);
-        setLoading(false);
-      }, 500);
+      const response = await adminService.getRoomImages(roomTypeId);
+      if (response.success && response.data) {
+        setImages(response.data);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách ảnh");
+        setImages([]);
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải danh sách ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải danh sách ảnh");
+      setImages([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -89,12 +80,34 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
 
     setUploading(true);
     try {
-      // TODO: API call
+      // Upload each file
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const formData = new FormData();
+        formData.append("image", file);
+
+        // Upload to server
+        const uploadResponse = await adminApi.post("/api/upload/single", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        if (uploadResponse.data.success && uploadResponse.data.data) {
+          const imageUrl = uploadResponse.data.data.url || uploadResponse.data.data.imageUrl;
+          // Add image to room type (first image is primary if no images exist)
+          const isPrimary = i === 0 && images.length === 0;
+          await adminService.addRoomImage(roomTypeId, imageUrl, file.name, isPrimary);
+        } else {
+          showToast("error", uploadResponse.data.message || "Lỗi khi upload ảnh");
+          setUploading(false);
+          return;
+        }
+      }
+
       showToast("success", "Upload ảnh thành công");
       setSelectedFiles([]);
       fetchImages();
     } catch (error: any) {
-      showToast("error", error.message || "Không thể upload ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể upload ảnh");
     } finally {
       setUploading(false);
     }
@@ -102,11 +115,15 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
 
   const handleSetPrimary = async (imageId: string) => {
     try {
-      // TODO: API call
-      showToast("success", "Đặt ảnh chính thành công");
-      fetchImages();
+      const response = await adminService.setPrimaryRoomImage(roomTypeId, imageId);
+      if (response.success) {
+        showToast("success", response.message || "Đặt ảnh chính thành công");
+        fetchImages();
+      } else {
+        showToast("error", response.message || "Không thể đặt ảnh chính");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể đặt ảnh chính");
+      showToast("error", error.response?.data?.message || error.message || "Không thể đặt ảnh chính");
     }
   };
 
@@ -114,11 +131,15 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
     if (!confirm("Bạn có chắc chắn muốn xóa ảnh này?")) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Xóa ảnh thành công");
-      fetchImages();
+      const response = await adminService.deleteRoomImage(imageId);
+      if (response.success) {
+        showToast("success", response.message || "Xóa ảnh thành công");
+        fetchImages();
+      } else {
+        showToast("error", response.message || "Không thể xóa ảnh");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa ảnh");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa ảnh");
     }
   };
 
@@ -212,22 +233,29 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
             <p>Chưa có ảnh nào</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {images.map((image) => (
-              <div key={image.image_id} className="relative group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="aspect-video relative">
-                  <img src={image.image_url} alt={image.caption || "Room image"} className="w-full h-full object-cover" />
+              <div key={image.image_id} className="relative group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all">
+                <div className="aspect-video relative bg-gray-100">
+                  <img 
+                    src={image.image_url.startsWith('http') ? image.image_url : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${image.image_url}`}
+                    alt={image.image_alt || "Room image"} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x600?text=Image+Error';
+                    }}
+                  />
                   {image.is_primary && (
-                    <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                    <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
                       <Star size={12} className="fill-white" />
                       Ảnh chính
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2">
                     {!image.is_primary && (
                       <button
                         onClick={() => handleSetPrimary(image.image_id)}
-                        className="opacity-0 group-hover:opacity-100 text-white px-3 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2"
+                        className="opacity-0 group-hover:opacity-100 text-white px-3 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2 font-medium"
                       >
                         <Star size={18} />
                         Đặt làm ảnh chính
@@ -235,18 +263,25 @@ const RoomImagesTab = ({ roomTypeId }: RoomImagesTabProps) => {
                     )}
                     <button
                       onClick={() => handleDelete(image.image_id)}
-                      className="opacity-0 group-hover:opacity-100 text-white px-3 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition-all flex items-center gap-2"
+                      className="opacity-0 group-hover:opacity-100 text-white px-3 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition-all flex items-center gap-2 font-medium"
                     >
                       <Trash2 size={18} />
                       Xóa
                     </button>
                   </div>
                 </div>
-                <div className="p-4">
-                  {image.caption && (
-                    <p className="text-sm text-gray-600 mb-1">{image.caption}</p>
+                <div className="p-4 bg-white">
+                  {image.image_alt && (
+                    <p className="text-sm font-medium text-gray-900 mb-1 truncate" title={image.image_alt}>
+                      {image.image_alt}
+                    </p>
                   )}
-                  <p className="text-xs text-gray-400">Thứ tự: {image.sort_order}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">Thứ tự: {image.sort_order}</p>
+                    {image.is_primary && (
+                      <span className="text-xs text-yellow-600 font-medium">⭐ Chính</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

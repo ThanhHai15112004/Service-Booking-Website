@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, Phone, Mail, Globe, Clock, Building2, Star, Calendar } from "lucide-react";
+import { MapPin, Phone, Mail, Globe, Clock, Building2, Star, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Hotel {
   hotel_id: string;
@@ -32,6 +32,21 @@ interface HotelInfoTabProps {
 }
 
 const HotelInfoTab = ({ hotel, onUpdate }: HotelInfoTabProps) => {
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const MAX_DESCRIPTION_LENGTH = 500; // Số ký tự hiển thị trước khi "xem thêm"
+
+  // Get text content length from HTML
+  const getTextLength = (html: string): number => {
+    if (!html) return 0;
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return (div.textContent || div.innerText || '').length;
+  };
+
+  // Check if description needs "read more"
+  const descriptionTextLength = getTextLength(hotel.description || '');
+  const needsTruncation = descriptionTextLength > MAX_DESCRIPTION_LENGTH;
+
   return (
     <div className="space-y-6">
       {/* Basic Information */}
@@ -64,7 +79,30 @@ const HotelInfoTab = ({ hotel, onUpdate }: HotelInfoTabProps) => {
       {hotel.description && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Mô tả</h3>
-          <p className="text-gray-700 whitespace-pre-wrap">{hotel.description}</p>
+          <div className="prose max-w-none">
+            <div 
+              className={`text-gray-700 leading-relaxed ${needsTruncation && !showFullDescription ? 'line-clamp-6' : ''}`}
+              dangerouslySetInnerHTML={{ __html: hotel.description }}
+            />
+            {needsTruncation && (
+              <button
+                onClick={() => setShowFullDescription(!showFullDescription)}
+                className="mt-2 text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1"
+              >
+                {showFullDescription ? (
+                  <>
+                    <ChevronUp size={16} />
+                    Thu gọn
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={16} />
+                    Xem thêm
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       )}
 

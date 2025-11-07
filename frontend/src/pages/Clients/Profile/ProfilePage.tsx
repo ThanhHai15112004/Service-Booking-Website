@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { getProfile, updateProfile, changePassword } from '../../services/profileService';
-import MainLayout from '../../layouts/MainLayout';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
+import { getProfile, updateProfile, changePassword } from '../../../services/profileService';
+import MainLayout from '../../../layouts/MainLayout';
 import {
   ProfileSidebar,
   DashboardTab,
@@ -11,8 +12,8 @@ import {
   MyReviewsTab,
   AccountSettingsTab,
   UpgradeAccountTab
-} from '../../components/ProfilePage';
-import { getMyBookings } from '../../services/bookingService';
+} from '../../../components/ProfilePage';
+import { getMyBookings } from '../../../services/bookingService';
 
 interface ProfileData {
   account_id: string;
@@ -51,13 +52,15 @@ interface ToastProps {
 }
 
 function ProfilePage() {
-  const { user: authUser, login } = useAuth();
+  const { user: authUser, login, logout, accessToken } = useAuth();
+  const navigate = useNavigate();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'personal' | 'payment' | 'address' | 'reviews' | 'upgrade' | 'settings'>('dashboard');
   const [toast, setToast] = useState<ToastProps | null>(null);
   const [bookings, setBookings] = useState<any[]>([]);
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   const showToast = (toastObj: ToastProps) => {
     setToast(toastObj);
@@ -95,6 +98,16 @@ function ProfilePage() {
     loadData();
   }, []);
 
+  // Scroll to top of main content when tab changes
+  useEffect(() => {
+    if (mainContentRef.current) {
+      // Smooth scroll to top of main content area
+      mainContentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Also scroll window to top in case content is above viewport
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeTab]);
+
   // Handle profile update
   const handleProfileUpdate = async (data: any) => {
     setSaving(true);
@@ -110,9 +123,12 @@ function ProfilePage() {
         }
         
         // Update auth context
-        if (authUser) {
+        if (authUser && accessToken) {
           const updatedUser = { ...authUser, ...data };
-          login(updatedUser, localStorage.getItem('accessToken') || '', localStorage.getItem('refreshToken') || '');
+          const storedRefreshToken = localStorage.getItem('userRefreshToken');
+          if (storedRefreshToken) {
+            login(updatedUser, accessToken, storedRefreshToken);
+          }
         }
       } else {
         showToast({ type: 'error', message: response.message });
@@ -137,11 +153,9 @@ function ProfilePage() {
         showToast({ type: 'success', message: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.' });
         
         // Logout user sau khi đổi mật khẩu
-        setTimeout(() => {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
+        setTimeout(async () => {
+          await logout();
+          navigate('/login', { replace: true });
         }, 2000);
       } else {
         showToast({ type: 'error', message: response.message });
@@ -180,7 +194,7 @@ function ProfilePage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 min-w-0">
+            <div ref={mainContentRef} className="flex-1 min-w-0">
               {activeTab === 'dashboard' && (
                 <DashboardTab 
                   user={profileData} 

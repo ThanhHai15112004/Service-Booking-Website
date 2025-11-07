@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Filter,
   XCircle,
+  Power,
 } from "lucide-react";
 import { adminService, Account } from "../../../services/adminService";
 import Toast from "../../Toast";
@@ -151,6 +152,16 @@ const AccountList = () => {
       fetchAccounts();
     } catch (error: any) {
       showToast("error", error.response?.data?.message || "Lỗi khi thay đổi trạng thái");
+    }
+  };
+
+  const handleActiveAccount = async (accountId: string) => {
+    try {
+      await adminService.updateAccount(accountId, { status: "ACTIVE" });
+      showToast("success", "Đã kích hoạt tài khoản thành công");
+      fetchAccounts();
+    } catch (error: any) {
+      showToast("error", error.response?.data?.message || "Lỗi khi kích hoạt tài khoản");
     }
   };
 
@@ -516,13 +527,22 @@ const AccountList = () => {
                         >
                           <Edit size={16} className="text-purple-600" />
                         </button>
-                        {!account.is_verified && (
+                        {account.status === "PENDING" && (
                           <button
                             onClick={() => handleForceVerify(account.account_id)}
                             className="p-2 hover:bg-green-50 transition-colors duration-200 rounded"
                             title="Xác thực email"
                           >
                             <CheckCircle size={16} className="text-green-600" />
+                          </button>
+                        )}
+                        {account.status !== "ACTIVE" && (
+                          <button
+                            onClick={() => handleActiveAccount(account.account_id)}
+                            className="p-2 hover:bg-green-50 transition-colors duration-200 rounded"
+                            title="Kích hoạt tài khoản"
+                          >
+                            <Power size={16} className="text-green-600" />
                           </button>
                         )}
                         <button

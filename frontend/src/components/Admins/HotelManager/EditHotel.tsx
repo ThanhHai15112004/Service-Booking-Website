@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, X, Image as ImageIcon } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
 import { adminService } from "../../../services/adminService";
-import RichTextEditor from "./RichTextEditor";
+import { RichTextEditor } from "../../common";
+import adminApi from "../../../api/adminAxiosClient";
 
 interface HotelFormData {
   name: string;
@@ -49,6 +50,9 @@ const EditHotel = () => {
   });
   const [categories, setCategories] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
+  const [uploadingMainImage, setUploadingMainImage] = useState(false);
+  const mainImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (hotelId) {
@@ -80,6 +84,14 @@ const EditHotel = () => {
           total_rooms: hotel.total_rooms || 0,
           main_image: hotel.main_image || "",
         });
+        
+        // Set preview cho main image nếu có
+        if (hotel.main_image) {
+          const imageUrl = hotel.main_image.startsWith('http') 
+            ? hotel.main_image 
+            : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${hotel.main_image}`;
+          setMainImagePreview(imageUrl);
+        }
       } else {
         showToast("error", response.message || "Không tìm thấy khách sạn");
         navigate("/admin/hotels");
@@ -107,6 +119,67 @@ const EditHotel = () => {
       }
     } catch (error: any) {
       console.error("Error fetching categories/locations:", error);
+    }
+  };
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast("error", "Chỉ chấp nhận file ảnh");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("error", "Kích thước ảnh không được vượt quá 5MB");
+      return;
+    }
+
+    try {
+      setUploadingMainImage(true);
+      
+      // Preview image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMainImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Upload image
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await adminApi.post('/api/upload/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success && response.data.data?.imageUrl) {
+        const imageUrl = response.data.data.imageUrl.startsWith('http')
+          ? response.data.data.imageUrl
+          : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${response.data.data.imageUrl}`;
+        
+        setFormData(prev => ({ ...prev, main_image: imageUrl }));
+        showToast("success", "Upload ảnh chính thành công");
+      } else {
+        showToast("error", response.data.message || "Tải ảnh lên thất bại");
+        setMainImagePreview(null);
+      }
+    } catch (error: any) {
+      showToast("error", error.response?.data?.message || "Lỗi khi tải ảnh lên");
+      setMainImagePreview(null);
+    } finally {
+      setUploadingMainImage(false);
+    }
+  };
+
+  const handleRemoveMainImage = () => {
+    setMainImagePreview(null);
+    setFormData(prev => ({ ...prev, main_image: "" }));
+    if (mainImageInputRef.current) {
+      mainImageInputRef.current.value = '';
     }
   };
 
@@ -243,6 +316,9 @@ const EditHotel = () => {
             onChange={(value) => setFormData(prev => ({ ...prev, description: value }))}
             placeholder="Nhập mô tả khách sạn..."
             minHeight="200px"
+            uploadEndpoint="/api/upload/images"
+            uploadFieldName="images"
+            uploadApi={adminApi}
           />
         </div>
 
@@ -330,13 +406,49 @@ const EditHotel = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh chính (URL)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh chính</label>
               <input
-                type="url"
-                value={formData.main_image}
-                onChange={(e) => setFormData({ ...formData, main_image: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="file"
+                ref={mainImageInputRef}
+                accept="image/*"
+                onChange={handleMainImageUpload}
+                className="hidden"
               />
+              {mainImagePreview ? (
+                <div className="relative inline-block">
+                  <img
+                    src={mainImagePreview}
+                    alt="Main hotel image preview"
+                    className="w-full max-w-md h-48 object-cover rounded-lg border-2 border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveMainImage}
+                    disabled={uploadingMainImage}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    <X size={16} />
+                  </button>
+                  {uploadingMainImage && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => mainImageInputRef.current?.click()}
+                  disabled={uploadingMainImage}
+                  className="w-full max-w-md flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ImageIcon className="text-gray-400" size={32} />
+                  <span className="text-sm text-gray-600">
+                    {uploadingMainImage ? "Đang upload..." : "Chọn ảnh chính"}
+                  </span>
+                  <span className="text-xs text-gray-500">JPG, PNG, GIF (tối đa 5MB)</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
