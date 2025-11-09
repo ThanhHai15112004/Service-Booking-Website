@@ -20,6 +20,21 @@ export class RoomPriceSchedule extends Model {
   @Column(DataType.DECIMAL(5, 2))
   discount_percent!: number;
 
+  @Column(DataType.DECIMAL(5, 2))
+  provider_discount_percent!: number;
+
+  @Column(DataType.DECIMAL(5, 2))
+  system_discount_percent!: number;
+
+  @Column(DataType.DECIMAL(10, 2))
+  provider_discount_amount!: number;
+
+  @Column(DataType.DECIMAL(10, 2))
+  system_discount_amount!: number;
+
+  @Column(DataType.DECIMAL(10, 2))
+  final_price!: number;
+
   @Column(DataType.INTEGER)
   available_rooms!: number;
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText, Download, CheckCircle, XCircle, Clock, DollarSign, CreditCard, History, User, Calendar, CreditCard as CardIcon, Building2, ArrowRight } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface PaymentDetail {
   payment_id: string;
@@ -45,41 +46,42 @@ const PaymentDetail = () => {
   }, [paymentId]);
 
   const fetchPaymentDetail = async () => {
+    if (!paymentId) return;
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
+      const response = await adminService.getPaymentDetail(paymentId);
+      if (response.success && response.data) {
+        const p = response.data;
         setPayment({
-          payment_id: paymentId || "PAY001",
-          booking_id: "BK001",
-          payment_method: "VNPAY",
-          amount_due: 3650000,
-          amount_paid: 3650000,
-          status: "SUCCESS",
-          created_at: "2025-11-01T10:30:00",
-          updated_at: "2025-11-01T10:35:00",
-          gateway: "VNPAY",
-          transaction_id: "VNPAY20251101103012345678",
-          card_type: "Visa",
-          card_last4: "1234",
-          card_holder_name: "NGUYEN VAN A",
-          customer_name: "Nguyễn Văn A",
-          customer_email: "nguyenvana@email.com",
-          hotel_name: "Hanoi Old Quarter Hotel",
-          status_history: [
-            {
-              id: 1,
-              date: "2025-11-01T10:30:00",
-              old_status: "PENDING",
-              new_status: "SUCCESS",
-              admin_name: "system",
-              note: "callback VNPAY",
-            },
-          ],
+          payment_id: p.payment_id,
+          booking_id: p.booking_id,
+          payment_method: p.method || p.payment_method,
+          amount_due: p.amount_due || 0,
+          amount_paid: p.amount_paid || 0,
+          status: p.status,
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+          gateway: p.gateway,
+          transaction_id: p.transaction_id,
+          card_type: p.card_type,
+          card_last4: p.card_last4,
+          card_holder_name: p.card_holder_name,
+          customer_name: p.customer_name || "N/A",
+          customer_email: p.customer_email || "N/A",
+          hotel_name: p.hotel_name || "N/A",
+          status_history: (p.status_history || []).map((h: any, index: number) => ({
+            id: h.id || index,
+            date: h.time || h.date || h.created_at,
+            old_status: h.old_status || h.oldStatus || "-",
+            new_status: h.new_status || h.newStatus || h.status,
+            admin_name: h.user || h.admin_name || h.adminName || "Hệ thống",
+            note: h.note || h.change_details || "",
+          })),
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", response.message || "Không thể tải chi tiết thanh toán");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải chi tiết thanh toán");
       setLoading(false);
@@ -154,9 +156,17 @@ const PaymentDetail = () => {
             Xem booking
           </button>
           <button
-            onClick={() => {
-              // TODO: Export invoice
-              showToast("success", "Đang xuất hóa đơn...");
+            onClick={async () => {
+              try {
+                const response = await adminService.exportInvoice(paymentId || "", "PDF");
+                if (response.success) {
+                  showToast("success", response.message || "Đã xuất hóa đơn thành công");
+                } else {
+                  showToast("error", response.message || "Không thể xuất hóa đơn");
+                }
+              } catch (error: any) {
+                showToast("error", error.message || "Không thể xuất hóa đơn");
+              }
             }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >

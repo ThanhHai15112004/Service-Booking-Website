@@ -16,6 +16,8 @@ import { Highlight } from "../../models/Hotel/highlight.model";
 import { HotelHighlight } from "../../models/Hotel/hotelHighlight.model";
 import { HotelSearchParams, HotelSearchResult, SearchFilter } from "../../models/Hotel/hotelSearch.dto";
 import { PriceAutoGenerationService } from "../../services/Price/priceAutoGeneration.service";
+import { PromotionRepository } from "../Promotion/promotion.repository";
+import pool from "../../config/db";
 
 export class HotelSearchRepository {
 
@@ -347,9 +349,29 @@ export class HotelSearchRepository {
           rt.name AS room_name,
           r.room_id,
           r.capacity,
-          SUM(rps.base_price * (1 - rps.discount_percent / 100)) as sum_price,
+          SUM(
+            CASE
+              WHEN rps.final_price IS NOT NULL AND rps.final_price > 0
+              THEN rps.final_price
+              ELSE GREATEST(0,
+                (rps.base_price * (1 - (COALESCE(rps.discount_percent, 0) + COALESCE(rps.system_discount_percent, 0) + COALESCE(rps.provider_discount_percent, 0)) / 100))
+                - COALESCE(rps.provider_discount_amount, 0)
+                - COALESCE(rps.system_discount_amount, 0)
+              )
+            END
+          ) as sum_price,
           SUM(rps.base_price) as original_price,
-          AVG(rps.discount_percent) as avg_discount_percent,
+          AVG(
+            CASE 
+              WHEN rps.final_price IS NOT NULL AND rps.base_price > 0 
+              THEN ((rps.base_price - rps.final_price) / rps.base_price) * 100
+              ELSE (
+                ((COALESCE(rps.discount_percent, 0) + COALESCE(rps.system_discount_percent, 0) + COALESCE(rps.provider_discount_percent, 0)) * rps.base_price / 100)
+                + COALESCE(rps.provider_discount_amount, 0)
+                + COALESCE(rps.system_discount_amount, 0)
+              ) / NULLIF(rps.base_price, 0) * 100
+            END
+          ) as avg_discount_percent,
           MIN(rps.available_rooms) as min_available_rooms,
           COUNT(DISTINCT CAST(rps.date AS DATE)) as date_count,
           MAX(rps.refundable) AS refundable,
@@ -376,7 +398,17 @@ export class HotelSearchRepository {
         FROM (
           SELECT
             h.hotel_id,
-            SUM(rps.base_price * (1 - rps.discount_percent / 100)) as sum_price
+            SUM(
+              CASE
+                WHEN rps.final_price IS NOT NULL AND rps.final_price > 0
+                THEN rps.final_price
+                ELSE GREATEST(0,
+                  (rps.base_price * (1 - (COALESCE(rps.discount_percent, 0) + COALESCE(rps.system_discount_percent, 0) + COALESCE(rps.provider_discount_percent, 0)) / 100))
+                  - COALESCE(rps.provider_discount_amount, 0)
+                  - COALESCE(rps.system_discount_amount, 0)
+                )
+              END
+            ) as sum_price
           FROM hotel h
           JOIN room_type rt ON rt.hotel_id = h.hotel_id
           JOIN room r ON r.room_type_id = rt.room_type_id
@@ -935,6 +967,40 @@ export class HotelSearchRepository {
           policyMap[p.policy_key] = p.value;
         });
         
+        // ✅ Calculate final price from all discount types
+        // Logic: final_price (if exists and > 0) > calculated from all discounts
+        const basePrice = Number(data.base_price) || 0;
+        let finalPrice = 0;
+        
+        // If final_price exists and is valid, use it (already includes all discounts and promotions)
+        if (data.final_price && Number(data.final_price) > 0) {
+          finalPrice = Number(data.final_price);
+        } else {
+          // Calculate from base_price with all discount percents and amounts
+          const discountPercent = Number(data.discount_percent) || 0;
+          const systemDiscountPercent = Number(data.system_discount_percent) || 0;
+          const providerDiscountPercent = Number(data.provider_discount_percent) || 0;
+          const providerDiscountAmount = Number(data.provider_discount_amount) || 0;
+          const systemDiscountAmount = Number(data.system_discount_amount) || 0;
+          
+          // Calculate total discount percent (sum of all percent discounts)
+          const totalDiscountPercent = discountPercent + systemDiscountPercent + providerDiscountPercent;
+          
+          // Apply percent discounts
+          let priceAfterPercent = basePrice;
+          if (totalDiscountPercent > 0) {
+            priceAfterPercent = basePrice * (1 - totalDiscountPercent / 100);
+          }
+          
+          // Subtract discount amounts
+          finalPrice = Math.max(0, priceAfterPercent - providerDiscountAmount - systemDiscountAmount);
+        }
+        
+        // Calculate effective discount percent for display
+        const effectiveDiscountPercent = basePrice > 0
+          ? ((basePrice - finalPrice) / basePrice) * 100
+          : 0;
+        
         return {
           roomTypeId: roomType.room_type_id,
           roomName: roomType.name,
@@ -946,8 +1012,9 @@ export class HotelSearchRepository {
           roomNumber: room.room_number,
           capacity: room.capacity,
           date: data.date,
-          basePrice: data.base_price,
-          discountPercent: data.discount_percent,
+          basePrice: basePrice,
+          finalPrice: finalPrice,
+          discountPercent: effectiveDiscountPercent,
           availableRooms: data.available_rooms,
           refundable: data.refundable,
           payLater: data.pay_later,
@@ -1006,12 +1073,104 @@ export class HotelSearchRepository {
             totalAvailable: 0,
             basePrice: Number(row.basePrice),
             discountPercent: Number(row.discountPercent),
-            finalPrice: row.basePrice * (1 - row.discountPercent / 100)
+            finalPrice: Number(row.finalPrice), // Already calculated above with all discounts
+            promotions: [] // Will be populated later
           });
         }
         
         const dayData = roomType.dailyAvailabilityByDate.get(dateKey)!;
         dayData.totalAvailable += Number(row.availableRooms);
+      }
+      
+      // ✅ Get all applicable promotions for each room/date and apply them
+      const promotionRepo = new PromotionRepository();
+      const conn = await pool.getConnection();
+      
+      try {
+        for (const [roomTypeId, roomType] of roomTypesMap) {
+          const roomIds = Array.from(roomsByType.get(roomTypeId)!);
+          
+          for (const [dateKey, dayData] of roomType.dailyAvailabilityByDate) {
+            // Get promotions already applied to schedule (from room_price_schedule_promotion)
+            const appliedPromotionsFromSchedule: any[] = [];
+            const allPromotions: any[] = [];
+            
+            // Get schedule_id for each room on this date to find applied promotions
+            for (const roomId of roomIds) {
+              try {
+                // Get schedule_id for this room and date
+                const [scheduleRows]: any = await conn.query(`
+                  SELECT schedule_id FROM room_price_schedule
+                  WHERE room_id = ? AND date = ?
+                  LIMIT 1
+                `, [roomId, dateKey]);
+                
+                if (scheduleRows && scheduleRows.length > 0) {
+                  const scheduleId = scheduleRows[0].schedule_id;
+                  
+                  // Get promotions already applied to this schedule
+                  const [appliedRows]: any = await conn.query(`
+                    SELECT 
+                      p.promotion_id,
+                      p.name,
+                      p.description,
+                      p.discount_type,
+                      p.discount_value,
+                      p.max_discount,
+                      psp.discount_amount
+                    FROM room_price_schedule_promotion psp
+                    JOIN promotion p ON p.promotion_id = psp.promotion_id
+                    WHERE psp.schedule_id = ?
+                  `, [scheduleId]);
+                  
+                  for (const row of appliedRows) {
+                    if (!appliedPromotionsFromSchedule.find(p => p.promotion_id === row.promotion_id)) {
+                      appliedPromotionsFromSchedule.push({
+                        promotion_id: row.promotion_id,
+                        name: row.name,
+                        description: row.description,
+                        discount_type: row.discount_type,
+                        discount_value: Number(row.discount_value),
+                        discount_amount: Number(row.discount_amount),
+                        max_discount: row.max_discount ? Number(row.max_discount) : undefined,
+                        already_applied: true
+                      });
+                    }
+                  }
+                }
+                
+                // Get applicable promotions (not yet applied)
+                const promotions = await promotionRepo.getApplicablePromotions({
+                  hotelId: hotelId,
+                  roomId: roomId,
+                  date: dateKey
+                });
+                
+                // Add unique promotions (by promotion_id) that are not already applied
+                for (const promo of promotions) {
+                  if (!appliedPromotionsFromSchedule.find(p => p.promotion_id === promo.promotion_id) &&
+                      !allPromotions.find(p => p.promotion_id === promo.promotion_id)) {
+                    allPromotions.push(promo);
+                  }
+                }
+              } catch (err) {
+                console.error(`[HotelRepository] Error fetching promotions for room ${roomId} date ${dateKey}:`, err);
+              }
+            }
+            
+            // ✅ FIX: Don't apply promotions per day here - they're already in finalPrice
+            // Promotions from room_price_schedule_promotion are already reflected in dayData.finalPrice
+            // We just collect them for display and later apply additional promotions to totalPrice
+            
+            // Combine all promotions (already applied to schedule)
+            const allPromotionsList = [...appliedPromotionsFromSchedule];
+            
+            // Store promotions in dayData for later aggregation
+            (dayData as any).promotions = allPromotionsList;
+          }
+        }
+      } finally {
+        conn.release();
       }
 
       const availableRoomTypes: any[] = [];
@@ -1023,6 +1182,15 @@ export class HotelSearchRepository {
           basePrice: number;
           discountPercent: number;
           finalPrice: number;
+          promotions?: Array<{
+            promotion_id: string;
+            name: string;
+            description?: string;
+            discount_type: string;
+            discount_value: number;
+            discount_amount: number;
+            max_discount?: number;
+          }>;
         };
         const dailyAvailability: DayAvailability[] = Array.from(roomType.dailyAvailabilityByDate.values());
         
@@ -1032,7 +1200,10 @@ export class HotelSearchRepository {
           continue;
         }
         
-        const totalPrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.finalPrice, 0);
+        // Calculate initial totalPrice from daily availability
+        // Note: day.finalPrice already includes promotions applied via room_price_schedule_promotion
+        let totalPriceBeforePromotions: number = dailyAvailability.reduce((sum: number, day) => sum + day.finalPrice, 0);
+        let totalPrice: number = totalPriceBeforePromotions;
         const totalBasePrice: number = dailyAvailability.reduce((sum: number, day) => sum + day.basePrice, 0);
         const minAvailable = Math.min(...dailyAvailability.map(day => day.totalAvailable));
         const totalRooms = roomsByType.get(roomTypeId)!.size;
@@ -1063,6 +1234,110 @@ export class HotelSearchRepository {
         
         const maxBookableSets = rooms > 0 ? Math.floor(minAvailable / rooms) : minAvailable;
         
+        // ✅ Collect ALL unique promotions from all days (already applied to schedules)
+        const allPromotionsMap = new Map<string, any>();
+        
+        // Collect promotions that were already applied to schedules (from room_price_schedule_promotion)
+        for (const day of dailyAvailability) {
+          if (day.promotions) {
+            for (const promo of day.promotions) {
+              if (!allPromotionsMap.has(promo.promotion_id)) {
+                // Calculate total discount amount across all days for this promotion
+                const totalDiscountAmount = dailyAvailability
+                  .filter(d => d.promotions?.some(p => p.promotion_id === promo.promotion_id))
+                  .reduce((sum, d) => {
+                    const dayPromo = d.promotions?.find(p => p.promotion_id === promo.promotion_id);
+                    return sum + (dayPromo?.discount_amount || 0);
+                  }, 0);
+                
+                allPromotionsMap.set(promo.promotion_id, {
+                  ...promo,
+                  total_discount_amount: totalDiscountAmount,
+                  already_applied: true
+                });
+              }
+            }
+          }
+        }
+        
+        // ✅ Get ALL applicable promotions for ALL days in the stay period and apply to totalPrice
+        // This includes promotions that might not be in room_price_schedule_promotion yet
+        const roomIdsForPromotions = Array.from(roomsByType.get(roomTypeId)!);
+        const allDatesInStay = dailyAvailability.map(d => d.date);
+        const allApplicablePromotionsSet = new Set<string>(); // Track unique promotion IDs
+        
+        if (allDatesInStay.length > 0 && roomIdsForPromotions.length > 0) {
+          try {
+            // Get all applicable promotions for ALL dates in the stay period
+            for (const dateStr of allDatesInStay) {
+              const promotionsForDate = await promotionRepo.getApplicablePromotions({
+                hotelId: hotelId,
+                roomId: roomIdsForPromotions[0],
+                date: dateStr
+              });
+              
+              // Add to set to avoid duplicates
+              for (const promo of promotionsForDate) {
+                allApplicablePromotionsSet.add(promo.promotion_id);
+                
+                // If not already in allPromotionsMap, add it
+                if (!allPromotionsMap.has(promo.promotion_id)) {
+                  allPromotionsMap.set(promo.promotion_id, promo);
+                }
+              }
+            }
+            
+            // Apply promotions that are not yet applied to schedules
+            const promotionsToApply = Array.from(allPromotionsMap.values())
+              .filter(promo => !promo.already_applied);
+            
+            for (const promo of promotionsToApply) {
+              // Calculate discount amount for this promotion on totalPrice
+              let discountAmount = 0;
+              
+              if (promo.discount_type === 'PERCENTAGE') {
+                discountAmount = totalPrice * (promo.discount_value / 100);
+                if (promo.max_discount && discountAmount > promo.max_discount) {
+                  discountAmount = promo.max_discount;
+                }
+              } else {
+                discountAmount = promo.discount_value;
+              }
+              
+              // Check min_purchase if applicable
+              if (promo.min_purchase && totalPrice < promo.min_purchase) {
+                // Skip but still add to list for display
+                allPromotionsMap.set(promo.promotion_id, {
+                  ...promo,
+                  total_discount_amount: 0,
+                  already_applied: false,
+                  skipped: true,
+                  skip_reason: 'min_purchase_not_met'
+                });
+                continue;
+              }
+              
+              // Apply discount to totalPrice
+              totalPrice = Math.max(0, totalPrice - discountAmount);
+              
+              // Update promotion in map with discount amount
+              allPromotionsMap.set(promo.promotion_id, {
+                ...promo,
+                total_discount_amount: discountAmount,
+                already_applied: false
+              });
+              
+              console.log(`[HotelRepository] Applied promotion ${promo.promotion_id} to totalPrice: discount=${discountAmount}, newTotalPrice=${totalPrice}`);
+            }
+          } catch (err) {
+            console.error(`[HotelRepository] Error fetching and applying promotions:`, err);
+          }
+        }
+        
+        const allPromotions = Array.from(allPromotionsMap.values()).filter(p => !p.skipped);
+        
+        console.log(`[HotelRepository] RoomType ${roomTypeId}: totalPriceBefore=${totalPriceBeforePromotions}, totalPriceAfter=${totalPrice}, promotionsCount=${allPromotions.length}`);
+        
         availableRoomTypes.push({
           roomTypeId: roomType.roomTypeId,
           roomName: roomType.roomName,
@@ -1081,6 +1356,7 @@ export class HotelSearchRepository {
           totalPrice: Number(totalPrice.toFixed(2)),
           avgPricePerNight: Number((totalPrice / nights).toFixed(2)),
           totalBasePrice: Number(totalBasePrice.toFixed(2)),
+          promotions: allPromotions, // ✅ Add promotions list (already applied + newly applied)
           hasFullAvailability: true,
           meetsCapacity: meetsCapacity,
           capacityWarning: !meetsCapacity ? 

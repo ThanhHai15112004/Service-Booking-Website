@@ -56,13 +56,15 @@ export default function RoomList({
   };
 
   // Tính giá cho từng payment option
+  // Note: room.totalPrice đã bao gồm tất cả promotions từ backend
   const calculatePrice = (room: Room, paymentMethod: PaymentOption) => {
-    const basePrice = room.totalPrice;
-    // Thanh toán ngay thường rẻ hơn ~2-3% so với thanh toán tại quầy
+    // room.totalPrice đã là giá cuối cùng sau khi áp dụng tất cả promotions
+    const finalPrice = room.totalPrice;
+    // Thanh toán ngay thường rẻ hơn ~2% so với thanh toán tại quầy
     if (paymentMethod === 'payNow') {
-      return Math.round(basePrice * 0.98); // Giảm 2% khi thanh toán ngay
+      return Math.round(finalPrice * 0.98); // Giảm 2% khi thanh toán ngay
     }
-    return basePrice;
+    return finalPrice;
   };
 
   return (
@@ -534,59 +536,72 @@ function PaymentOptionRow({
           ))}
         </div>
 
-        {/* ✅ FIX: Chương trình khuyến mãi - List để dễ mở rộng */}
-        <div className="pt-3 border-t border-gray-200">
-          <p className="text-xs font-semibold text-gray-700 mb-2">
-            Chương trình khuyến mãi
-          </p>
-          <div className="space-y-2">
-            {/* ✅ Build promotions list - Dễ thêm mới sau này */}
-            {(() => {
-              const promotions: Array<{
-                icon: string;
-                label: string;
-                text: string;
-              }> = [];
-              
-              // Thêm promotion giảm giá % nếu có
-              if (discountPercent > 0) {
-                promotions.push({
-                  icon: '⭐',
-                  label: 'KHUYẾN MÃI',
-                  text: `Khuyến mãi trong thời gian có hạn. Giá phòng đã có giảm giá ${discountPercent}%!`
-                });
-              }
-              
-              // Thêm HALLOWEEN promotion
-              promotions.push({
-                icon: '🎃',
-                label: 'HALLOWEEN',
-                text: discountPercent > 0 
-                  ? `Giảm ${formatPrice(room.totalBasePrice - room.totalPrice)} VND!`
-                  : 'Giảm đặc biệt cho mùa Halloween!'
-              });
-              
-              // ✅ TEST: Thêm promotion Black Friday
-              promotions.push({
-                icon: '🛍️',
-                label: 'BLACK FRIDAY',
-                text: 'Giảm thêm 10% cho tất cả đặt phòng hôm nay!'
-              });
-              
-              return promotions.map((promo, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <span className="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1 flex-shrink-0">
-                    {promo.icon}
-                    {promo.label && <span>{promo.label}</span>}
-                  </span>
-                  <p className="text-xs text-purple-900">
-                    {promo.text}
-                  </p>
-                </div>
-              ));
-            })()}
+        {/* ✅ Chương trình khuyến mãi - Giao diện gọn, đẹp và đều */}
+        {room.promotions && room.promotions.length > 0 ? (
+          <div className="pt-3 border-t border-gray-200">
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Chương trình khuyến mãi
+            </p>
+            <div className="space-y-1.5">
+              {room.promotions.map((promo, index) => {
+                // Map promotion name to icon và màu - nhất quán
+                const getPromotionStyle = (name: string) => {
+                  const lowerName = name.toLowerCase();
+                  if (lowerName.includes('halloween')) return { icon: '🎃', bgColor: 'bg-orange-600' };
+                  if (lowerName.includes('black friday') || lowerName.includes('blackfriday')) return { icon: '🛍️', bgColor: 'bg-gray-900' };
+                  if (lowerName.includes('tet') || lowerName.includes('tết')) return { icon: '🎊', bgColor: 'bg-red-600' };
+                  if (lowerName.includes('summer') || lowerName.includes('hè')) return { icon: '☀️', bgColor: 'bg-yellow-500' };
+                  if (lowerName.includes('winter') || lowerName.includes('đông')) return { icon: '❄️', bgColor: 'bg-blue-500' };
+                  if (lowerName.includes('cuối tuần') || lowerName.includes('weekend') || lowerName.includes('siêu giảm giá')) return { icon: '⭐', bgColor: 'bg-purple-600' };
+                  return { icon: '⭐', bgColor: 'bg-purple-600' };
+                };
+                
+                // Format promotion text - gọn, rõ ràng và nhất quán
+                const getPromotionText = (promo: any) => {
+                  if (promo.description) {
+                    return promo.description;
+                  }
+                  
+                  // Use total_discount_amount if available (for total price promotions), otherwise use discount_amount
+                  const discountAmount = promo.total_discount_amount || promo.discount_amount || 0;
+                  
+                  if (promo.discount_type === 'PERCENTAGE') {
+                    if (discountAmount > 0) {
+                      return `Giảm ${promo.discount_value}%! (Tiết kiệm ${formatPrice(Math.round(discountAmount))} VND)`;
+                    }
+                    return `Giảm ${promo.discount_value}%!`;
+                  } else {
+                    return `Giảm ${formatPrice(promo.discount_value)} VND!`;
+                  }
+                };
+                
+                const style = getPromotionStyle(promo.name);
+                
+                return (
+                  <div key={promo.promotion_id || index} className="flex items-center gap-2 flex-wrap">
+                    <span className={`${style.bgColor} text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 flex-shrink-0 whitespace-nowrap`}>
+                      <span>{style.icon}</span>
+                      <span>{promo.name.toUpperCase()}</span>
+                    </span>
+                    <p className="text-[11px] text-gray-700 leading-tight flex-1 min-w-0">
+                      {getPromotionText(promo)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          // ✅ Hiển thị placeholder để giữ layout đều
+          <div className="pt-3 border-t border-gray-200">
+            <p className="text-xs font-semibold text-gray-400 mb-2">
+              Chương trình khuyến mãi
+            </p>
+            <p className="text-[11px] text-gray-400 italic">
+              Không có khuyến mãi áp dụng
+            </p>
+          </div>
+        )}
       </div>
 
       {/* CỘT 3: Số người tối đa - ✅ FIX: Hiển thị capacity của 1 phòng, không phải totalCapacity */}

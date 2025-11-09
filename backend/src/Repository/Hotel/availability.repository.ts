@@ -39,12 +39,37 @@ export class AvailabilityRepository {
         [sequelize.col('room.roomType.name'), 'roomName'],
         [sequelize.fn('DATE_FORMAT', sequelize.col('RoomPriceSchedule.date'), '%Y-%m-%d'), 'date'],
         [sequelize.fn('AVG', sequelize.col('RoomPriceSchedule.base_price')), 'basePrice'],
-        [sequelize.fn('AVG', sequelize.col('RoomPriceSchedule.discount_percent')), 'discountPercent'],
         [
-          sequelize.fn('AVG', 
-            sequelize.literal('(RoomPriceSchedule.base_price * (1 - RoomPriceSchedule.discount_percent / 100))')
-          ), 
+          sequelize.fn('AVG',
+            sequelize.literal(`
+              CASE 
+                WHEN RoomPriceSchedule.final_price IS NOT NULL AND RoomPriceSchedule.final_price > 0
+                THEN RoomPriceSchedule.final_price
+                ELSE GREATEST(0,
+                  (RoomPriceSchedule.base_price * (1 - (COALESCE(RoomPriceSchedule.discount_percent, 0) + COALESCE(RoomPriceSchedule.system_discount_percent, 0) + COALESCE(RoomPriceSchedule.provider_discount_percent, 0)) / 100))
+                  - COALESCE(RoomPriceSchedule.provider_discount_amount, 0)
+                  - COALESCE(RoomPriceSchedule.system_discount_amount, 0)
+                )
+              END
+            `)
+          ),
           'finalPrice'
+        ],
+        [
+          sequelize.fn('AVG',
+            sequelize.literal(`
+              CASE 
+                WHEN RoomPriceSchedule.final_price IS NOT NULL AND RoomPriceSchedule.base_price > 0
+                THEN ((RoomPriceSchedule.base_price - RoomPriceSchedule.final_price) / RoomPriceSchedule.base_price) * 100
+                ELSE (
+                  ((COALESCE(RoomPriceSchedule.discount_percent, 0) + COALESCE(RoomPriceSchedule.system_discount_percent, 0) + COALESCE(RoomPriceSchedule.provider_discount_percent, 0)) * RoomPriceSchedule.base_price / 100)
+                  + COALESCE(RoomPriceSchedule.provider_discount_amount, 0)
+                  + COALESCE(RoomPriceSchedule.system_discount_amount, 0)
+                ) / NULLIF(RoomPriceSchedule.base_price, 0) * 100
+              END
+            `)
+          ),
+          'discountPercent'
         ],
         [sequelize.fn('SUM', sequelize.col('RoomPriceSchedule.available_rooms')), 'availableRooms'],
         [sequelize.fn('MAX', sequelize.col('RoomPriceSchedule.refundable')), 'refundable'],
@@ -105,24 +130,65 @@ export class AvailabilityRepository {
                 room_id: row.room_id,
                 date: startDate
               },
-              attributes: ['base_price', 'final_price', 'discount_percent'],
+              attributes: ['base_price', 'final_price', 'discount_percent', 'provider_discount_percent', 'system_discount_percent', 'provider_discount_amount', 'system_discount_amount'],
               raw: true
             });
             
-            const basePrice = priceSchedule ? Number(priceSchedule.base_price) : 0;
-            const discountPercent = priceSchedule ? Number(priceSchedule.discount_percent) : 0;
-            const finalPrice = basePrice * (1 - discountPercent / 100);
-            
-            return {
-              room_id: row.room_id,
-              roomId: row.room_id,
-              room_number: row.room_number,
-              roomNumber: row.room_number,
-              minAvailable: parseInt(row.minAvailable) || 0,
-              base_price: basePrice,
-              final_price: finalPrice,
-              discount_percent: discountPercent
-            };
+            if (priceSchedule) {
+              const schedule = priceSchedule as any;
+              const basePrice = Number(schedule.base_price) || 0;
+              
+              // ✅ Calculate final price with all discount types
+              let finalPrice = 0;
+              if (schedule.final_price && Number(schedule.final_price) > 0) {
+                finalPrice = Number(schedule.final_price);
+              } else {
+                const discountPercent = Number(schedule.discount_percent) || 0;
+                const systemDiscountPercent = Number(schedule.system_discount_percent) || 0;
+                const providerDiscountPercent = Number(schedule.provider_discount_percent) || 0;
+                const providerDiscountAmount = Number(schedule.provider_discount_amount) || 0;
+                const systemDiscountAmount = Number(schedule.system_discount_amount) || 0;
+                
+                // Calculate total discount percent (sum of all percent discounts)
+                const totalDiscountPercent = discountPercent + systemDiscountPercent + providerDiscountPercent;
+                
+                // Apply percent discounts
+                let priceAfterPercent = basePrice;
+                if (totalDiscountPercent > 0) {
+                  priceAfterPercent = basePrice * (1 - totalDiscountPercent / 100);
+                }
+                
+                // Subtract discount amounts
+                finalPrice = Math.max(0, priceAfterPercent - providerDiscountAmount - systemDiscountAmount);
+              }
+              
+              // Calculate effective discount percent for display
+              const discountPercent = basePrice > 0
+                ? ((basePrice - finalPrice) / basePrice) * 100
+                : 0;
+              
+              return {
+                room_id: row.room_id,
+                roomId: row.room_id,
+                room_number: row.room_number,
+                roomNumber: row.room_number,
+                minAvailable: parseInt(row.minAvailable) || 0,
+                base_price: basePrice,
+                final_price: finalPrice,
+                discount_percent: discountPercent
+              };
+            } else {
+              return {
+                room_id: row.room_id,
+                roomId: row.room_id,
+                room_number: row.room_number,
+                roomNumber: row.room_number,
+                minAvailable: parseInt(row.minAvailable) || 0,
+                base_price: 0,
+                final_price: 0,
+                discount_percent: 0
+              };
+            }
           } catch (err) {
             console.error(`Error fetching price for room ${row.room_id}:`, err);
             return {
@@ -179,14 +245,44 @@ export class AvailabilityRepository {
                   [Op.lt]: endDate
                 }
               },
-              attributes: ['base_price', 'final_price', 'discount_percent'],
+              attributes: ['base_price', 'final_price', 'discount_percent', 'provider_discount_percent', 'system_discount_percent', 'provider_discount_amount', 'system_discount_amount'],
               raw: true
             });
             
             if (priceSchedules.length > 0) {
-              const avgBasePrice = priceSchedules.reduce((sum: number, p: any) => sum + Number(p.base_price || 0), 0) / priceSchedules.length;
-              const avgDiscountPercent = priceSchedules.reduce((sum: number, p: any) => sum + Number(p.discount_percent || 0), 0) / priceSchedules.length;
-              const avgFinalPrice = avgBasePrice * (1 - avgDiscountPercent / 100);
+              // ✅ Calculate final price for each schedule with all discount types
+              const finalPrices = priceSchedules.map((p: any) => {
+                if (p.final_price && Number(p.final_price) > 0) {
+                  return Number(p.final_price);
+                } else {
+                  const basePrice = Number(p.base_price) || 0;
+                  const discountPercent = Number(p.discount_percent) || 0;
+                  const systemDiscountPercent = Number(p.system_discount_percent) || 0;
+                  const providerDiscountPercent = Number(p.provider_discount_percent) || 0;
+                  const providerDiscountAmount = Number(p.provider_discount_amount) || 0;
+                  const systemDiscountAmount = Number(p.system_discount_amount) || 0;
+                  
+                  // Calculate total discount percent (sum of all percent discounts)
+                  const totalDiscountPercent = discountPercent + systemDiscountPercent + providerDiscountPercent;
+                  
+                  // Apply percent discounts
+                  let priceAfterPercent = basePrice;
+                  if (totalDiscountPercent > 0) {
+                    priceAfterPercent = basePrice * (1 - totalDiscountPercent / 100);
+                  }
+                  
+                  // Subtract discount amounts
+                  return Math.max(0, priceAfterPercent - providerDiscountAmount - systemDiscountAmount);
+                }
+              });
+              const avgFinalPrice = finalPrices.reduce((sum: number, price: number) => sum + price, 0) / finalPrices.length;
+              
+              // Calculate average base price and discount percent
+              const totalBasePrice = priceSchedules.reduce((sum: number, p: any) => sum + (Number(p.base_price) || 0), 0);
+              const avgBasePrice = totalBasePrice / priceSchedules.length;
+              const avgDiscountPercent = avgBasePrice > 0
+                ? ((avgBasePrice - avgFinalPrice) / avgBasePrice) * 100
+                : 0;
               
               return {
                 room_id: row.room_id,
@@ -260,10 +356,33 @@ export class AvailabilityRepository {
         [sequelize.col('room.roomType.name'), 'roomName'],
         [sequelize.fn('DATE_FORMAT', sequelize.col('RoomPriceSchedule.date'), '%Y-%m-%d'), 'date'],
         'base_price',
-        'discount_percent',
         [
-          sequelize.literal('(RoomPriceSchedule.base_price * (1 - RoomPriceSchedule.discount_percent / 100))'),
+          sequelize.literal(`
+            CASE 
+              WHEN RoomPriceSchedule.final_price IS NOT NULL AND RoomPriceSchedule.final_price > 0
+              THEN RoomPriceSchedule.final_price
+              ELSE GREATEST(0,
+                (RoomPriceSchedule.base_price * (1 - (COALESCE(RoomPriceSchedule.discount_percent, 0) + COALESCE(RoomPriceSchedule.system_discount_percent, 0) + COALESCE(RoomPriceSchedule.provider_discount_percent, 0)) / 100))
+                - COALESCE(RoomPriceSchedule.provider_discount_amount, 0)
+                - COALESCE(RoomPriceSchedule.system_discount_amount, 0)
+              )
+            END
+          `),
           'finalPrice'
+        ],
+        [
+          sequelize.literal(`
+            CASE 
+              WHEN RoomPriceSchedule.final_price IS NOT NULL AND RoomPriceSchedule.base_price > 0
+              THEN ((RoomPriceSchedule.base_price - RoomPriceSchedule.final_price) / RoomPriceSchedule.base_price) * 100
+              ELSE (
+                ((COALESCE(RoomPriceSchedule.discount_percent, 0) + COALESCE(RoomPriceSchedule.system_discount_percent, 0) + COALESCE(RoomPriceSchedule.provider_discount_percent, 0)) * RoomPriceSchedule.base_price / 100)
+                + COALESCE(RoomPriceSchedule.provider_discount_amount, 0)
+                + COALESCE(RoomPriceSchedule.system_discount_amount, 0)
+              ) / NULLIF(RoomPriceSchedule.base_price, 0) * 100
+            END
+          `),
+          'discount_percent'
         ],
         'available_rooms',
         'refundable',

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, History, User, Calendar, ChevronLeft, ChevronRight, Filter, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface PaymentActivityLog {
   id: number;
@@ -20,9 +21,10 @@ const PaymentActivityLog = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [logs, setLogs] = useState<PaymentActivityLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<PaymentActivityLog[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     admin: "",
@@ -30,103 +32,68 @@ const PaymentActivityLog = () => {
     dateFrom: "",
     dateTo: "",
   });
+  const [admins, setAdmins] = useState<Array<{ account_id: string; full_name: string }>>([]);
 
   useEffect(() => {
     fetchActivityLogs();
-  }, []);
+  }, [currentPage, itemsPerPage, filters, searchTerm]);
 
   useEffect(() => {
-    applyFilters();
-  }, [logs, searchTerm, filters]);
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      const response = await adminService.getAccounts({ role: "ADMIN", limit: 100 });
+      if (response.success && response.data) {
+        setAdmins(response.data.accounts.map((a: any) => ({
+          account_id: a.account_id,
+          full_name: a.full_name,
+        })));
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch admins:", error);
+    }
+  };
 
   const fetchActivityLogs = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setLogs([
-          {
-            id: 1,
-            date: "2025-11-04T14:30:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            payment_id: "PAY1023",
-            action: "Hoàn tiền",
-            amount: 2000000,
-            note: "Refund theo yêu cầu",
-          },
-          {
-            id: 2,
-            date: "2025-11-03T16:45:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            payment_id: "PAY0899",
-            action: "Xác nhận cash",
-            amount: 4200000,
-            note: "Nhận trực tiếp tại quầy",
-          },
-          {
-            id: 3,
-            date: "2025-11-03T10:20:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            payment_id: "PAY0756",
-            action: "Thử lại thanh toán",
-            note: "Retry với VNPAY",
-          },
-          {
-            id: 4,
-            date: "2025-11-02T15:10:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            payment_id: "PAY0543",
-            action: "Cập nhật trạng thái",
-            note: "PENDING → SUCCESS",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getPaymentActivityLogs({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        admin: filters.admin || undefined,
+        action: filters.action || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      });
+
+      if (response.success && response.data) {
+        const mappedLogs = response.data.logs.map((log: any, index: number) => ({
+          id: log.id || index,
+          date: log.time || log.date || log.created_at,
+          admin_name: log.user || log.admin_name || "Hệ thống",
+          admin_id: log.admin_id || "",
+          payment_id: log.payment_id,
+          action: log.action || "N/A",
+          amount: log.amount,
+          note: log.note || log.change_details || "",
+        }));
+        setLogs(mappedLogs);
+        setTotalPages(response.data.pagination.totalPages);
+        setTotal(response.data.pagination.total);
+      } else {
+        showToast("error", response.message || "Không thể tải nhật ký hoạt động");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải nhật ký hoạt động");
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...logs];
-
-    if (searchTerm) {
-      result = result.filter(
-        (log) =>
-          log.payment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.admin_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.note?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.admin) {
-      result = result.filter((log) => log.admin_id === filters.admin);
-    }
-
-    if (filters.action) {
-      result = result.filter((log) => log.action === filters.action);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((log) => log.date >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((log) => log.date <= filters.dateTo);
-    }
-
-    // Sort by date descending
-    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    setFilteredLogs(result);
-    setCurrentPage(1);
-  };
+  // Filters are applied on the backend
 
   const handleExport = async () => {
     try {
@@ -142,10 +109,9 @@ const PaymentActivityLog = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentLogs = filteredLogs.slice(startIndex, endIndex);
+  const currentLogs = logs;
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -210,17 +176,26 @@ const PaymentActivityLog = () => {
 
           <select
             value={filters.admin}
-            onChange={(e) => setFilters({ ...filters, admin: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, admin: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả admin</option>
-            <option value="ADM001">admin01</option>
-            <option value="STAFF002">staff02</option>
+            {admins.map((admin) => (
+              <option key={admin.account_id} value={admin.account_id}>
+                {admin.full_name}
+              </option>
+            ))}
           </select>
 
           <select
             value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, action: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả hành động</option>
@@ -235,14 +210,20 @@ const PaymentActivityLog = () => {
             <input
               type="date"
               value={filters.dateFrom}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateFrom: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Từ ngày"
             />
             <input
               type="date"
               value={filters.dateTo}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateTo: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Đến ngày"
             />
@@ -327,7 +308,7 @@ const PaymentActivityLog = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredLogs.length)} trong tổng số {filteredLogs.length} hoạt động
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, total)} trong tổng số {total} hoạt động
               </span>
               <select
                 value={itemsPerPage}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, CheckCircle, XCircle, RefreshCw, Calendar, Download, FileText, CreditCard, ChevronLeft, ChevronRight, Filter, DollarSign } from "lucide-react";
+import { Search, Eye, Calendar, Download, FileText, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Payment {
   payment_id: string;
@@ -23,9 +24,10 @@ const PaymentsList = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     paymentMethod: "",
@@ -34,115 +36,65 @@ const PaymentsList = () => {
     dateFrom: "",
     dateTo: "",
   });
-  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [statistics, setStatistics] = useState({
+    totalRevenue: 0,
+    pendingAmount: 0,
+    refundedAmount: 0,
+  });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, searchTerm]);
 
   useEffect(() => {
     fetchPayments();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [payments, searchTerm, filters]);
+  }, [currentPage, itemsPerPage, filters, searchTerm]);
 
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setPayments([
-          {
-            payment_id: "PAY001",
-            booking_id: "BK001",
-            customer_name: "Nguyễn Văn A",
-            customer_email: "nguyenvana@email.com",
-            hotel_id: "H001",
-            hotel_name: "Hanoi Old Quarter Hotel",
-            payment_method: "VNPAY",
-            amount: 3650000,
-            status: "SUCCESS",
-            created_at: "2025-11-01T10:30:00",
-            updated_at: "2025-11-01T10:35:00",
-          },
-          {
-            payment_id: "PAY002",
-            booking_id: "BK002",
-            customer_name: "Trần Thị B",
-            customer_email: "tranthib@email.com",
-            hotel_id: "H002",
-            hotel_name: "My Khe Beach Resort",
-            payment_method: "MOMO",
-            amount: 8500000,
-            status: "SUCCESS",
-            created_at: "2025-11-02T14:20:00",
-          },
-          {
-            payment_id: "PAY003",
-            booking_id: "BK003",
-            customer_name: "Lê Văn C",
-            customer_email: "levanc@email.com",
-            hotel_id: "H003",
-            hotel_name: "Saigon Riverside Hotel",
-            payment_method: "CASH",
-            amount: 4200000,
-            status: "PENDING",
-            created_at: "2025-11-03T09:15:00",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getPayments({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        paymentMethod: filters.paymentMethod || undefined,
+        status: filters.status || undefined,
+        hotelId: filters.hotel || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      });
+
+      if (response.success && response.data) {
+        const mappedPayments = response.data.payments.map((p: any) => ({
+          payment_id: p.payment_id,
+          booking_id: p.booking_id,
+          customer_name: p.customer_name || p.full_name || "N/A",
+          customer_email: p.customer_email || p.email || "N/A",
+          hotel_id: p.hotel_id,
+          hotel_name: p.hotel_name,
+          payment_method: p.method || p.payment_method,
+          amount: p.amount_due || p.amount,
+          status: p.status,
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        }));
+        setPayments(mappedPayments);
+        setTotalPages(response.data.pagination.totalPages);
+        setTotal(response.data.pagination.total);
+        if (response.data.statistics) {
+          setStatistics(response.data.statistics);
+        }
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách thanh toán");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách thanh toán");
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...payments];
-
-    if (searchTerm) {
-      result = result.filter(
-        (payment) =>
-          payment.payment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.customer_email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.paymentMethod) {
-      result = result.filter((payment) => payment.payment_method === filters.paymentMethod);
-    }
-
-    if (filters.status) {
-      result = result.filter((payment) => payment.status === filters.status);
-    }
-
-    if (filters.hotel) {
-      result = result.filter((payment) => payment.hotel_id === filters.hotel);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((payment) => payment.created_at >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((payment) => payment.created_at <= filters.dateTo);
-    }
-
-    setFilteredPayments(result);
-    setCurrentPage(1);
-  };
-
-  const handleUpdateStatus = async (paymentId: string, newStatus: string) => {
-    try {
-      // TODO: API call
-      showToast("success", `Đã cập nhật trạng thái sang ${newStatus}`);
-      fetchPayments();
-    } catch (error: any) {
-      showToast("error", error.message || "Không thể cập nhật trạng thái");
-    }
-  };
 
   const handleExport = async (format: "CSV" | "EXCEL" | "PDF") => {
     try {
@@ -155,9 +107,7 @@ const PaymentsList = () => {
   };
 
   const calculateTotalRevenue = () => {
-    return filteredPayments
-      .filter((p) => p.status === "SUCCESS")
-      .reduce((sum, p) => sum + p.amount, 0);
+    return statistics.totalRevenue || 0;
   };
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -165,10 +115,9 @@ const PaymentsList = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+  const currentPayments = payments;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -220,9 +169,9 @@ const PaymentsList = () => {
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-blue-100 text-sm">Tổng doanh thu (đã lọc)</p>
+            <p className="text-blue-100 text-sm">Tổng doanh thu</p>
             <p className="text-4xl font-bold mt-2">{formatPrice(calculateTotalRevenue())} VNĐ</p>
-            <p className="text-blue-100 text-sm mt-2">{filteredPayments.filter(p => p.status === "SUCCESS").length} giao dịch thành công</p>
+            <p className="text-blue-100 text-sm mt-2">Đang chờ: {formatPrice(statistics.pendingAmount)} VNĐ | Đã hoàn: {formatPrice(statistics.refundedAmount)} VNĐ</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-full p-4">
             <DollarSign size={48} />
@@ -255,7 +204,7 @@ const PaymentsList = () => {
             <option value="VNPAY">VNPAY</option>
             <option value="MOMO">MOMO</option>
             <option value="CASH">Tiền mặt</option>
-            <option value="BANK">Chuyển khoản</option>
+            <option value="BANK_TRANSFER">Chuyển khoản</option>
           </select>
 
           <select
@@ -270,17 +219,13 @@ const PaymentsList = () => {
             <option value="REFUNDED">Đã hoàn tiền</option>
           </select>
 
-          <select
+          <input
+            type="text"
             value={filters.hotel}
             onChange={(e) => setFilters({ ...filters, hotel: e.target.value })}
+            placeholder="Hotel ID"
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Tất cả khách sạn</option>
-            <option value="H001">Hanoi Old Quarter Hotel</option>
-            <option value="H002">My Khe Beach Resort</option>
-            <option value="H003">Saigon Riverside Hotel</option>
-            <option value="H004">Sofitel Metropole</option>
-          </select>
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -394,7 +339,7 @@ const PaymentsList = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} trong tổng số {filteredPayments.length} payment
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, total)} trong tổng số {total} payment
               </span>
               <select
                 value={itemsPerPage}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, ArrowRight, CheckCircle, XCircle, Search, Eye, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { RefreshCw, Search, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface FailedPayment {
   payment_id: string;
@@ -21,74 +22,58 @@ const RetryPayment = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [payments, setPayments] = useState<FailedPayment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<FailedPayment[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<FailedPayment | null>(null);
   const [showRetryModal, setShowRetryModal] = useState(false);
   const [newMethod, setNewMethod] = useState("");
 
   useEffect(() => {
-    fetchFailedPayments();
-  }, []);
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   useEffect(() => {
-    applyFilters();
-  }, [payments, searchTerm]);
+    fetchFailedPayments();
+  }, [currentPage, itemsPerPage, searchTerm]);
 
   const fetchFailedPayments = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call - filter by status FAILED
-      setTimeout(() => {
-        setPayments([
-          {
-            payment_id: "PAY005",
-            booking_id: "BK005",
-            customer_name: "Hoàng Văn E",
-            hotel_name: "Da Nang Beach Hotel",
-            payment_method: "MOMO",
-            amount: 5500000,
-            created_at: "2025-11-03T10:30:00",
-            error_reason: "Hết hạn thanh toán",
-            retry_count: 0,
-          },
-          {
-            payment_id: "PAY006",
-            booking_id: "BK006",
-            customer_name: "Nguyễn Thị F",
-            hotel_name: "Sofitel Metropole",
-            payment_method: "VNPAY",
-            amount: 7200000,
-            created_at: "2025-11-02T15:20:00",
-            error_reason: "Lỗi kết nối gateway",
-            retry_count: 1,
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getFailedPayments({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+      });
+
+      if (response.success && response.data) {
+        const mappedPayments = response.data.payments.map((p: any) => ({
+          payment_id: p.payment_id,
+          booking_id: p.booking_id,
+          customer_name: p.customer_name || p.full_name || "N/A",
+          hotel_name: p.hotel_name || "N/A",
+          payment_method: p.method || p.payment_method,
+          amount: p.amount_due || p.amount,
+          created_at: p.created_at,
+          error_reason: p.error_reason || "Thanh toán thất bại",
+          retry_count: p.retry_count || 0,
+        }));
+        setPayments(mappedPayments);
+        setTotalPages(response.data.pagination.totalPages);
+        setTotal(response.data.pagination.total);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách thanh toán thất bại");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách thanh toán thất bại");
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...payments];
-
-    if (searchTerm) {
-      result = result.filter(
-        (payment) =>
-          payment.payment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredPayments(result);
-    setCurrentPage(1);
-  };
+  // Filters are applied on the backend
 
   const handleRetry = async (useNewMethod: boolean) => {
     if (!selectedPayment) return;
@@ -98,13 +83,19 @@ const RetryPayment = () => {
     }
 
     try {
-      // TODO: API call to retry payment
-      const method = useNewMethod ? newMethod : selectedPayment.payment_method;
-      showToast("success", `Đang thử lại thanh toán với ${method}...`);
-      setShowRetryModal(false);
-      setSelectedPayment(null);
-      setNewMethod("");
-      fetchFailedPayments();
+      const response = await adminService.retryPayment(
+        selectedPayment.payment_id,
+        useNewMethod ? newMethod : undefined
+      );
+      if (response.success) {
+        showToast("success", response.message || `Đã thử lại thanh toán thành công`);
+        setShowRetryModal(false);
+        setSelectedPayment(null);
+        setNewMethod("");
+        fetchFailedPayments();
+      } else {
+        showToast("error", response.message || "Không thể thử lại thanh toán");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể thử lại thanh toán");
     }
@@ -115,10 +106,9 @@ const RetryPayment = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+  const currentPayments = payments;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -148,7 +138,7 @@ const RetryPayment = () => {
           <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
           <div>
             <p className="text-sm font-medium text-red-900">
-              Có {filteredPayments.length} thanh toán bị thất bại
+              Có {total} thanh toán bị thất bại
             </p>
             <p className="text-sm text-red-700 mt-1">
               Bạn có thể thử lại với cùng phương thức hoặc chuyển sang phương thức khác.
@@ -252,7 +242,7 @@ const RetryPayment = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} trong tổng số {filteredPayments.length} thanh toán
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, total)} trong tổng số {total} thanh toán
               </span>
               <select
                 value={itemsPerPage}

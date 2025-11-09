@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Edit, Lock, Unlock, Trash2, Calendar, Tag, ChevronLeft, ChevronRight, Filter, Plus, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountCode {
-  discount_code_id: string;
+  discount_id: string;
   code: string;
   discount_type: "PERCENT" | "FIXED";
   discount_value: number;
@@ -13,8 +14,13 @@ interface DiscountCode {
   usage_count: number;
   usage_limit?: number;
   expiry_date: string;
-  status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "DISABLED";
   created_at: string;
+  start_date?: string;
+  min_purchase?: number;
+  per_user_limit?: number;
+  min_nights?: number;
+  max_nights?: number;
 }
 
 const DiscountCodesList = () => {
@@ -22,9 +28,10 @@ const DiscountCodesList = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [codes, setCodes] = useState<DiscountCode[]>([]);
-  const [filteredCodes, setFilteredCodes] = useState<DiscountCode[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     status: "",
@@ -37,117 +44,95 @@ const DiscountCodesList = () => {
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendDays, setExtendDays] = useState(7);
 
+  // Debounce search term
   useEffect(() => {
-    fetchDiscountCodes();
-  }, []);
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
-    applyFilters();
-  }, [codes, searchTerm, filters]);
+    fetchDiscountCodes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, itemsPerPage, filters.status, filters.discountType, filters.expiryDate]);
+
+  // Separate effect for search term (after debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchDiscountCodes();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchDiscountCodes = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setCodes([
-          {
-            discount_code_id: "DC001",
-            code: "SUMMER2025",
-            discount_type: "PERCENT",
-            discount_value: 15,
-            max_discount: 500000,
-            usage_count: 456,
-            usage_limit: 1000,
-            expiry_date: "2025-12-31",
-            status: "ACTIVE",
-            created_at: "2025-06-01",
-          },
-          {
-            discount_code_id: "DC002",
-            code: "WELCOME10",
-            discount_type: "PERCENT",
-            discount_value: 10,
-            usage_count: 389,
-            usage_limit: 500,
-            expiry_date: "2025-11-15",
-            status: "ACTIVE",
-            created_at: "2025-08-01",
-          },
-          {
-            discount_code_id: "DC003",
-            code: "BLACKFRIDAY",
-            discount_type: "FIXED",
-            discount_value: 200000,
-            usage_count: 298,
-            usage_limit: 1000,
-            expiry_date: "2025-11-30",
-            status: "ACTIVE",
-            created_at: "2025-10-01",
-          },
-          {
-            discount_code_id: "DC004",
-            code: "OLDCODE",
-            discount_type: "PERCENT",
-            discount_value: 20,
-            usage_count: 45,
-            expiry_date: "2025-01-01",
-            status: "EXPIRED",
-            created_at: "2024-12-01",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+        sortBy: "created_at",
+        sortOrder: "DESC",
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      if (filters.status) {
+        params.status = filters.status;
+      }
+
+      if (filters.discountType) {
+        params.discountType = filters.discountType;
+      }
+
+      if (filters.expiryDate) {
+        params.expiryDate = filters.expiryDate;
+      }
+
+      const result = await adminService.getAllDiscountCodes(params);
+      if (result.success && result.data) {
+        // Map discount_id từ backend
+        const mappedCodes = result.data.map((code: any) => ({
+          ...code,
+          discount_code_id: code.discount_id,
+        }));
+        setCodes(mappedCodes);
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages);
+          setTotal(result.pagination.total);
+        }
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách mã giảm giá");
+      }
     } catch (error: any) {
+      console.error("[DiscountCodesList] fetchDiscountCodes error:", error);
       showToast("error", error.message || "Không thể tải danh sách mã giảm giá");
+    } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...codes];
-
-    if (searchTerm) {
-      result = result.filter((code) =>
-        code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        code.discount_code_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.status) {
-      result = result.filter((code) => code.status === filters.status);
-    }
-
-    if (filters.discountType) {
-      result = result.filter((code) => code.discount_type === filters.discountType);
-    }
-
-    if (filters.expiryDate) {
-      const today = new Date();
-      const filterDate = new Date(filters.expiryDate);
-      if (filters.expiryDate === "before") {
-        result = result.filter((code) => new Date(code.expiry_date) < filterDate);
-      } else {
-        result = result.filter((code) => new Date(code.expiry_date) > filterDate);
-      }
-    }
-
-    if (filters.isHot) {
-      result = result.filter((code) => code.usage_count > 100);
-    }
-
-    setFilteredCodes(result);
-    setCurrentPage(1);
-  };
-
-  const handleToggleStatus = async (codeId: string, currentStatus: string) => {
+  const handleToggleStatus = async (codeId: string) => {
     try {
-      // TODO: API call
-      const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      showToast("success", `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} mã giảm giá`);
-      fetchDiscountCodes();
+      setLoading(true);
+      const result = await adminService.toggleDiscountCodeStatus(codeId);
+      if (result.success) {
+        showToast("success", result.message || "Đã thay đổi trạng thái mã giảm giá");
+        fetchDiscountCodes();
+      } else {
+        showToast("error", result.message || "Không thể thay đổi trạng thái");
+      }
     } catch (error: any) {
+      console.error("[DiscountCodesList] handleToggleStatus error:", error);
       showToast("error", error.message || "Không thể thay đổi trạng thái");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,28 +140,47 @@ const DiscountCodesList = () => {
     if (!selectedCode) return;
 
     try {
-      // TODO: API call to soft delete
-      showToast("success", `Đã xóa mã giảm giá ${selectedCode.code}`);
-      setShowDeleteModal(false);
-      setSelectedCode(null);
-      fetchDiscountCodes();
+      setLoading(true);
+      const result = await adminService.deleteDiscountCode(selectedCode.discount_id || selectedCode.discount_code_id);
+      if (result.success) {
+        showToast("success", result.message || `Đã xóa mã giảm giá ${selectedCode.code}`);
+        setShowDeleteModal(false);
+        setSelectedCode(null);
+        fetchDiscountCodes();
+      } else {
+        showToast("error", result.message || "Không thể xóa mã giảm giá");
+      }
     } catch (error: any) {
+      console.error("[DiscountCodesList] handleDelete error:", error);
       showToast("error", error.message || "Không thể xóa mã giảm giá");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleExtend = async () => {
-    if (!selectedCode || !extendDays) return;
+    if (!selectedCode || !extendDays || extendDays <= 0) {
+      showToast("error", "Số ngày gia hạn phải lớn hơn 0");
+      return;
+    }
 
     try {
-      // TODO: API call to extend expiry date
-      showToast("success", `Đã gia hạn mã ${selectedCode.code} thêm ${extendDays} ngày`);
-      setShowExtendModal(false);
-      setSelectedCode(null);
-      setExtendDays(7);
-      fetchDiscountCodes();
+      setLoading(true);
+      const result = await adminService.extendDiscountCodeExpiry(selectedCode.discount_id || selectedCode.discount_code_id, extendDays);
+      if (result.success) {
+        showToast("success", result.message || `Đã gia hạn mã ${selectedCode.code} thêm ${extendDays} ngày`);
+        setShowExtendModal(false);
+        setSelectedCode(null);
+        setExtendDays(7);
+        fetchDiscountCodes();
+      } else {
+        showToast("error", result.message || "Không thể gia hạn mã giảm giá");
+      }
     } catch (error: any) {
+      console.error("[DiscountCodesList] handleExtend error:", error);
       showToast("error", error.message || "Không thể gia hạn mã giảm giá");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -185,16 +189,15 @@ const DiscountCodesList = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredCodes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentCodes = filteredCodes.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, total);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ACTIVE":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Đang hoạt động</span>;
       case "INACTIVE":
+      case "DISABLED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Tạm ngưng</span>;
       case "EXPIRED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Hết hạn</span>;
@@ -254,18 +257,24 @@ const DiscountCodesList = () => {
 
           <select
             value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, status: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="ACTIVE">Đang hoạt động</option>
-            <option value="INACTIVE">Tạm ngưng</option>
+            <option value="DISABLED">Tạm ngưng</option>
             <option value="EXPIRED">Hết hạn</option>
           </select>
 
           <select
             value={filters.discountType}
-            onChange={(e) => setFilters({ ...filters, discountType: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, discountType: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả loại</option>
@@ -273,18 +282,18 @@ const DiscountCodesList = () => {
             <option value="FIXED">Số tiền cố định</option>
           </select>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="hotCodes"
-              checked={filters.isHot}
-              onChange={(e) => setFilters({ ...filters, isHot: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <label htmlFor="hotCodes" className="text-sm text-gray-700 cursor-pointer">
-              Mã hot (usage &gt; 100)
-            </label>
-          </div>
+          <select
+            value={filters.expiryDate}
+            onChange={(e) => {
+              setFilters({ ...filters, expiryDate: e.target.value });
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Tất cả hạn dùng</option>
+            <option value="expiring_soon">Sắp hết hạn (7 ngày)</option>
+            <option value="expired">Đã hết hạn</option>
+          </select>
         </div>
       </div>
 
@@ -305,15 +314,15 @@ const DiscountCodesList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentCodes.length === 0 ? (
+              {codes.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                    Không tìm thấy mã giảm giá nào
+                    {loading ? "Đang tải..." : "Không tìm thấy mã giảm giá nào"}
                   </td>
                 </tr>
               ) : (
-                currentCodes.map((code) => (
-                  <tr key={code.discount_code_id} className="hover:bg-gray-50 transition-colors">
+                codes.map((code) => (
+                  <tr key={code.discount_id || code.discount_code_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Tag className="text-blue-600" size={18} />
@@ -363,14 +372,14 @@ const DiscountCodesList = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => navigate(`/admin/discounts/${code.discount_code_id}`)}
+                          onClick={() => navigate(`/admin/discounts/${code.discount_id || code.discount_code_id}`)}
                           className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                           title="Xem chi tiết"
                         >
                           <Eye size={18} />
                         </button>
                         <button
-                          onClick={() => navigate(`/admin/discounts/${code.discount_code_id}/edit`)}
+                          onClick={() => navigate(`/admin/discounts/${code.discount_id || code.discount_code_id}/edit`)}
                           className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                           title="Sửa"
                         >
@@ -378,31 +387,33 @@ const DiscountCodesList = () => {
                         </button>
                         {code.status === "ACTIVE" ? (
                           <button
-                            onClick={() => handleToggleStatus(code.discount_code_id, code.status)}
+                            onClick={() => handleToggleStatus(code.discount_id || code.discount_code_id)}
                             className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
                             title="Vô hiệu hóa"
                           >
                             <Lock size={18} />
                           </button>
-                        ) : (
+                        ) : code.status === "DISABLED" || code.status === "INACTIVE" ? (
                           <button
-                            onClick={() => handleToggleStatus(code.discount_code_id, code.status)}
+                            onClick={() => handleToggleStatus(code.discount_id || code.discount_code_id)}
                             className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                             title="Kích hoạt"
                           >
                             <Unlock size={18} />
                           </button>
+                        ) : null}
+                        {code.status !== "EXPIRED" && (
+                          <button
+                            onClick={() => {
+                              setSelectedCode(code);
+                              setShowExtendModal(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
+                            title="Gia hạn"
+                          >
+                            <Calendar size={18} />
+                          </button>
                         )}
-                        <button
-                          onClick={() => {
-                            setSelectedCode(code);
-                            setShowExtendModal(true);
-                          }}
-                          className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
-                          title="Gia hạn"
-                        >
-                          <Calendar size={18} />
-                        </button>
                         <button
                           onClick={() => {
                             setSelectedCode(code);
@@ -427,7 +438,7 @@ const DiscountCodesList = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredCodes.length)} trong tổng số {filteredCodes.length} mã
+                Hiển thị {startIndex + 1}-{endIndex} trong tổng số {total} mã
               </span>
               <select
                 value={itemsPerPage}
@@ -445,7 +456,7 @@ const DiscountCodesList = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={20} />
@@ -455,7 +466,7 @@ const DiscountCodesList = () => {
               </span>
               <button
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={20} />

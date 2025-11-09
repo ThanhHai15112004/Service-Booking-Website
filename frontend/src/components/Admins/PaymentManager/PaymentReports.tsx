@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Calendar, DollarSign, TrendingUp, Users, Hotel, XCircle, CreditCard, Filter, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface PaymentReportStats {
   totalRevenue: number;
@@ -43,71 +44,32 @@ const PaymentReports = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
+      const response = await adminService.getPaymentReports({
+        period: filters.period as "7days" | "month" | "quarter" | "year",
+        paymentMethod: filters.paymentMethod || undefined,
+        hotelId: filters.hotel || undefined,
+      });
+
+      if (response.success && response.data) {
         setStats({
-          totalRevenue: 12450000000,
-          todayRevenue: 45000000,
-          monthlyRevenue: 2450000000,
-          successRate: 96.2,
-          failureRate: 3.8,
-          refundCount: 23,
-          refundAmount: 85000000,
-          paymentMethods: [
-            { method: "VNPAY", count: 1456, revenue: 4800000000, percentage: 38.5 },
-            { method: "MOMO", count: 1234, revenue: 3900000000, percentage: 31.3 },
-            { method: "CASH", count: 456, revenue: 1850000000, percentage: 14.9 },
-            { method: "BANK", count: 310, revenue: 1900000000, percentage: 15.3 },
-          ],
-          revenueByDay: [
-            { date: "01/11", revenue: 18000000 },
-            { date: "05/11", revenue: 22000000 },
-            { date: "10/11", revenue: 19500000 },
-            { date: "15/11", revenue: 24500000 },
-            { date: "20/11", revenue: 28000000 },
-            { date: "25/11", revenue: 26500000 },
-            { date: "30/11", revenue: 45000000 },
-          ],
-          revenueByMonth: [
-            { month: "Th1", revenue: 850000000 },
-            { month: "Th2", revenue: 920000000 },
-            { month: "Th3", revenue: 1080000000 },
-            { month: "Th4", revenue: 1250000000 },
-            { month: "Th5", revenue: 1420000000 },
-            { month: "Th6", revenue: 1680000000 },
-            { month: "Th7", revenue: 1950000000 },
-            { month: "Th8", revenue: 1780000000 },
-            { month: "Th9", revenue: 1650000000 },
-            { month: "Th10", revenue: 1520000000 },
-            { month: "Th11", revenue: 2450000000 },
-            { month: "Th12", revenue: 0 },
-          ],
-          failureRateTrend: [
-            { date: "01/11", rate: 2.5 },
-            { date: "05/11", rate: 3.2 },
-            { date: "10/11", rate: 2.8 },
-            { date: "15/11", rate: 4.1 },
-            { date: "20/11", rate: 3.5 },
-            { date: "25/11", rate: 3.8 },
-            { date: "30/11", rate: 3.2 },
-          ],
-          revenueByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", revenue: 680000000 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", revenue: 750000000 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", revenue: 520000000 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", revenue: 580000000 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", revenue: 320000000 },
-          ],
-          topCustomers: [
-            { account_id: "ACC001", full_name: "Nguyễn Văn A", total_spent: 45000000 },
-            { account_id: "ACC002", full_name: "Trần Thị B", total_spent: 32000000 },
-            { account_id: "ACC003", full_name: "Lê Văn C", total_spent: 28000000 },
-            { account_id: "ACC004", full_name: "Phạm Thị D", total_spent: 25000000 },
-            { account_id: "ACC005", full_name: "Hoàng Văn E", total_spent: 22000000 },
-          ],
+          totalRevenue: response.data.totalRevenue || 0,
+          todayRevenue: response.data.todayRevenue || 0,
+          monthlyRevenue: response.data.monthlyRevenue || 0,
+          successRate: response.data.successRate || 0,
+          failureRate: response.data.failureRate || 0,
+          refundCount: response.data.refundCount || 0,
+          refundAmount: response.data.refundAmount || 0,
+          paymentMethods: response.data.paymentMethods || [],
+          revenueByDay: response.data.revenueByDay || [],
+          revenueByMonth: response.data.revenueByMonth || [],
+          failureRateTrend: response.data.failureRateTrend || [],
+          revenueByHotel: response.data.revenueByHotel || [],
+          topCustomers: response.data.topCustomers || [],
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", response.message || "Không thể tải dữ liệu báo cáo");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải dữ liệu báo cáo");
       setLoading(false);

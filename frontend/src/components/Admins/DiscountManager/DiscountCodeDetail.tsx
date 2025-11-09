@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, Lock, Unlock, Calendar, Tag, DollarSign, Users, History, Building2, CheckCircle, XCircle, TrendingUp } from "lucide-react";
+import { ArrowLeft, Edit, Tag, Users, History, Building2, TrendingUp } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountCodeDetail {
-  discount_code_id: string;
+  discount_id?: string;
+  discount_code_id?: string;
   code: string;
   discount_type: "PERCENT" | "FIXED";
   discount_value: number;
@@ -16,7 +18,7 @@ interface DiscountCodeDetail {
   per_user_limit?: number;
   start_date: string;
   expiry_date: string;
-  status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "DISABLED";
   min_nights?: number;
   max_nights?: number;
   applicable_hotels: Array<{ hotel_id: string; name: string }>;
@@ -29,7 +31,7 @@ interface DiscountCodeDetail {
     total_saved: number;
   }>;
   history: Array<{
-    id: number;
+    id?: number;
     date: string;
     admin_name: string;
     action: string;
@@ -51,58 +53,33 @@ const DiscountCodeDetail = () => {
   }, [codeId]);
 
   const fetchDiscountCodeDetail = async () => {
+    if (!codeId) {
+      showToast("error", "Không tìm thấy mã giảm giá");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setCode({
-          discount_code_id: codeId || "DC001",
-          code: "SUMMER2025",
-          discount_type: "PERCENT",
-          discount_value: 15,
-          max_discount: 500000,
-          min_purchase: 1000000,
-          usage_count: 456,
-          usage_limit: 1000,
-          per_user_limit: 1,
-          start_date: "2025-06-01",
-          expiry_date: "2025-12-31",
-          status: "ACTIVE",
-          min_nights: 2,
-          max_nights: 30,
-          applicable_hotels: [
-            { hotel_id: "H001", name: "Hanoi Old Quarter Hotel" },
-            { hotel_id: "H002", name: "My Khe Beach Resort" },
-          ],
-          applicable_categories: [
-            { category_id: "CAT001", name: "Resort" },
-          ],
-          total_discount_amount: 68000000,
-          top_customers: [
-            { account_id: "ACC001", full_name: "Nguyễn Văn A", usage_count: 1, total_saved: 450000 },
-            { account_id: "ACC002", full_name: "Trần Thị B", usage_count: 1, total_saved: 320000 },
-          ],
-          history: [
-            {
-              id: 1,
-              date: "2025-11-04T10:00:00",
-              admin_name: "admin01",
-              action: "Gia hạn mã",
-              note: "Thêm 10 ngày",
-            },
-            {
-              id: 2,
-              date: "2025-11-03T14:30:00",
-              admin_name: "staff02",
-              action: "Đổi giá trị giảm",
-              note: "15% → 20%",
-            },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const result = await adminService.getDiscountCodeDetail(codeId);
+      if (result.success && result.data) {
+        // Map backend data to frontend interface
+        const mappedData: DiscountCodeDetail = {
+          ...result.data,
+          discount_code_id: result.data.discount_id || result.data.discount_code_id,
+          applicable_hotels: result.data.applicable_hotels || [],
+          applicable_categories: result.data.applicable_categories || [],
+          top_customers: result.data.top_customers || [],
+          history: result.data.history || [],
+        };
+        setCode(mappedData);
+      } else {
+        showToast("error", result.message || "Không thể tải chi tiết mã giảm giá");
+      }
     } catch (error: any) {
+      console.error("[DiscountCodeDetail] fetchDiscountCodeDetail error:", error);
       showToast("error", error.message || "Không thể tải chi tiết mã giảm giá");
+    } finally {
       setLoading(false);
     }
   };
@@ -131,6 +108,7 @@ const DiscountCodeDetail = () => {
       case "ACTIVE":
         return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Đang hoạt động</span>;
       case "INACTIVE":
+      case "DISABLED":
         return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">Tạm ngưng</span>;
       case "EXPIRED":
         return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">Hết hạn</span>;
@@ -169,7 +147,7 @@ const DiscountCodeDetail = () => {
               <h1 className="text-3xl font-bold text-gray-900 font-mono">{code.code}</h1>
               {getStatusBadge(code.status)}
             </div>
-            <p className="text-gray-600 mt-1">Discount Code ID: {code.discount_code_id}</p>
+            <p className="text-gray-600 mt-1">Discount Code ID: {code.discount_id || code.discount_code_id}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -342,8 +320,8 @@ const DiscountCodeDetail = () => {
                   </td>
                 </tr>
               ) : (
-                code.history.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
+                code.history.map((item, index) => (
+                  <tr key={item.id || `history-${index}-${item.date}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-600">{formatDateTime(item.date)}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.admin_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.action}</td>

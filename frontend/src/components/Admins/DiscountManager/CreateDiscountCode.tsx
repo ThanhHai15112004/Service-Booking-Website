@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Save, FileText, X, CheckCircle, AlertCircle, Tag, DollarSign, Calendar, Users, Building2, Hotel } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface HotelOption {
   hotel_id: string;
@@ -16,6 +17,8 @@ interface CategoryOption {
 
 const CreateDiscountCode = () => {
   const navigate = useNavigate();
+  const { codeId } = useParams<{ codeId?: string }>();
+  const isEditMode = !!codeId;
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -31,6 +34,8 @@ const CreateDiscountCode = () => {
     per_user_limit: "",
     start_date: "",
     expiry_date: "",
+    applicable_start_date: "", // Ngày bắt đầu áp dụng mã (trong khoảng start_date đến expiry_date)
+    applicable_end_date: "", // Ngày kết thúc áp dụng mã (trong khoảng start_date đến expiry_date)
     min_nights: "",
     max_nights: "",
     applicable_hotels: [] as string[],
@@ -42,35 +47,86 @@ const CreateDiscountCode = () => {
   useEffect(() => {
     fetchHotels();
     fetchCategories();
-  }, []);
+    if (isEditMode && codeId) {
+      fetchDiscountCode(codeId);
+    }
+  }, [codeId, isEditMode]);
 
   const fetchHotels = async () => {
+    setLoading(true);
     try {
-      // TODO: API call
-      setTimeout(() => {
-        setHotels([
-          { hotel_id: "H001", name: "Hanoi Old Quarter Hotel" },
-          { hotel_id: "H002", name: "My Khe Beach Resort" },
-          { hotel_id: "H003", name: "Saigon Riverside Hotel" },
-        ]);
-      }, 300);
+      const result = await adminService.getApplicableHotels();
+      if (result.success && result.data) {
+        setHotels(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách khách sạn");
+      }
     } catch (error: any) {
+      console.error("[CreateDiscountCode] fetchHotels error:", error);
       showToast("error", error.message || "Không thể tải danh sách khách sạn");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchCategories = async () => {
+    setLoading(true);
     try {
-      // TODO: API call
-      setTimeout(() => {
-        setCategories([
-          { category_id: "CAT001", name: "Resort" },
-          { category_id: "CAT002", name: "Boutique Hotel" },
-          { category_id: "CAT003", name: "Business Hotel" },
-        ]);
-      }, 300);
+      const result = await adminService.getApplicableCategories();
+      if (result.success && result.data) {
+        setCategories(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách category");
+      }
     } catch (error: any) {
+      console.error("[CreateDiscountCode] fetchCategories error:", error);
       showToast("error", error.message || "Không thể tải danh sách category");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDiscountCode = async (id: string) => {
+    setLoading(true);
+    try {
+      const result = await adminService.getDiscountCodeDetail(id);
+      if (result.success && result.data) {
+        const code = result.data;
+        // Format dates for input fields (YYYY-MM-DD)
+        const formatDateForInput = (dateString: string) => {
+          if (!dateString) return "";
+          const date = new Date(dateString);
+          return date.toISOString().split('T')[0];
+        };
+
+        setForm({
+          code: code.code || "",
+          discount_type: code.discount_type || "PERCENT",
+          discount_value: code.discount_value?.toString() || "",
+          max_discount: code.max_discount?.toString() || "",
+          min_purchase: code.min_purchase?.toString() || "",
+          usage_limit: code.usage_limit?.toString() || "",
+          per_user_limit: code.per_user_limit?.toString() || "",
+          start_date: formatDateForInput(code.start_date || code.created_at || ""),
+          expiry_date: formatDateForInput(code.expiry_date || ""),
+          applicable_start_date: formatDateForInput(code.applicable_start_date || ""),
+          applicable_end_date: formatDateForInput(code.applicable_end_date || ""),
+          min_nights: code.min_nights?.toString() || "",
+          max_nights: code.max_nights?.toString() || "",
+          applicable_hotels: code.applicable_hotels?.map((h: any) => h.hotel_id || h) || [],
+          applicable_categories: code.applicable_categories?.map((c: any) => c.category_id || c) || [],
+          status: code.status === "DISABLED" ? "INACTIVE" : (code.status || "ACTIVE"),
+        });
+      } else {
+        showToast("error", result.message || "Không thể tải thông tin mã giảm giá");
+        navigate("/admin/discounts");
+      }
+    } catch (error: any) {
+      console.error("[CreateDiscountCode] fetchDiscountCode error:", error);
+      showToast("error", error.message || "Không thể tải thông tin mã giảm giá");
+      navigate("/admin/discounts");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,18 +149,114 @@ const CreateDiscountCode = () => {
   };
 
   const handleSubmit = async () => {
-    if (!form.code || !form.discount_value || !form.start_date || !form.expiry_date) {
-      showToast("error", "Vui lòng điền đầy đủ thông tin bắt buộc");
+    // Validate required fields
+    if (!form.code || !form.code.trim()) {
+      showToast("error", "Vui lòng nhập mã giảm giá");
+      return;
+    }
+
+    if (!form.discount_value || Number(form.discount_value) <= 0) {
+      showToast("error", "Vui lòng nhập giá trị giảm giá hợp lệ");
+      return;
+    }
+
+    if (form.discount_type === "PERCENT" && Number(form.discount_value) > 100) {
+      showToast("error", "Giảm giá phần trăm không được vượt quá 100%");
+      return;
+    }
+
+    if (form.discount_type === "FIXED" && Number(form.discount_value) < 1000) {
+      showToast("error", "Giảm giá cố định phải tối thiểu 1,000 VNĐ");
+      return;
+    }
+
+    if (!form.start_date || !form.expiry_date) {
+      showToast("error", "Vui lòng chọn ngày bắt đầu và ngày hết hạn");
+      return;
+    }
+
+    const startDate = new Date(form.start_date);
+    const expiryDate = new Date(form.expiry_date);
+
+    if (expiryDate <= startDate) {
+      showToast("error", "Ngày hết hạn phải sau ngày bắt đầu");
+      return;
+    }
+
+    // Validate applicable dates
+    if (form.applicable_start_date || form.applicable_end_date) {
+      if (!form.applicable_start_date || !form.applicable_end_date) {
+        showToast("error", "Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc áp dụng mã");
+        return;
+      }
+
+      const applicableStartDate = new Date(form.applicable_start_date);
+      const applicableEndDate = new Date(form.applicable_end_date);
+
+      if (applicableEndDate <= applicableStartDate) {
+        showToast("error", "Ngày kết thúc áp dụng phải sau ngày bắt đầu áp dụng");
+        return;
+      }
+
+      if (applicableStartDate < startDate) {
+        showToast("error", "Ngày bắt đầu áp dụng không được trước ngày bắt đầu của mã");
+        return;
+      }
+
+      if (applicableEndDate > expiryDate) {
+        showToast("error", "Ngày kết thúc áp dụng không được sau ngày hết hạn của mã");
+        return;
+      }
+    }
+
+    if (form.min_nights && form.max_nights && Number(form.min_nights) > Number(form.max_nights)) {
+      showToast("error", "Số đêm tối thiểu không được lớn hơn số đêm tối đa");
+      return;
+    }
+
+    if (form.max_discount && form.discount_type === "PERCENT" && Number(form.max_discount) < 1000) {
+      showToast("error", "Giảm tối đa phải tối thiểu 1,000 VNĐ");
       return;
     }
 
     setSubmitting(true);
     try {
-      // TODO: API call
-      showToast("success", isDraft ? "Đã lưu bản nháp" : "Tạo mã giảm giá thành công");
-      setTimeout(() => navigate("/admin/discounts"), 1500);
+      const submitData = {
+        code: form.code.trim().toUpperCase(),
+        discount_type: form.discount_type,
+        discount_value: Number(form.discount_value),
+        max_discount: form.max_discount ? Number(form.max_discount) : undefined,
+        min_purchase: form.min_purchase ? Number(form.min_purchase) : undefined,
+        usage_limit: form.usage_limit ? Number(form.usage_limit) : undefined,
+        per_user_limit: form.per_user_limit ? Number(form.per_user_limit) : undefined,
+        start_date: form.start_date,
+        expiry_date: form.expiry_date,
+        applicable_start_date: form.applicable_start_date || undefined,
+        applicable_end_date: form.applicable_end_date || undefined,
+        min_nights: form.min_nights ? Number(form.min_nights) : undefined,
+        max_nights: form.max_nights ? Number(form.max_nights) : undefined,
+        applicable_hotels: form.applicable_hotels.length > 0 ? form.applicable_hotels : undefined,
+        applicable_categories: form.applicable_categories.length > 0 ? form.applicable_categories : undefined,
+        status: isDraft ? "INACTIVE" : form.status,
+      };
+
+      let result;
+      if (isEditMode && codeId) {
+        result = await adminService.updateDiscountCode(codeId, submitData);
+      } else {
+        result = await adminService.createDiscountCode(submitData);
+      }
+
+      if (result.success) {
+        showToast("success", result.message || (isEditMode ? "Cập nhật mã giảm giá thành công" : (isDraft ? "Đã lưu bản nháp" : "Tạo mã giảm giá thành công")));
+        setTimeout(() => navigate("/admin/discounts"), 1500);
+      } else {
+        showToast("error", result.message || (isEditMode ? "Không thể cập nhật mã giảm giá" : "Không thể tạo mã giảm giá"));
+        setSubmitting(false);
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tạo mã giảm giá");
+      console.error("[CreateDiscountCode] handleSubmit error:", error);
+      showToast("error", error.message || (isEditMode ? "Không thể cập nhật mã giảm giá" : "Không thể tạo mã giảm giá"));
       setSubmitting(false);
     }
   };
@@ -122,8 +274,8 @@ const CreateDiscountCode = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tạo mã giảm giá mới</h1>
-          <p className="text-gray-600 mt-1">Tạo và cấu hình mã giảm giá cho hệ thống</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? "Chỉnh sửa mã giảm giá" : "Tạo mã giảm giá mới"}</h1>
+          <p className="text-gray-600 mt-1">{isEditMode ? "Cập nhật thông tin mã giảm giá" : "Tạo và cấu hình mã giảm giá cho hệ thống"}</p>
         </div>
         <button
           onClick={() => navigate("/admin/discounts")}
@@ -235,6 +387,49 @@ const CreateDiscountCode = () => {
               <option value="ACTIVE">Đang hoạt động</option>
               <option value="INACTIVE">Tạm ngưng</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Applicable Dates */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <Calendar className="text-blue-600" size={24} />
+          Ngày áp dụng mã (Tùy chọn)
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Nếu không chọn, mã sẽ áp dụng trong toàn bộ khoảng thời gian từ ngày bắt đầu đến ngày hết hạn.
+          Nếu chọn, mã chỉ có hiệu lực trong khoảng thời gian được chỉ định (phải nằm trong khoảng từ ngày bắt đầu đến ngày hết hạn).
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày bắt đầu áp dụng mã
+            </label>
+            <input
+              type="date"
+              value={form.applicable_start_date}
+              onChange={(e) => setForm({ ...form, applicable_start_date: e.target.value })}
+              min={form.start_date}
+              max={form.expiry_date}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+            <p className="text-xs text-gray-500 mt-1">Phải từ ngày bắt đầu ({form.start_date || "chưa chọn"}) trở đi</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc áp dụng mã
+            </label>
+            <input
+              type="date"
+              value={form.applicable_end_date}
+              onChange={(e) => setForm({ ...form, applicable_end_date: e.target.value })}
+              min={form.applicable_start_date || form.start_date}
+              max={form.expiry_date}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+            <p className="text-xs text-gray-500 mt-1">Phải trước ngày hết hạn ({form.expiry_date || "chưa chọn"})</p>
           </div>
         </div>
       </div>
@@ -385,7 +580,7 @@ const CreateDiscountCode = () => {
           className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           <CheckCircle size={18} />
-          {submitting ? "Đang tạo..." : "Lưu và kích hoạt"}
+          {submitting ? (isEditMode ? "Đang cập nhật..." : "Đang tạo...") : (isEditMode ? "Cập nhật" : "Lưu và kích hoạt")}
         </button>
       </div>
     </div>

@@ -725,8 +725,8 @@ const BookingDetail = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {booking.statusHistory.map((history) => (
-                    <tr key={history.id}>
+                  {booking.statusHistory.map((history, index) => (
+                    <tr key={history.id || `history-${index}-${history.date}`}>
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDateTime(history.date)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{history.admin_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">
@@ -772,8 +772,8 @@ const BookingDetail = () => {
               {booking.internalNotes.length === 0 ? (
                 <p className="text-gray-500 text-sm">Chưa có ghi chú nào</p>
               ) : (
-                booking.internalNotes.map((note) => (
-                  <div key={note.id} className="border-l-4 border-blue-500 pl-3 py-2 bg-gray-50 rounded">
+                booking.internalNotes.map((note, index) => (
+                  <div key={note.id || `note-${index}-${note.created_at}`} className="border-l-4 border-blue-500 pl-3 py-2 bg-gray-50 rounded">
                     <p className="text-sm text-gray-700">{note.note}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {formatDateTime(note.created_at)} - {note.admin_name}

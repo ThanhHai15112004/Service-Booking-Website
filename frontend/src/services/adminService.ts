@@ -1559,13 +1559,282 @@ export const adminService = {
   // Update Payment Status
   updatePaymentStatus: async (
     paymentId: string,
-    status: string
+    status: string,
+    note?: string
   ): Promise<{
     success: boolean;
     message?: string;
   }> => {
-    const response = await adminApi.put(`/api/admin/bookings/payments/${paymentId}/status`, {
+    const response = await adminApi.put(`/api/admin/payments/${paymentId}/status`, {
       status,
+      note,
+    });
+    return response.data;
+  },
+
+  // ============================================
+  // PAYMENT MANAGER APIs
+  // ============================================
+
+  // Get Payment Dashboard Stats
+  getPaymentDashboardStats: async (): Promise<{
+    success: boolean;
+    data?: {
+      totalRevenue: number;
+      todayRevenue: number;
+      monthlyRevenue: number;
+      totalTransactions: number;
+      failedTransactions: number;
+      refundedTransactions: number;
+      revenueByMonth: Array<{ month: string; revenue: number }>;
+      paymentMethods: Array<{ method: string; count: number; revenue: number; percentage: number }>;
+      revenueTrend: Array<{ date: string; revenue: number }>;
+      topCustomers: Array<{
+        account_id: string;
+        full_name: string;
+        total_spent: number;
+      }>;
+      topHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        revenue: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/dashboard");
+    return response.data;
+  },
+
+  // Get Payments List
+  getPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    paymentMethod?: string;
+    status?: string;
+    hotelId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    sortBy?: "created_at" | "amount_due" | "status";
+    sortOrder?: "ASC" | "DESC";
+  }): Promise<{
+    success: boolean;
+    data?: {
+      payments: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+      statistics?: {
+        totalRevenue: number;
+        pendingAmount: number;
+        refundedAmount: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/list", { params });
+    return response.data;
+  },
+
+  // Get Payment Detail
+  getPaymentDetail: async (paymentId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/payments/${paymentId}`);
+    return response.data;
+  },
+
+  // Get Failed Payments
+  getFailedPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      payments: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/failed/list", { params });
+    return response.data;
+  },
+
+  // Get Manual Payments
+  getManualPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      payments: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/manual/list", { params });
+    return response.data;
+  },
+
+  // Retry Payment
+  retryPayment: async (
+    paymentId: string,
+    newMethod?: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/payments/${paymentId}/retry`, {
+      newMethod,
+    });
+    return response.data;
+  },
+
+  // Confirm Manual Payment
+  confirmManualPayment: async (
+    paymentId: string,
+    data: {
+      admin_name: string;
+      received_date: string;
+      note?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/payments/${paymentId}/confirm-manual`, data);
+    return response.data;
+  },
+
+  // Get Refunds
+  getRefunds: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    paymentMethod?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      refunds: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/refunds/list", { params });
+    return response.data;
+  },
+
+  // Create Refund
+  createRefund: async (
+    paymentId: string,
+    data: {
+      amount: number;
+      reason?: string;
+      refund_date?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/payments/${paymentId}/refund`, data);
+    return response.data;
+  },
+
+  // Get Payment Reports
+  getPaymentReports: async (params?: {
+    period?: "7days" | "month" | "quarter" | "year";
+    paymentMethod?: string;
+    hotelId?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalRevenue: number;
+      todayRevenue: number;
+      monthlyRevenue: number;
+      successRate: number;
+      failureRate: number;
+      refundCount: number;
+      refundAmount: number;
+      paymentMethods: Array<{ method: string; count: number; revenue: number; percentage: number }>;
+      revenueByDay: Array<{ date: string; revenue: number }>;
+      revenueByMonth: Array<{ month: string; revenue: number }>;
+      failureRateTrend: Array<{ date: string; rate: number }>;
+      revenueByHotel: Array<{ hotel_id: string; hotel_name: string; revenue: number }>;
+      topCustomers: Array<{
+        account_id: string;
+        full_name: string;
+        total_spent: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/reports", { params });
+    return response.data;
+  },
+
+  // Get Payment Activity Logs
+  getPaymentActivityLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    admin?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      logs: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/payments/activity-logs", { params });
+    return response.data;
+  },
+
+  // Export Invoice
+  exportInvoice: async (
+    paymentId: string,
+    format: "PDF" | "EMAIL"
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    data?: any;
+  }> => {
+    const response = await adminApi.post(`/api/admin/payments/${paymentId}/export-invoice`, {
+      format,
     });
     return response.data;
   },
@@ -1644,37 +1913,529 @@ export const adminService = {
     return response.data;
   },
 
-  // Get Booking Reports
-  getBookingReports: async (params?: {
-    period?: "7days" | "month" | "quarter" | "year";
-    hotelId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  }): Promise<{
+  // ============================================
+  // DISCOUNT MANAGER APIs
+  // ============================================
+
+  // Get Discount Dashboard Stats
+  getDiscountDashboardStats: async (): Promise<{
     success: boolean;
     data?: {
-      totalBookings: number;
-      totalRevenue: number;
-      cancelledRate: number;
-      paymentMethods: Array<{ method: string; count: number; revenue: number }>;
-      topCustomers: Array<{
+      totalActive: number;
+      expiringSoon: number;
+      expiredDisabled: number;
+      monthlyUsage: number;
+      totalDiscountAmount: number;
+      codesCreatedByMonth: Array<{ month: string; count: number }>;
+      discountTypeDistribution: Array<{ type: string; count: number; percentage: number }>;
+      discountRevenueTrend: Array<{ date: string; amount: number }>;
+      topCodes: Array<{
+        code: string;
+        usage_count: number;
+        discount_amount: number;
+      }>;
+      topUsers: Array<{
         account_id: string;
         full_name: string;
-        total_spent: number;
-        booking_count: number;
+        usage_count: number;
+        total_saved: number;
       }>;
-      topHotels: Array<{
-        hotel_id: string;
-        hotel_name: string;
-        booking_count: number;
-        revenue: number;
-      }>;
-      revenueByMonth: Array<{ month: string; revenue: number }>;
-      cancellationTrend: Array<{ month: string; cancelled: number; total: number }>;
     };
     message?: string;
   }> => {
-    const response = await adminApi.get("/api/admin/bookings/reports", { params });
+    const response = await adminApi.get("/api/admin/discounts/dashboard");
+    return response.data;
+  },
+
+  // Get All Discount Codes
+  getAllDiscountCodes: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    discountType?: string;
+    expiryDate?: string;
+    sortBy?: string;
+    sortOrder?: "ASC" | "DESC";
+  }): Promise<{
+    success: boolean;
+    data?: any[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/list", { params });
+    return response.data;
+  },
+
+  // Get Discount Code Detail
+  getDiscountCodeDetail: async (discountId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/discounts/${discountId}`);
+    return response.data;
+  },
+
+  // Create Discount Code
+  createDiscountCode: async (data: {
+    code: string;
+    discount_type: "PERCENT" | "FIXED";
+    discount_value: number;
+    max_discount?: number;
+    min_purchase?: number;
+    usage_limit?: number;
+    per_user_limit?: number;
+    start_date: string;
+    expiry_date: string;
+    applicable_start_date?: string;
+    applicable_end_date?: string;
+    min_nights?: number;
+    max_nights?: number;
+    applicable_hotels?: string[];
+    applicable_categories?: string[];
+    status: "ACTIVE" | "INACTIVE";
+  }): Promise<{
+    success: boolean;
+    discountId?: string;
+    message?: string;
+  }> => {
+    const response = await adminApi.post("/api/admin/discounts/create", data);
+    return response.data;
+  },
+
+  // Update Discount Code
+  updateDiscountCode: async (
+    discountId: string,
+    data: Partial<{
+      code: string;
+      discount_type: "PERCENT" | "FIXED";
+      discount_value: number;
+      max_discount?: number;
+      min_purchase?: number;
+      usage_limit?: number;
+      per_user_limit?: number;
+      start_date: string;
+      expiry_date: string;
+      applicable_start_date?: string;
+      applicable_end_date?: string;
+      min_nights?: number;
+      max_nights?: number;
+      applicable_hotels?: string[];
+      applicable_categories?: string[];
+      status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+    }>
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/discounts/${discountId}`, data);
+    return response.data;
+  },
+
+  // Delete Discount Code
+  deleteDiscountCode: async (discountId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.delete(`/api/admin/discounts/${discountId}`);
+    return response.data;
+  },
+
+  // Toggle Discount Code Status
+  toggleDiscountCodeStatus: async (discountId: string): Promise<{
+    success: boolean;
+    status?: string;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/discounts/${discountId}/toggle-status`);
+    return response.data;
+  },
+
+  // Extend Discount Code Expiry
+  extendDiscountCodeExpiry: async (
+    discountId: string,
+    days: number
+  ): Promise<{
+    success: boolean;
+    newExpiry?: string;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/discounts/${discountId}/extend`, { days });
+    return response.data;
+  },
+
+  // Get Discount Usage Analytics
+  getDiscountUsageAnalytics: async (params?: {
+    period?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalUsage: number;
+      totalDiscountAmount: number;
+      usageRate: number;
+      topCodesByUsage: Array<{
+        code: string;
+        usage_count: number;
+        discount_amount: number;
+      }>;
+      topCodesByRevenue: Array<{
+        code: string;
+        usage_count: number;
+        discount_amount: number;
+      }>;
+      usageByType: Array<{
+        type: string;
+        usage_count: number;
+        percentage: number;
+      }>;
+      usageByDay: Array<{
+        date: string;
+        usage_count: number;
+      }>;
+      discountByCode: Array<{
+        code: string;
+        discount_amount: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/usage-analytics", { params });
+    return response.data;
+  },
+
+  // Get Discount Reports
+  getDiscountReports: async (params?: {
+    period?: string;
+    startDate?: string;
+    endDate?: string;
+    groupBy?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalUsageByCode: Array<{
+        code: string;
+        usage_count: number;
+        discount_amount: number;
+      }>;
+      totalDiscountRevenue: number;
+      topCodeByBooking: Array<{
+        code: string;
+        booking_count: number;
+      }>;
+      expiredUnusedCodes: Array<{
+        code: string;
+        expiry_date: string;
+        usage_count: number;
+      }>;
+      refundRateWithCode: number;
+      usageByCustomer: Array<{
+        customer_name: string;
+        usage_count: number;
+        total_saved: number;
+      }>;
+      usageByHotel: Array<{
+        hotel_name: string;
+        usage_count: number;
+        discount_amount: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/reports", { params });
+    return response.data;
+  },
+
+  // Get Discount Users
+  getDiscountUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    discountCode?: string;
+    customerEmail?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    bookingStatus?: string;
+  }): Promise<{
+    success: boolean;
+    data?: any[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/users", { params });
+    return response.data;
+  },
+
+  // Get Applicable Hotels
+  getApplicableHotels: async (): Promise<{
+    success: boolean;
+    data?: Array<{ hotel_id: string; name: string }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/applicable-hotels");
+    return response.data;
+  },
+
+  // Get Applicable Categories
+  getApplicableCategories: async (): Promise<{
+    success: boolean;
+    data?: Array<{ category_id: string; name: string }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/discounts/applicable-categories");
+    return response.data;
+  },
+
+  // Export Discount Report
+  exportDiscountReport: async (data: {
+    format: "CSV" | "EXCEL" | "PDF";
+    period?: string;
+    startDate?: string;
+    endDate?: string;
+    groupBy?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      format: string;
+      content?: string;
+      filename?: string;
+      data?: any;
+      message?: string;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.post("/api/admin/discounts/export-report", data, {
+      responseType: data.format === "CSV" ? "blob" : "json",
+    });
+    
+    if (data.format === "CSV" && response.data instanceof Blob) {
+      // Handle CSV download
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `discount-report-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return {
+        success: true,
+        message: "Đã xuất file CSV thành công",
+      };
+    }
+    
+    return response.data;
+  },
+
+  // ============================================
+  // PROMOTION MANAGER
+  // ============================================
+
+  // Get Promotion Dashboard Stats
+  getPromotionDashboardStats: async (): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/promotions/dashboard");
+    return response.data;
+  },
+
+  // Get All Promotions
+  getAllPromotions: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    type?: string;
+    discountType?: string;
+    startDate?: string;
+    endDate?: string;
+    sortBy?: string;
+    sortOrder?: "ASC" | "DESC";
+  }): Promise<{
+    success: boolean;
+    data?: any[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/promotions/list", { params });
+    return response.data;
+  },
+
+  // Get Promotion Detail
+  getPromotionDetail: async (promotionId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/promotions/${promotionId}`);
+    return response.data;
+  },
+
+  // Create Promotion
+  createPromotion: async (data: {
+    name: string;
+    description?: string;
+    type: "PROVIDER" | "SYSTEM" | "BOTH";
+    discount_type: "PERCENTAGE" | "FIXED_AMOUNT";
+    discount_value: number;
+    min_purchase?: number;
+    max_discount?: number;
+    start_date: string;
+    end_date: string;
+    applicable_hotels?: string[];
+    applicable_rooms?: string[];
+    applicable_dates?: string[];
+    day_of_week?: number[];
+    status?: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  }): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.post("/api/admin/promotions/create", data);
+    return response.data;
+  },
+
+  // Update Promotion
+  updatePromotion: async (
+    promotionId: string,
+    data: {
+      name?: string;
+      description?: string;
+      type?: "PROVIDER" | "SYSTEM" | "BOTH";
+      discount_type?: "PERCENTAGE" | "FIXED_AMOUNT";
+      discount_value?: number;
+      min_purchase?: number;
+      max_discount?: number;
+      start_date?: string;
+      end_date?: string;
+      applicable_hotels?: string[];
+      applicable_rooms?: string[];
+      applicable_dates?: string[];
+      day_of_week?: number[];
+      status?: "ACTIVE" | "INACTIVE" | "EXPIRED";
+    }
+  ): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/promotions/${promotionId}`, data);
+    return response.data;
+  },
+
+  // Delete Promotion
+  deletePromotion: async (promotionId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.delete(`/api/admin/promotions/${promotionId}`);
+    return response.data;
+  },
+
+  // Toggle Promotion Status
+  togglePromotionStatus: async (promotionId: string): Promise<{
+    success: boolean;
+    status?: string;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/promotions/${promotionId}/toggle-status`);
+    return response.data;
+  },
+
+  // Apply Promotion to Schedules
+  applyPromotionToSchedules: async (promotionId: string): Promise<{
+    success: boolean;
+    affectedSchedules?: number;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/promotions/${promotionId}/apply-to-schedules`);
+    return response.data;
+  },
+
+  // Get Promotion Reports
+  getPromotionReports: async (params?: {
+    period?: string;
+    startDate?: string;
+    endDate?: string;
+    type?: string;
+  }): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/promotions/reports", { params });
+    return response.data;
+  },
+
+  // Get Promotion Activity Logs
+  getPromotionActivityLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    promotionId?: string;
+    adminId?: string;
+    action?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    success: boolean;
+    data?: any[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/promotions/activity-logs", { params });
+    return response.data;
+  },
+
+  // Get Applicable Hotels for Promotions
+  getPromotionApplicableHotels: async (): Promise<{
+    success: boolean;
+    data?: Array<{ hotel_id: string; name: string }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/promotions/applicable-hotels");
+    return response.data;
+  },
+
+  // Get Applicable Rooms for Promotions
+  getPromotionApplicableRooms: async (hotelIds?: string[]): Promise<{
+    success: boolean;
+    data?: Array<{
+      room_id: string;
+      room_number: string;
+      room_type_name: string;
+      hotel_id: string;
+      hotel_name: string;
+    }>;
+    message?: string;
+  }> => {
+    const params = hotelIds && hotelIds.length > 0 ? { hotelIds: hotelIds.join(',') } : {};
+    const response = await adminApi.get("/api/admin/promotions/applicable-rooms", { params });
     return response.data;
   },
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, FileText, Mail, CheckCircle } from "lucide-react";
 import Toast from "../../Toast";
+import { adminService } from "../../../services/adminService";
 
 interface ExportInvoiceProps {
   paymentId?: string;
@@ -13,24 +14,31 @@ const ExportInvoice = ({ paymentId, bookingId, onClose }: ExportInvoiceProps) =>
   const [loading, setLoading] = useState(false);
 
   const handleExport = async (format: "PDF" | "EMAIL") => {
+    if (!paymentId && !bookingId) {
+      showToast("error", "Vui lòng chọn payment hoặc booking");
+      return;
+    }
     setLoading(true);
     try {
-      // TODO: API call to export invoice
-      if (format === "PDF") {
-        showToast("success", "Đang xuất hóa đơn PDF...");
-        // Simulate download
-        setTimeout(() => {
-          showToast("success", "Đã xuất hóa đơn PDF thành công!");
-          setLoading(false);
-        }, 1500);
-      } else {
-        showToast("success", "Đang gửi email hóa đơn...");
-        setTimeout(() => {
-          showToast("success", "Đã gửi email hóa đơn thành công!");
-          setLoading(false);
-          if (onClose) onClose();
-        }, 1500);
+      // Use paymentId if available, otherwise we need to get it from booking
+      const pid = paymentId || "";
+      if (!pid && bookingId) {
+        // If only bookingId, we need to get paymentId from booking
+        showToast("error", "Vui lòng cung cấp payment ID");
+        setLoading(false);
+        return;
       }
+
+      const response = await adminService.exportInvoice(pid, format);
+      if (response.success) {
+        showToast("success", response.message || `Đã ${format === "PDF" ? "xuất" : "gửi"} hóa đơn thành công!`);
+        if (format === "EMAIL" && onClose) {
+          onClose();
+        }
+      } else {
+        showToast("error", response.message || "Không thể xuất hóa đơn");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể xuất hóa đơn");
       setLoading(false);

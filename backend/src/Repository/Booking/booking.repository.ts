@@ -123,14 +123,25 @@ export class BookingRepository {
       ? 'AND CAST(rps.date AS DATE) = ?'
       : 'AND CAST(rps.date AS DATE) >= ? AND CAST(rps.date AS DATE) < ?';
     
+    // ✅ Calculate final price with all discount types
     const sql = `
       SELECT
         DATE_FORMAT(rps.date, '%Y-%m-%d') as date,
         rps.base_price as basePrice,
         rps.discount_percent as discountPercent,
-        COALESCE(rps.provider_discount_amount, 0) as providerDiscount,
-        COALESCE(rps.system_discount_amount, 0) as systemDiscount,
-        COALESCE(rps.final_price, rps.base_price - COALESCE(rps.provider_discount_amount, 0) - COALESCE(rps.system_discount_amount, 0), rps.base_price * (1 - rps.discount_percent / 100)) as finalPrice
+        COALESCE(rps.provider_discount_percent, 0) as providerDiscountPercent,
+        COALESCE(rps.system_discount_percent, 0) as systemDiscountPercent,
+        COALESCE(rps.provider_discount_amount, 0) as providerDiscountAmount,
+        COALESCE(rps.system_discount_amount, 0) as systemDiscountAmount,
+        CASE
+          WHEN rps.final_price IS NOT NULL AND rps.final_price > 0
+          THEN rps.final_price
+          ELSE GREATEST(0,
+            (rps.base_price * (1 - (COALESCE(rps.discount_percent, 0) + COALESCE(rps.system_discount_percent, 0) + COALESCE(rps.provider_discount_percent, 0)) / 100))
+            - COALESCE(rps.provider_discount_amount, 0)
+            - COALESCE(rps.system_discount_amount, 0)
+          )
+        END as finalPrice
       FROM room_price_schedule rps
       WHERE rps.room_id = ?
         ${dateCondition}
@@ -155,8 +166,8 @@ export class BookingRepository {
         date: row.date,
         basePrice: Number(row.basePrice),
         discountPercent: Number(row.discountPercent || 0),
-        providerDiscount: Number(row.providerDiscount || 0),
-        systemDiscount: Number(row.systemDiscount || 0),
+        providerDiscount: Number(row.providerDiscountAmount || 0), // Amount, not percent
+        systemDiscount: Number(row.systemDiscountAmount || 0), // Amount, not percent
         finalPrice: Number(row.finalPrice)
       }));
 

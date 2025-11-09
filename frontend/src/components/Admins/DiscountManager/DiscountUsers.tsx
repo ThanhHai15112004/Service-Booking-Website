@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Tag, ChevronLeft, ChevronRight, Filter, Calendar, User } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountUsage {
   id: number;
@@ -21,9 +22,10 @@ const DiscountUsers = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [usages, setUsages] = useState<DiscountUsage[]>([]);
-  const [filteredUsages, setFilteredUsages] = useState<DiscountUsage[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     discountCode: "",
@@ -33,97 +35,91 @@ const DiscountUsers = () => {
     bookingStatus: "",
   });
 
+  // Debounce search term
   useEffect(() => {
-    fetchDiscountUsages();
-  }, []);
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
-    applyFilters();
-  }, [usages, searchTerm, filters]);
+    fetchDiscountUsages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, itemsPerPage, filters.discountCode, filters.customerEmail, filters.dateFrom, filters.dateTo, filters.bookingStatus]);
+
+  // Separate effect for search term (after debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchDiscountUsages();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchDiscountUsages = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setUsages([
-          {
-            id: 1,
-            discount_code: "SUMMER2025",
-            customer_name: "Nguyễn Văn A",
-            customer_email: "nguyenvana@email.com",
-            account_id: "ACC001",
-            booking_id: "BK001",
-            discount_amount: 450000,
-            used_at: "2025-11-01T10:30:00",
-            booking_status: "PAID",
-          },
-          {
-            id: 2,
-            discount_code: "WELCOME10",
-            customer_name: "Trần Thị B",
-            customer_email: "tranthib@email.com",
-            account_id: "ACC002",
-            booking_id: "BK002",
-            discount_amount: 320000,
-            used_at: "2025-11-02T14:20:00",
-            booking_status: "PAID",
-          },
-          {
-            id: 3,
-            discount_code: "SUMMER2025",
-            customer_name: "Lê Văn C",
-            customer_email: "levanc@email.com",
-            account_id: "ACC003",
-            booking_id: "BK003",
-            discount_amount: 280000,
-            used_at: "2025-11-03T09:15:00",
-            booking_status: "CANCELLED",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      if (filters.discountCode) {
+        params.discountCode = filters.discountCode;
+      }
+
+      if (filters.customerEmail) {
+        params.customerEmail = filters.customerEmail;
+      }
+
+      if (filters.dateFrom) {
+        params.dateFrom = filters.dateFrom;
+      }
+
+      if (filters.dateTo) {
+        params.dateTo = filters.dateTo;
+      }
+
+      if (filters.bookingStatus) {
+        params.bookingStatus = filters.bookingStatus;
+      }
+
+      const result = await adminService.getDiscountUsers(params);
+      if (result.success && result.data) {
+        // Map data from backend to frontend interface
+        const mappedUsages = result.data.map((usage: any, index: number) => ({
+          id: usage.id || usage.booking_id || index,
+          discount_code: usage.discount_code,
+          customer_name: usage.customer_name,
+          customer_email: usage.customer_email,
+          account_id: usage.account_id,
+          booking_id: usage.booking_id,
+          discount_amount: Number(usage.discount_amount || 0),
+          used_at: usage.used_at,
+          booking_status: usage.booking_status,
+        }));
+        setUsages(mappedUsages);
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages);
+          setTotal(result.pagination.total);
+        }
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách người dùng đã sử dụng mã");
+      }
     } catch (error: any) {
+      console.error("[DiscountUsers] fetchDiscountUsages error:", error);
       showToast("error", error.message || "Không thể tải danh sách người dùng đã sử dụng mã");
+    } finally {
       setLoading(false);
     }
-  };
-
-  const applyFilters = () => {
-    let result = [...usages];
-
-    if (searchTerm) {
-      result = result.filter(
-        (usage) =>
-          usage.discount_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          usage.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          usage.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          usage.booking_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.discountCode) {
-      result = result.filter((usage) => usage.discount_code === filters.discountCode);
-    }
-
-    if (filters.customerEmail) {
-      result = result.filter((usage) => usage.customer_email.toLowerCase().includes(filters.customerEmail.toLowerCase()));
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((usage) => usage.used_at >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((usage) => usage.used_at <= filters.dateTo);
-    }
-
-    if (filters.bookingStatus) {
-      result = result.filter((usage) => usage.booking_status === filters.bookingStatus);
-    }
-
-    setFilteredUsages(result);
-    setCurrentPage(1);
   };
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -131,10 +127,8 @@ const DiscountUsers = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredUsages.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentUsages = filteredUsages.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, total);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -192,7 +186,10 @@ const DiscountUsers = () => {
 
           <select
             value={filters.discountCode}
-            onChange={(e) => setFilters({ ...filters, discountCode: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, discountCode: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả mã</option>
@@ -205,7 +202,10 @@ const DiscountUsers = () => {
 
           <select
             value={filters.bookingStatus}
-            onChange={(e) => setFilters({ ...filters, bookingStatus: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, bookingStatus: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trạng thái</option>
@@ -218,14 +218,20 @@ const DiscountUsers = () => {
             <input
               type="date"
               value={filters.dateFrom}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateFrom: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Từ ngày"
             />
             <input
               type="date"
               value={filters.dateTo}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateTo: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Đến ngày"
             />
@@ -249,15 +255,15 @@ const DiscountUsers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentUsages.length === 0 ? (
+              {usages.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                    Không tìm thấy người dùng nào
+                    {loading ? "Đang tải..." : "Không tìm thấy người dùng nào"}
                   </td>
                 </tr>
               ) : (
-                currentUsages.map((usage) => (
-                  <tr key={usage.id} className="hover:bg-gray-50 transition-colors">
+                usages.map((usage) => (
+                  <tr key={usage.id || usage.booking_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Tag className="text-blue-600" size={16} />
@@ -306,7 +312,7 @@ const DiscountUsers = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredUsages.length)} trong tổng số {filteredUsages.length} người dùng
+                Hiển thị {startIndex + 1}-{endIndex} trong tổng số {total} người dùng
               </span>
               <select
                 value={itemsPerPage}
@@ -324,7 +330,7 @@ const DiscountUsers = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={20} />
@@ -334,7 +340,7 @@ const DiscountUsers = () => {
               </span>
               <button
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={20} />

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { RefreshCw, Mail, Search, Eye, CheckCircle, XCircle, Clock, DollarSign, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Refund {
   refund_id: string;
@@ -22,9 +23,10 @@ const RefundManagement = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [refunds, setRefunds] = useState<Refund[]>([]);
-  const [filteredRefunds, setFilteredRefunds] = useState<Refund[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     paymentMethod: "",
@@ -40,82 +42,53 @@ const RefundManagement = () => {
   });
 
   useEffect(() => {
-    fetchRefunds();
-  }, []);
+    setCurrentPage(1);
+  }, [filters, searchTerm]);
 
   useEffect(() => {
-    applyFilters();
-  }, [refunds, searchTerm, filters]);
+    fetchRefunds();
+  }, [currentPage, itemsPerPage, filters, searchTerm]);
 
   const fetchRefunds = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setRefunds([
-          {
-            refund_id: "REF001",
-            payment_id: "PAY001",
-            booking_id: "BK001",
-            amount: 3650000,
-            payment_method: "VNPAY",
-            refund_date: "2025-11-05T10:00:00",
-            status: "COMPLETED",
-            reason: "Khách hủy booking",
-            admin_name: "admin01",
-            customer_email: "nguyenvana@email.com",
-          },
-          {
-            refund_id: "REF002",
-            payment_id: "PAY002",
-            booking_id: "BK002",
-            amount: 8500000,
-            payment_method: "MOMO",
-            refund_date: "2025-11-06T14:30:00",
-            status: "PENDING",
-            reason: "Yêu cầu hoàn tiền từ khách",
-            customer_email: "tranthib@email.com",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getRefunds({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        paymentMethod: filters.paymentMethod || undefined,
+        status: filters.status || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      });
+
+      if (response.success && response.data) {
+        const mappedRefunds = response.data.refunds.map((r: any) => ({
+          refund_id: r.refund_id || r.payment_id,
+          payment_id: r.payment_id,
+          booking_id: r.booking_id,
+          amount: r.amount || r.amount_paid,
+          payment_method: r.payment_method || r.method,
+          refund_date: r.refund_date || r.updated_at,
+          status: r.status || "COMPLETED",
+          reason: r.reason || "",
+          admin_name: r.admin_name,
+          customer_email: r.customer_email || "N/A",
+        }));
+        setRefunds(mappedRefunds);
+        setTotalPages(response.data.pagination.totalPages);
+        setTotal(response.data.pagination.total);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách hoàn tiền");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách hoàn tiền");
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...refunds];
-
-    if (searchTerm) {
-      result = result.filter(
-        (refund) =>
-          refund.refund_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          refund.payment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          refund.booking_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.paymentMethod) {
-      result = result.filter((refund) => refund.payment_method === filters.paymentMethod);
-    }
-
-    if (filters.status) {
-      result = result.filter((refund) => refund.status === filters.status);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((refund) => refund.refund_date >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((refund) => refund.refund_date <= filters.dateTo);
-    }
-
-    setFilteredRefunds(result);
-    setCurrentPage(1);
-  };
+  // Filters are applied on the backend
 
   const handleCreateRefund = async () => {
     if (!selectedRefund || !refundForm.reason.trim()) {
@@ -124,12 +97,19 @@ const RefundManagement = () => {
     }
 
     try {
-      // TODO: API call to create refund
-      showToast("success", "Đã tạo yêu cầu hoàn tiền thành công");
-      setShowRefundModal(false);
-      setSelectedRefund(null);
-      setRefundForm({ reason: "", amount: 0 });
-      fetchRefunds();
+      const response = await adminService.createRefund(selectedRefund.payment_id, {
+        amount: refundForm.amount || selectedRefund.amount,
+        reason: refundForm.reason,
+      });
+      if (response.success) {
+        showToast("success", response.message || "Đã tạo yêu cầu hoàn tiền thành công");
+        setShowRefundModal(false);
+        setSelectedRefund(null);
+        setRefundForm({ reason: "", amount: 0 });
+        fetchRefunds();
+      } else {
+        showToast("error", response.message || "Không thể tạo yêu cầu hoàn tiền");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tạo yêu cầu hoàn tiền");
     }
@@ -149,10 +129,9 @@ const RefundManagement = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredRefunds.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentRefunds = filteredRefunds.slice(startIndex, endIndex);
+  const currentRefunds = refunds;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -334,7 +313,7 @@ const RefundManagement = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredRefunds.length)} trong tổng số {filteredRefunds.length} refund
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, total)} trong tổng số {total} refund
               </span>
               <select
                 value={itemsPerPage}

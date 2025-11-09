@@ -7,6 +7,7 @@ import {
   Calendar,
   CreditCard,
   Tags,
+  Tag,
   Star,
   BarChart3,
   ChevronDown,
@@ -51,6 +52,9 @@ const AdminSidebar = () => {
     }
     if (location.pathname.startsWith("/admin/discounts")) {
       shouldExpand.push("discounts");
+    }
+    if (location.pathname.startsWith("/admin/promotions")) {
+      shouldExpand.push("promotions");
     }
     if (location.pathname.startsWith("/admin/reviews")) {
       shouldExpand.push("reviews");
@@ -214,6 +218,18 @@ const AdminSidebar = () => {
         { label: "Thống kê hiệu suất", path: "/admin/discounts/analytics" },
         { label: "Người dùng đã sử dụng", path: "/admin/discounts/users" },
         { label: "Báo cáo & Xuất dữ liệu", path: "/admin/discounts/reports" },
+      ],
+    },
+    {
+      id: "promotions",
+      label: "Quản lý khuyến mãi",
+      icon: <Tag size={20} />,
+      subItems: [
+        { label: "Dashboard", path: "/admin/promotions/dashboard" },
+        { label: "Danh sách promotion", path: "/admin/promotions" },
+        { label: "Tạo promotion mới", path: "/admin/promotions/create" },
+        { label: "Báo cáo", path: "/admin/promotions/reports" },
+        { label: "Activity Log", path: "/admin/promotions/activity" },
       ],
     },
     {

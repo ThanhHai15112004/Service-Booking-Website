@@ -59,6 +59,12 @@ import DiscountCodeDetail from "../components/Admins/DiscountManager/DiscountCod
 import DiscountUsageAnalytics from "../components/Admins/DiscountManager/DiscountUsageAnalytics";
 import DiscountUsers from "../components/Admins/DiscountManager/DiscountUsers";
 import DiscountReports from "../components/Admins/DiscountManager/DiscountReports";
+import PromotionDashboard from "../components/Admins/PromotionManager/Dashboard";
+import PromotionsList from "../components/Admins/PromotionManager/PromotionsList";
+import CreatePromotion from "../components/Admins/PromotionManager/CreatePromotion";
+import PromotionDetail from "../components/Admins/PromotionManager/PromotionDetail";
+import PromotionReports from "../components/Admins/PromotionManager/PromotionReports";
+import PromotionActivityLog from "../components/Admins/PromotionManager/ActivityLog";
 
 // Review Manager
 import ReviewDashboard from "../components/Admins/ReviewManager/Dashboard";
@@ -357,6 +363,43 @@ function AppRoutes() {
       <Route path="/admin/discounts/reports" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><DiscountReports /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+
+      {/* Promotion Management Routes */}
+      <Route path="/admin/promotions/dashboard" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><PromotionDashboard /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions/create" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><CreatePromotion /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions/:promotionId/edit" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><CreatePromotion /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions/:promotionId" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><PromotionDetail /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><PromotionsList /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions/reports" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><PromotionReports /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+      <Route path="/admin/promotions/activity" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><PromotionActivityLog /></AdminLayout>
         </ProtectedAdminRoute>
       } />
 

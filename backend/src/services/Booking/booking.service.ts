@@ -462,32 +462,59 @@ export class BookingService {
       }
 
       // ✅ Validate và tính discount code nếu có
-      let discountId: string | undefined;
-      let codeDiscountAmount = 0;
+      // ✅ Xử lý nhiều mã giảm giá (tối đa 2 mã)
+      const appliedDiscounts: Array<{ discountId: string; code: string; discountAmount: number }> = [];
+      let totalCodeDiscountAmount = 0;
       
-      if (request.discountCode) {
-        console.log(`🔍 [BookingService] Validating discount code: ${request.discountCode}`);
+      // Collect discount codes (support both discountCode and discountCodes for backward compatibility)
+      const discountCodesToValidate: string[] = [];
+      if (request.discountCodes && Array.isArray(request.discountCodes) && request.discountCodes.length > 0) {
+        // Limit to max 2 codes
+        discountCodesToValidate.push(...request.discountCodes.slice(0, 2));
+      } else if (request.discountCode) {
+        // Backward compatibility: support single discountCode
+        discountCodesToValidate.push(request.discountCode);
+      }
+      
+      if (discountCodesToValidate.length > 0) {
+        console.log(`🔍 [BookingService] Validating ${discountCodesToValidate.length} discount code(s): ${discountCodesToValidate.join(', ')}`);
         const nights = calculateNights(request.checkIn, request.checkOut);
         const subtotalBeforeDiscount = priceCalculation.subtotal * request.rooms;
         
-        const validation = await this.discountRepo.validateDiscountCode(
-          request.discountCode,
-          subtotalBeforeDiscount,
-          request.hotelId,
-          selectedRoomIds[0],
-          nights
-        );
-        
-        if (validation.valid && validation.discountId && validation.discountAmount) {
-          discountId = validation.discountId;
-          codeDiscountAmount = validation.discountAmount;
-          console.log(`✅ [BookingService] Discount code validated: discountId=${discountId}, amount=${codeDiscountAmount}`);
-        } else {
-          // Nếu discount code không hợp lệ, vẫn tiếp tục nhưng không áp dụng discount
-          console.warn(`⚠️ [BookingService] Invalid discount code: ${request.discountCode}, message: ${validation.message}`);
+        // Validate each discount code
+        for (const code of discountCodesToValidate) {
+          const validation = await this.discountRepo.validateDiscountCode(
+            code,
+            subtotalBeforeDiscount, // Apply all codes to the original subtotal (non-cumulative)
+            accountId,
+            request.hotelId,
+            selectedRoomIds[0],
+            nights,
+            request.checkIn
+          );
+          
+          if (validation.valid && validation.discountId && validation.discountAmount !== undefined) {
+            appliedDiscounts.push({
+              discountId: validation.discountId,
+              code: code,
+              discountAmount: validation.discountAmount
+            });
+            totalCodeDiscountAmount += validation.discountAmount;
+            console.log(`✅ [BookingService] Discount code validated: ${code} (discountId=${validation.discountId}, amount=${validation.discountAmount})`);
+          } else {
+            console.warn(`⚠️ [BookingService] Invalid discount code: ${code}, message: ${validation.message || 'Unknown error'}`);
+          }
         }
+        
+        // Prevent total discount from exceeding subtotal
+        if (totalCodeDiscountAmount > subtotalBeforeDiscount) {
+          totalCodeDiscountAmount = subtotalBeforeDiscount;
+          console.warn(`⚠️ [BookingService] Total discount amount (${totalCodeDiscountAmount}) exceeds subtotal (${subtotalBeforeDiscount}), capping to subtotal`);
+        }
+        
+        console.log(`✅ [BookingService] Total discount amount from ${appliedDiscounts.length} code(s): ${totalCodeDiscountAmount}`);
       } else {
-        console.log(`ℹ️ [BookingService] No discount code provided in request`);
+        console.log(`ℹ️ [BookingService] No discount code(s) provided in request`);
       }
 
       // Tính giá tổng cho tất cả phòng
@@ -496,7 +523,7 @@ export class BookingService {
       const totalSubtotalAfterPackage = totalSubtotal - totalPackageDiscount;
       // ✅ Sử dụng tax rate từ constant (10% VAT theo quy định Việt Nam)
       const totalTaxAmount = totalSubtotalAfterPackage * BOOKING_TAX_RATE;
-      const totalCodeDiscount = codeDiscountAmount; // ✅ Sử dụng discount amount từ validate
+      const totalCodeDiscount = totalCodeDiscountAmount; // ✅ Tổng discount amount từ tất cả mã giảm giá
       const totalDiscountAmount = totalPackageDiscount + totalCodeDiscount;
       const totalAmount = totalSubtotalAfterPackage + totalTaxAmount - totalCodeDiscount;
 
@@ -1005,26 +1032,37 @@ export class BookingService {
         };
       }
 
-      // ✅ Lưu discount code vào booking_discount nếu có
-      if (discountId && request.discountCode) {
-        try {
-          // Lưu discount code ngay cả khi amount = 0 (để tracking)
-          const discountSaved = await this.bookingRepo.createBookingDiscount(
-            bookingId,
-            discountId,
-            codeDiscountAmount
-          );
-          if (discountSaved) {
-            console.log(`✅ [BookingService] Saved discount code ${request.discountCode} (discountId: ${discountId}, amount: ${codeDiscountAmount}) to booking_discount`);
-          } else {
-            console.error(`⚠️ [BookingService] Failed to save discount code to booking_discount`);
+      // ✅ Lưu tất cả discount codes vào booking_discount nếu có
+      if (appliedDiscounts.length > 0) {
+        for (const discount of appliedDiscounts) {
+          try {
+            // Lưu discount code ngay cả khi amount = 0 (để tracking)
+            const discountSaved = await this.bookingRepo.createBookingDiscount(
+              bookingId,
+              discount.discountId,
+              discount.discountAmount
+            );
+            if (discountSaved) {
+              console.log(`✅ [BookingService] Saved discount code ${discount.code} (discountId: ${discount.discountId}, amount: ${discount.discountAmount}) to booking_discount`);
+              
+              // Increment usage count for this discount code
+              try {
+                await this.discountRepo.incrementDiscountCodeUsage(discount.discountId);
+                console.log(`✅ [BookingService] Incremented usage count for discount code ${discount.code}`);
+              } catch (incrementError: any) {
+                console.error(`⚠️ [BookingService] Error incrementing usage count for discount code ${discount.code}:`, incrementError.message);
+                // Không fail nếu increment usage count lỗi
+              }
+            } else {
+              console.error(`⚠️ [BookingService] Failed to save discount code ${discount.code} to booking_discount`);
+            }
+          } catch (discountError: any) {
+            console.error(`❌ [BookingService] Error saving discount code ${discount.code}:`, discountError.message);
+            // Không fail booking nếu lưu discount code lỗi
           }
-        } catch (discountError: any) {
-          console.error(`❌ [BookingService] Error saving discount code:`, discountError.message);
-          // Không fail booking nếu lưu discount code lỗi
         }
-      } else if (request.discountCode && !discountId) {
-        console.warn(`⚠️ [BookingService] Discount code ${request.discountCode} was provided but validation failed, not saving to booking_discount`);
+      } else if (discountCodesToValidate.length > 0) {
+        console.warn(`⚠️ [BookingService] ${discountCodesToValidate.length} discount code(s) were provided but validation failed for all, not saving to booking_discount`);
       }
 
       // Lấy lại booking từ database để đảm bảo có status mới nhất (đã được cập nhật ở trên)

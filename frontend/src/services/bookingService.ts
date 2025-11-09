@@ -38,7 +38,8 @@ export interface CreateBookingRequest {
   checkInTime?: string;
   smokingPreference?: 'non-smoking' | 'smoking' | null;
   bedPreference?: 'large-bed' | 'twin-beds' | null;
-  discountCode?: string; // ✅ Mã giảm giá
+  discountCode?: string; // ✅ Legacy: Mã giảm giá đơn (deprecated, use discountCodes instead)
+  discountCodes?: string[]; // ✅ Mã giảm giá (array, max 2)
 }
 
 export interface BookingConfirmation {

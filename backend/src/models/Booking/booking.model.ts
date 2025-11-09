@@ -45,7 +45,8 @@ export interface CreateBookingRequest {
   guestInfo: GuestInfo;
   specialRequests?: string;
   paymentMethod: PaymentMethod;
-  discountCode?: string; // ✅ Mã giảm giá (nếu có)
+  discountCode?: string; // ✅ Legacy: Mã giảm giá đơn (deprecated, use discountCodes instead)
+  discountCodes?: string[]; // ✅ Mã giảm giá (array, max 2)
 }
 
 export interface Booking {

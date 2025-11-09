@@ -138,12 +138,23 @@ export interface RoomImage {
   sortOrder: number;
 }
 
+export interface Promotion {
+  promotion_id: string;
+  name: string;
+  description?: string;
+  discount_type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discount_value: number;
+  discount_amount: number;
+  max_discount?: number;
+}
+
 export interface RoomDailyAvailability {
   date: string;
   basePrice: number;
   discountPercent: number;
   finalPrice: number;
   availableRooms: number;
+  promotions?: Promotion[];
 }
 
 export interface Room {
@@ -182,6 +193,9 @@ export interface Room {
   extraBedFee: number;
   childrenAllowed: boolean;
   petsAllowed: boolean;
+  
+  // Promotions
+  promotions?: Promotion[];
   
   // Facilities
   facilities: RoomFacility[];

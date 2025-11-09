@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Tag, TrendingDown, DollarSign, Filter, Download, TrendingUp, Users } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface UsageAnalytics {
   totalUsage: number;
@@ -42,51 +43,27 @@ const DiscountUsageAnalytics = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setAnalytics({
-          totalUsage: 3456,
-          totalDiscountAmount: 485000000,
-          usageRate: 24.5,
-          topCodesByUsage: [
-            { code: "SUMMER2025", usage_count: 456, discount_amount: 68000000 },
-            { code: "WELCOME10", usage_count: 389, discount_amount: 45000000 },
-            { code: "BLACKFRIDAY", usage_count: 298, discount_amount: 52000000 },
-            { code: "NEWUSER20", usage_count: 234, discount_amount: 38000000 },
-            { code: "WEEKEND15", usage_count: 187, discount_amount: 28000000 },
-          ],
-          topCodesByRevenue: [
-            { code: "SUMMER2025", usage_count: 456, discount_amount: 68000000 },
-            { code: "BLACKFRIDAY", usage_count: 298, discount_amount: 52000000 },
-            { code: "WELCOME10", usage_count: 389, discount_amount: 45000000 },
-            { code: "NEWUSER20", usage_count: 234, discount_amount: 38000000 },
-            { code: "WEEKEND15", usage_count: 187, discount_amount: 28000000 },
-          ],
-          usageByType: [
-            { type: "Percent", usage_count: 2156, percentage: 62.4 },
-            { type: "Fixed", usage_count: 1300, percentage: 37.6 },
-          ],
-          usageByDay: [
-            { date: "01/11", usage_count: 45 },
-            { date: "05/11", usage_count: 68 },
-            { date: "10/11", usage_count: 52 },
-            { date: "15/11", usage_count: 78 },
-            { date: "20/11", usage_count: 85 },
-            { date: "25/11", usage_count: 92 },
-            { date: "30/11", usage_count: 105 },
-          ],
-          discountByCode: [
-            { code: "SUMMER2025", discount_amount: 68000000 },
-            { code: "BLACKFRIDAY", discount_amount: 52000000 },
-            { code: "WELCOME10", discount_amount: 45000000 },
-            { code: "NEWUSER20", discount_amount: 38000000 },
-            { code: "WEEKEND15", discount_amount: 28000000 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.period) {
+        params.period = filters.period;
+      }
+      if (filters.startDate) {
+        params.startDate = filters.startDate;
+      }
+      if (filters.endDate) {
+        params.endDate = filters.endDate;
+      }
+
+      const result = await adminService.getDiscountUsageAnalytics(params);
+      if (result.success && result.data) {
+        setAnalytics(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu thống kê");
+      }
     } catch (error: any) {
+      console.error("[DiscountUsageAnalytics] fetchAnalytics error:", error);
       showToast("error", error.message || "Không thể tải dữ liệu thống kê");
+    } finally {
       setLoading(false);
     }
   };

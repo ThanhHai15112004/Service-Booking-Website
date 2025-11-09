@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Download, FileText, Filter, Tag, DollarSign, TrendingUp, TrendingDown, Users, XCircle, CheckCircle, BarChart3 } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountReport {
   totalUsageByCode: Array<{
@@ -51,56 +52,63 @@ const DiscountReports = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          totalUsageByCode: [
-            { code: "SUMMER2025", usage_count: 456, discount_amount: 68000000 },
-            { code: "WELCOME10", usage_count: 389, discount_amount: 45000000 },
-            { code: "BLACKFRIDAY", usage_count: 298, discount_amount: 52000000 },
-            { code: "NEWUSER20", usage_count: 234, discount_amount: 38000000 },
-            { code: "WEEKEND15", usage_count: 187, discount_amount: 28000000 },
-          ],
-          totalDiscountRevenue: 231000000,
-          topCodeByBooking: [
-            { code: "SUMMER2025", booking_count: 456 },
-            { code: "WELCOME10", booking_count: 389 },
-            { code: "BLACKFRIDAY", booking_count: 298 },
-            { code: "NEWUSER20", booking_count: 234 },
-            { code: "WEEKEND15", booking_count: 187 },
-          ],
-          expiredUnusedCodes: [
-            { code: "OLDCODE1", expiry_date: "2025-01-01", usage_count: 0 },
-            { code: "OLDCODE2", expiry_date: "2025-02-15", usage_count: 5 },
-            { code: "OLDCODE3", expiry_date: "2025-03-20", usage_count: 0 },
-          ],
-          refundRateWithCode: 12.5,
-          usageByCustomer: [
-            { customer_name: "Nguyễn Văn A", usage_count: 12, total_saved: 4500000 },
-            { customer_name: "Trần Thị B", usage_count: 9, total_saved: 3200000 },
-            { customer_name: "Lê Văn C", usage_count: 8, total_saved: 2800000 },
-          ],
-          usageByHotel: [
-            { hotel_name: "Hanoi Old Quarter Hotel", usage_count: 245, discount_amount: 38000000 },
-            { hotel_name: "My Khe Beach Resort", usage_count: 198, discount_amount: 52000000 },
-            { hotel_name: "Saigon Riverside Hotel", usage_count: 167, discount_amount: 32000000 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.period) {
+        params.period = filters.period;
+      }
+      if (filters.startDate) {
+        params.startDate = filters.startDate;
+      }
+      if (filters.endDate) {
+        params.endDate = filters.endDate;
+      }
+      if (filters.groupBy) {
+        params.groupBy = filters.groupBy;
+      }
+
+      const result = await adminService.getDiscountReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu báo cáo");
+      }
     } catch (error: any) {
+      console.error("[DiscountReports] fetchReports error:", error);
       showToast("error", error.message || "Không thể tải dữ liệu báo cáo");
+    } finally {
       setLoading(false);
     }
   };
 
   const handleExport = async (format: "CSV" | "EXCEL" | "PDF") => {
     try {
-      // TODO: API call to export
-      showToast("success", `Đang xuất báo cáo ${format}...`);
-      setShowExportModal(false);
+      setLoading(true);
+      const exportData = {
+        format,
+        period: filters.period,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        groupBy: filters.groupBy,
+      };
+
+      const result = await adminService.exportDiscountReport(exportData);
+      if (result.success) {
+        if (format === "CSV") {
+          showToast("success", result.message || "Đã xuất file CSV thành công");
+        } else {
+          showToast("success", result.message || `Dữ liệu đã sẵn sàng để xuất ${format}`);
+          // For EXCEL and PDF, frontend can use libraries like xlsx or jsPDF
+          console.log("Export data:", result.data);
+        }
+        setShowExportModal(false);
+      } else {
+        showToast("error", result.message || "Không thể xuất báo cáo");
+      }
     } catch (error: any) {
+      console.error("[DiscountReports] handleExport error:", error);
       showToast("error", error.message || "Không thể xuất báo cáo");
+    } finally {
+      setLoading(false);
     }
   };
 

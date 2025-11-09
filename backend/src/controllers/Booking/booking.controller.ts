@@ -125,7 +125,7 @@ export const getMyBookings = async (req: Request, res: Response) => {
 // ✅ Validate discount code
 export const validateDiscountCode = async (req: Request, res: Response) => {
   try {
-    const { code, subtotal, hotelId, roomId, nights } = req.body;
+    const { code, subtotal, hotelId, roomId, nights, checkInDate, accountId } = req.body;
 
     if (!code) {
       return res.status(400).json({
@@ -144,9 +144,11 @@ export const validateDiscountCode = async (req: Request, res: Response) => {
     const validation = await discountRepo.validateDiscountCode(
       code,
       subtotal,
+      accountId,
       hotelId,
       roomId,
-      nights
+      nights,
+      checkInDate
     );
 
     if (!validation.valid) {
@@ -167,6 +169,31 @@ export const validateDiscountCode = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "Lỗi server khi validate mã giảm giá"
+    });
+  }
+};
+
+// ✅ Get available discount codes (public API)
+export const getAvailableDiscountCodes = async (req: Request, res: Response) => {
+  try {
+    const { hotelId, checkInDate, nights, limit } = req.query;
+
+    const codes = await discountRepo.getAvailableDiscountCodes({
+      hotelId: hotelId as string,
+      checkInDate: checkInDate as string,
+      nights: nights ? parseInt(nights as string) : undefined,
+      limit: limit ? parseInt(limit as string) : 50
+    });
+
+    res.status(200).json({
+      success: true,
+      data: codes
+    });
+  } catch (error: any) {
+    console.error("[BookingController] getAvailableDiscountCodes error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy danh sách mã giảm giá"
     });
   }
 };

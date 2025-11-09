@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Clock, DollarSign, CreditCard, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ManualPayment {
   payment_id: string;
@@ -18,9 +19,10 @@ const ManualConfirmation = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [payments, setPayments] = useState<ManualPayment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<ManualPayment[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<ManualPayment | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -35,41 +37,35 @@ const ManualConfirmation = () => {
 
   useEffect(() => {
     fetchManualPayments();
-  }, []);
+  }, [currentPage, itemsPerPage]);
 
-  useEffect(() => {
-    setFilteredPayments(payments);
-  }, [payments]);
 
   const fetchManualPayments = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call - filter by method CASH/BANK_TRANSFER and status PENDING
-      setTimeout(() => {
-        setPayments([
-          {
-            payment_id: "PAY003",
-            booking_id: "BK003",
-            customer_name: "Lê Văn C",
-            hotel_name: "Saigon Riverside Hotel",
-            payment_method: "CASH",
-            amount: 4200000,
-            created_at: "2025-11-03T09:15:00",
-            note: "Khách sẽ thanh toán tại quầy",
-          },
-          {
-            payment_id: "PAY004",
-            booking_id: "BK004",
-            customer_name: "Phạm Thị D",
-            hotel_name: "Hanoi Old Quarter Hotel",
-            payment_method: "BANK_TRANSFER",
-            amount: 3200000,
-            created_at: "2025-11-02T14:20:00",
-            note: "Đã chuyển khoản",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const response = await adminService.getManualPayments({
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+
+      if (response.success && response.data) {
+        const mappedPayments = response.data.payments.map((p: any) => ({
+          payment_id: p.payment_id,
+          booking_id: p.booking_id,
+          customer_name: p.customer_name || p.full_name || "N/A",
+          hotel_name: p.hotel_name || "N/A",
+          payment_method: p.method || p.payment_method,
+          amount: p.amount_due || p.amount,
+          created_at: p.created_at,
+          note: p.note || "",
+        }));
+        setPayments(mappedPayments);
+        setTotalPages(response.data.pagination.totalPages);
+        setTotal(response.data.pagination.total);
+      } else {
+        showToast("error", response.message || "Không thể tải danh sách thanh toán thủ công");
+      }
+      setLoading(false);
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách thanh toán thủ công");
       setLoading(false);
@@ -80,12 +76,20 @@ const ManualConfirmation = () => {
     if (!selectedPayment) return;
 
     try {
-      // TODO: API call to confirm payment
-      showToast("success", `Đã xác nhận thanh toán ${selectedPayment.payment_id}`);
-      setShowConfirmModal(false);
-      setSelectedPayment(null);
-      setConfirmForm({ admin_name: "admin01", received_date: new Date().toISOString().split("T")[0], note: "" });
-      fetchManualPayments();
+      const response = await adminService.confirmManualPayment(selectedPayment.payment_id, {
+        admin_name: confirmForm.admin_name,
+        received_date: confirmForm.received_date,
+        note: confirmForm.note,
+      });
+      if (response.success) {
+        showToast("success", response.message || `Đã xác nhận thanh toán ${selectedPayment.payment_id}`);
+        setShowConfirmModal(false);
+        setSelectedPayment(null);
+        setConfirmForm({ admin_name: "admin01", received_date: new Date().toISOString().split("T")[0], note: "" });
+        fetchManualPayments();
+      } else {
+        showToast("error", response.message || "Không thể xác nhận thanh toán");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể xác nhận thanh toán");
     }
@@ -98,12 +102,20 @@ const ManualConfirmation = () => {
     }
 
     try {
-      // TODO: API call to reject payment
-      showToast("success", `Đã từ chối thanh toán ${selectedPayment.payment_id}`);
-      setShowRejectModal(false);
-      setSelectedPayment(null);
-      setRejectForm({ reason: "" });
-      fetchManualPayments();
+      const response = await adminService.updatePaymentStatus(
+        selectedPayment.payment_id,
+        "FAILED",
+        rejectForm.reason
+      );
+      if (response.success) {
+        showToast("success", response.message || `Đã từ chối thanh toán ${selectedPayment.payment_id}`);
+        setShowRejectModal(false);
+        setSelectedPayment(null);
+        setRejectForm({ reason: "" });
+        fetchManualPayments();
+      } else {
+        showToast("error", response.message || "Không thể từ chối thanh toán");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể từ chối thanh toán");
     }
@@ -114,10 +126,9 @@ const ManualConfirmation = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+  const currentPayments = payments;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -147,7 +158,7 @@ const ManualConfirmation = () => {
           <Clock className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
           <div>
             <p className="text-sm font-medium text-yellow-900">
-              Có {filteredPayments.length} thanh toán đang chờ xác nhận
+              Có {total} thanh toán đang chờ xác nhận
             </p>
             <p className="text-sm text-yellow-700 mt-1">
               Vui lòng xác nhận sau khi đã nhận được tiền từ khách hàng hoặc kiểm tra chuyển khoản.
@@ -235,7 +246,7 @@ const ManualConfirmation = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} trong tổng số {filteredPayments.length} thanh toán
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, total)} trong tổng số {total} thanh toán
               </span>
               <select
                 value={itemsPerPage}

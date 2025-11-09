@@ -1,7 +1,17 @@
-import { Mail, Phone, Globe, Calendar, Clock, CheckCircle, Ban, BedDouble, Bed, ChevronDown, ChevronUp, Tag, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Mail, Phone, Globe, Calendar, Clock, CheckCircle, Ban, BedDouble, Bed, ChevronDown, ChevronUp, Tag, X, Search, ChevronRight } from 'lucide-react';
+import { getAvailableDiscountCodes, DiscountCode } from '../../services/discountService';
 
 // Use Ban icon for smoking as Cigarette doesn't exist in lucide-react
 const SmokingIcon = Ban;
+
+interface AppliedDiscountCode {
+  code: string;
+  discount_id?: string;
+  discountAmount: number;
+  discount_type: 'PERCENT' | 'FIXED';
+  discount_value: number;
+}
 
 interface BookingStep1Props {
   guestName: string;
@@ -18,6 +28,11 @@ interface BookingStep1Props {
   discountCode?: string;
   discountCodeApplied?: boolean;
   discountCodeError?: string;
+  appliedDiscountCodes?: AppliedDiscountCode[];
+  hotelId?: string;
+  checkInDate?: string;
+  nights?: number;
+  subtotal?: number;
   onNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
@@ -30,8 +45,9 @@ interface BookingStep1Props {
   onSpecialRequestsChange: (value: string) => void;
   onShowMoreRequestsChange: (value: boolean) => void;
   onDiscountCodeChange?: (value: string) => void;
-  onApplyDiscountCode?: () => void;
-  onRemoveDiscountCode?: () => void;
+  onApplyDiscountCode?: (code: string) => Promise<void>;
+  onRemoveDiscountCode?: (code: string) => void;
+  onSelectDiscountCode?: (code: DiscountCode) => Promise<void>;
   paymentMethod?: 'pay_at_hotel' | 'online_payment';
   checkOut?: string;
   onNext: () => void;
@@ -52,6 +68,11 @@ export default function BookingStep1({
   discountCode = '',
   discountCodeApplied = false,
   discountCodeError = '',
+  appliedDiscountCodes = [],
+  hotelId,
+  checkInDate,
+  nights,
+  subtotal: _subtotal = 0,
   onNameChange,
   onEmailChange,
   onPhoneChange,
@@ -66,10 +87,124 @@ export default function BookingStep1({
   onDiscountCodeChange,
   onApplyDiscountCode,
   onRemoveDiscountCode,
+  onSelectDiscountCode,
   paymentMethod = 'pay_at_hotel',
   checkOut,
   onNext
 }: BookingStep1Props) {
+  // ✅ Modal/Dropdown state for selecting discount codes
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [availableDiscountCodes, setAvailableDiscountCodes] = useState<DiscountCode[]>([]);
+  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [manualDiscountCode, setManualDiscountCode] = useState(discountCode);
+  const [applyingCode, setApplyingCode] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // ✅ Fetch available discount codes
+  useEffect(() => {
+    const fetchAvailableCodes = async () => {
+      if (!showDiscountModal) return;
+      
+      setIsLoadingCodes(true);
+      try {
+        const codes = await getAvailableDiscountCodes({
+          hotelId,
+          checkInDate,
+          nights,
+          limit: 50
+        });
+        setAvailableDiscountCodes(codes);
+      } catch (error) {
+        console.error('Error fetching available discount codes:', error);
+        setAvailableDiscountCodes([]);
+      } finally {
+        setIsLoadingCodes(false);
+      }
+    };
+
+    fetchAvailableCodes();
+  }, [showDiscountModal, hotelId, checkInDate, nights]);
+
+  // ✅ Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        setShowDiscountModal(false);
+      }
+    };
+
+    if (showDiscountModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDiscountModal]);
+
+  // ✅ Filter codes based on search query
+  const filteredCodes = availableDiscountCodes.filter(code => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return code.code.toLowerCase().includes(query) || 
+           (code.description && code.description.toLowerCase().includes(query));
+  });
+
+  // ✅ Check if code is already applied
+  const isCodeApplied = (code: string) => {
+    return appliedDiscountCodes.some(applied => applied.code === code);
+  };
+
+  // ✅ Check if max codes reached
+  const maxCodesReached = appliedDiscountCodes.length >= 2;
+
+  // ✅ Handle select discount code from list
+  const handleSelectDiscountCode = async (code: DiscountCode) => {
+    if (isCodeApplied(code.code)) {
+      return; // Already applied
+    }
+
+    if (maxCodesReached) {
+      return; // Max codes reached
+    }
+
+    if (onSelectDiscountCode) {
+      setApplyingCode(code.code);
+      try {
+        await onSelectDiscountCode(code);
+      } catch (error) {
+        console.error('Error applying discount code:', error);
+      } finally {
+        setApplyingCode(null);
+      }
+    }
+  };
+
+  // ✅ Handle manual discount code apply
+  const handleManualApply = async () => {
+    if (!manualDiscountCode.trim() || !onApplyDiscountCode) return;
+
+    setApplyingCode(manualDiscountCode);
+    try {
+      await onApplyDiscountCode(manualDiscountCode);
+      setManualDiscountCode(''); // Clear input after successful apply
+    } catch (error) {
+      console.error('Error applying manual discount code:', error);
+    } finally {
+      setApplyingCode(null);
+    }
+  };
+
+  // ✅ Format discount value for display
+  const formatDiscountValue = (code: DiscountCode) => {
+    if (code.discount_type === 'PERCENT') {
+      return `Giảm ${code.discount_value}%${code.max_discount ? ` (tối đa ${code.max_discount.toLocaleString('vi-VN')} VND)` : ''}`;
+    } else {
+      return `Giảm ${code.discount_value.toLocaleString('vi-VN')} VND`;
+    }
+  };
+
   const handleNameChange = (value: string) => {
     onNameChange(value);
     // Auto-split into first and last name
@@ -379,56 +514,210 @@ export default function BookingStep1({
 
       {/* Discount Code */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-bold text-black mb-2">Mã giảm giá</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-bold text-black">Mã giảm giá</h2>
+          {appliedDiscountCodes.length > 0 && (
+            <span className="text-xs text-gray-500">
+              ({appliedDiscountCodes.length}/2 mã đã áp dụng)
+            </span>
+          )}
+        </div>
         <p className="text-sm text-gray-600 mb-4">
-          Nhập mã giảm giá của bạn để được giảm giá đặc biệt
+          Chọn mã giảm giá từ danh sách hoặc nhập mã của bạn (tối đa 2 mã)
         </p>
 
-        {!discountCodeApplied ? (
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
-              <input
-                type="text"
-                value={discountCode}
-                onChange={(e) => onDiscountCodeChange?.(e.target.value)}
-                placeholder="Nhập mã giảm giá"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && discountCode && onApplyDiscountCode) {
-                    onApplyDiscountCode();
-                  }
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={onApplyDiscountCode}
-              disabled={!discountCode || !onApplyDiscountCode}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              Áp dụng
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <span className="text-sm font-medium text-green-800">
-                Mã giảm giá <strong>{discountCode}</strong> đã được áp dụng
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onRemoveDiscountCode}
-              className="p-1 hover:bg-green-100 rounded transition-colors"
-              title="Xóa mã giảm giá"
-            >
-              <X className="w-4 h-4 text-green-600" />
-            </button>
+        {/* ✅ Applied discount codes list */}
+        {appliedDiscountCodes.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {appliedDiscountCodes.map((applied, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-sm font-medium text-green-800">
+                      Mã <strong>{applied.code}</strong>
+                    </span>
+                    {applied.discountAmount > 0 && (
+                      <span className="text-xs text-green-700 block">
+                        Giảm {applied.discountAmount.toLocaleString('vi-VN')} VND
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemoveDiscountCode?.(applied.code)}
+                  className="p-1 hover:bg-green-100 rounded transition-colors"
+                  title="Xóa mã giảm giá"
+                >
+                  <X className="w-4 h-4 text-green-600" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
+        {/* ✅ Select discount code button and manual input */}
+        {!maxCodesReached && (
+          <div className="space-y-3">
+            {/* Button to open modal/dropdown */}
+            <button
+              type="button"
+              onClick={() => setShowDiscountModal(!showDiscountModal)}
+              className="w-full flex items-center justify-between px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">
+                  Chọn mã giảm giá
+                </span>
+              </div>
+              <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showDiscountModal ? 'rotate-90' : ''}`} />
+            </button>
+
+            {/* ✅ Modal/Dropdown for selecting discount codes */}
+            {showDiscountModal && (
+              <div 
+                ref={modalRef}
+                className="relative z-50 border border-gray-200 rounded-lg bg-white shadow-lg max-h-96 overflow-hidden flex flex-col"
+              >
+                {/* Search input */}
+                <div className="p-3 border-b border-gray-200">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm mã giảm giá..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Discount codes list */}
+                <div className="overflow-y-auto flex-1">
+                  {isLoadingCodes ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      Đang tải mã giảm giá...
+                    </div>
+                  ) : filteredCodes.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      {searchQuery ? 'Không tìm thấy mã giảm giá' : 'Không có mã giảm giá khả dụng'}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200">
+                      {filteredCodes.map((code) => {
+                        const isApplied = isCodeApplied(code.code);
+                        const isApplying = applyingCode === code.code;
+
+                        return (
+                          <button
+                            key={code.discount_id}
+                            type="button"
+                            onClick={() => !isApplied && handleSelectDiscountCode(code)}
+                            disabled={isApplied || isApplying || maxCodesReached}
+                            className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
+                              isApplied 
+                                ? 'bg-green-50 cursor-not-allowed opacity-60' 
+                                : isApplying 
+                                ? 'bg-blue-50 cursor-wait' 
+                                : maxCodesReached
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-bold text-blue-600 text-sm">
+                                    {code.code}
+                                  </span>
+                                  {isApplied && (
+                                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
+                                      Đã áp dụng
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm font-medium text-gray-900 mb-1">
+                                  {formatDiscountValue(code)}
+                                </p>
+                                {code.description && (
+                                  <p className="text-xs text-gray-500 line-clamp-2">
+                                    {code.description}
+                                  </p>
+                                )}
+                                {code.expires_at && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Hết hạn: {new Date(code.expires_at).toLocaleDateString('vi-VN')}
+                                  </p>
+                                )}
+                              </div>
+                              {!isApplied && !isApplying && !maxCodesReached && (
+                                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                              )}
+                              {isApplying && (
+                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-gray-300"></div>
+              <span className="text-xs text-gray-500">hoặc</span>
+              <div className="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            {/* Manual input */}
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+                <input
+                  type="text"
+                  value={manualDiscountCode}
+                  onChange={(e) => {
+                    setManualDiscountCode(e.target.value);
+                    onDiscountCodeChange?.(e.target.value);
+                  }}
+                  placeholder="Nhập mã giảm giá"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && manualDiscountCode.trim()) {
+                      handleManualApply();
+                    }
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleManualApply}
+                disabled={!manualDiscountCode.trim() || applyingCode !== null}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {applyingCode === manualDiscountCode ? 'Đang áp dụng...' : 'Áp dụng'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Max codes reached message */}
+        {maxCodesReached && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              Bạn đã áp dụng tối đa 2 mã giảm giá. Vui lòng xóa một mã để áp dụng mã khác.
+            </p>
+          </div>
+        )}
+
+        {/* Error message */}
         {discountCodeError && (
           <p className="mt-2 text-sm text-red-600">{discountCodeError}</p>
         )}

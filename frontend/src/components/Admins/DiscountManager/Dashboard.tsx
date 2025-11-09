@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Tag, TrendingDown, Calendar, Users, DollarSign, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { Tag, TrendingDown, Calendar, Users, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountDashboardStats {
   totalActive: number;
@@ -40,60 +41,16 @@ const DiscountDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setStats({
-          totalActive: 45,
-          expiringSoon: 8,
-          expiredDisabled: 23,
-          monthlyUsage: 1245,
-          totalDiscountAmount: 185000000,
-          codesCreatedByMonth: [
-            { month: "Th1", count: 5 },
-            { month: "Th2", count: 8 },
-            { month: "Th3", count: 12 },
-            { month: "Th4", count: 15 },
-            { month: "Th5", count: 18 },
-            { month: "Th6", count: 22 },
-            { month: "Th7", count: 25 },
-            { month: "Th8", count: 20 },
-            { month: "Th9", count: 18 },
-            { month: "Th10", count: 15 },
-            { month: "Th11", count: 45 },
-            { month: "Th12", count: 0 },
-          ],
-          discountTypeDistribution: [
-            { type: "Percent", count: 35, percentage: 58.3 },
-            { type: "Fixed", count: 25, percentage: 41.7 },
-          ],
-          discountRevenueTrend: [
-            { date: "01/11", amount: 12000000 },
-            { date: "05/11", amount: 18000000 },
-            { date: "10/11", amount: 15000000 },
-            { date: "15/11", amount: 22000000 },
-            { date: "20/11", amount: 25000000 },
-            { date: "25/11", amount: 28000000 },
-            { date: "30/11", amount: 35000000 },
-          ],
-          topCodes: [
-            { code: "SUMMER2025", usage_count: 456, discount_amount: 68000000 },
-            { code: "WELCOME10", usage_count: 389, discount_amount: 45000000 },
-            { code: "BLACKFRIDAY", usage_count: 298, discount_amount: 52000000 },
-            { code: "NEWUSER20", usage_count: 234, discount_amount: 38000000 },
-            { code: "WEEKEND15", usage_count: 187, discount_amount: 28000000 },
-          ],
-          topUsers: [
-            { account_id: "ACC001", full_name: "Nguyễn Văn A", usage_count: 12, total_saved: 4500000 },
-            { account_id: "ACC002", full_name: "Trần Thị B", usage_count: 9, total_saved: 3200000 },
-            { account_id: "ACC003", full_name: "Lê Văn C", usage_count: 8, total_saved: 2800000 },
-            { account_id: "ACC004", full_name: "Phạm Thị D", usage_count: 7, total_saved: 2500000 },
-            { account_id: "ACC005", full_name: "Hoàng Văn E", usage_count: 6, total_saved: 2200000 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const result = await adminService.getDiscountDashboardStats();
+      if (result.success && result.data) {
+        setStats(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
+      console.error("[DiscountDashboard] fetchDashboardData error:", error);
       showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };
@@ -114,10 +71,6 @@ const DiscountDashboard = () => {
       </div>
     );
   }
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("vi-VN").format(price);
-  };
 
   return (
     <div className="space-y-6">
