@@ -124,11 +124,21 @@ const RoomPricingTab = ({ roomTypeId }: RoomPricingTabProps) => {
     return `${year}-${month}-${day}`;
   };
 
+  // ✅ Helper function to compare dates without time
+  const isDateBeforeToday = (date: Date): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const compareDate = new Date(date);
+    compareDate.setHours(0, 0, 0, 0);
+    return compareDate < today;
+  };
+
   const handleCellClick = async (date: Date) => {
     const isCurrentMonth = isSameMonth(date, currentMonth);
-    const isPast = date < new Date();
+    // ✅ FIX: So sánh chỉ phần ngày, không so sánh giờ để cho phép click vào ngày hôm nay
+    const isPast = isDateBeforeToday(date);
     
-    // Only allow clicking on current month and future dates
+    // Only allow clicking on current month and future dates (including today)
     if (!isCurrentMonth || isPast) return;
     
     setSelectedModalDate(date);
@@ -281,7 +291,8 @@ const RoomPricingTab = ({ roomTypeId }: RoomPricingTabProps) => {
 
   const getCellColor = (date: Date): string => {
     const priceData = getPriceDataForDate(date);
-    const isPast = date < new Date();
+    // ✅ FIX: So sánh chỉ phần ngày, không so sánh giờ
+    const isPast = isDateBeforeToday(date);
     const isCurrentMonth = isSameMonth(date, currentMonth);
 
     if (!isCurrentMonth) {
@@ -338,7 +349,8 @@ const RoomPricingTab = ({ roomTypeId }: RoomPricingTabProps) => {
   };
 
   const handleCellHover = (date: Date, event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isSameMonth(date, currentMonth) || date < new Date()) return;
+    // ✅ FIX: So sánh chỉ phần ngày, không so sánh giờ
+    if (!isSameMonth(date, currentMonth) || isDateBeforeToday(date)) return;
     
     const rect = event.currentTarget.getBoundingClientRect();
     setTooltipDate(date);
@@ -496,7 +508,7 @@ const RoomPricingTab = ({ roomTypeId }: RoomPricingTabProps) => {
                   ${cellColor}
                   ${isSelected ? "ring-2 ring-blue-500 ring-offset-1 md:ring-offset-2" : ""}
                   ${!isCurrentMonth ? "opacity-40" : ""}
-                  ${day < new Date() ? "cursor-not-allowed opacity-60" : "hover:shadow-md"}
+                  ${isDateBeforeToday(day) ? "cursor-not-allowed opacity-60" : "hover:shadow-md"}
                   min-h-[60px] md:min-h-[80px]
                 `}
               >

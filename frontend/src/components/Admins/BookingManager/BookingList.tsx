@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Filter, Eye, Edit, Mail, FileText, Plus, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Booking {
   booking_id: string;
@@ -25,9 +26,10 @@ const BookingList = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     status: "",
@@ -39,153 +41,110 @@ const BookingList = () => {
   });
   const [sortBy, setSortBy] = useState<"created_at" | "total_amount" | "status">("created_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [badgeCounts, setBadgeCounts] = useState({
+    pendingConfirmation: 0,
+    checkedIn: 0,
+  });
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage === 1) {
+        fetchBookings();
+      } else {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch when page, limit, sort, or filters change
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [currentPage, itemsPerPage, sortBy, sortOrder, filters.status, filters.paymentMethod, filters.paymentStatus, filters.hotel, filters.dateFrom, filters.dateTo]);
 
+  // Fetch badge counts
   useEffect(() => {
-    applyFiltersAndSort();
-  }, [bookings, searchTerm, filters, sortBy, sortOrder]);
+    const fetchBadgeCounts = async () => {
+      try {
+        const result = await adminService.getBookingDashboardStats();
+        if (result.success && result.data) {
+          const pendingConfirmation = result.data.bookingsByStatus?.find(
+            (s: any) => s.status === "PENDING_CONFIRMATION"
+          )?.count || 0;
+          const checkedIn = result.data.bookingsByStatus?.find(
+            (s: any) => s.status === "CHECKED_IN"
+          )?.count || 0;
+          setBadgeCounts({
+            pendingConfirmation,
+            checkedIn,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching badge counts:", error);
+      }
+    };
+    fetchBadgeCounts();
+    const interval = setInterval(fetchBadgeCounts, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setBookings([
-          {
-            booking_id: "BK001",
-            account_id: "ACC001",
-            customer_name: "Nguyễn Văn A",
-            customer_email: "nguyenvana@email.com",
-            hotel_id: "H001",
-            hotel_name: "Hanoi Old Quarter Hotel",
-            check_in: "2025-11-10",
-            check_out: "2025-11-12",
-            total_amount: 3500000,
-            payment_method: "VNPAY",
-            payment_status: "SUCCESS",
-            status: "CONFIRMED",
-            created_at: "2025-11-01",
-          },
-          {
-            booking_id: "BK002",
-            account_id: "ACC002",
-            customer_name: "Trần Thị B",
-            customer_email: "tranthib@email.com",
-            hotel_id: "H002",
-            hotel_name: "My Khe Beach Resort",
-            check_in: "2025-11-15",
-            check_out: "2025-11-18",
-            total_amount: 8500000,
-            payment_method: "MOMO",
-            payment_status: "SUCCESS",
-            status: "PAID",
-            created_at: "2025-11-02",
-          },
-          {
-            booking_id: "BK003",
-            account_id: "ACC003",
-            customer_name: "Lê Văn C",
-            customer_email: "levanc@email.com",
-            hotel_id: "H003",
-            hotel_name: "Saigon Riverside Hotel",
-            check_in: "2025-11-20",
-            check_out: "2025-11-22",
-            total_amount: 4200000,
-            payment_method: "CASH",
-            payment_status: "PENDING",
-            status: "CREATED",
-            created_at: "2025-11-03",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+        sortBy,
+        sortOrder,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      if (filters.status) {
+        params.status = filters.status;
+      }
+      if (filters.paymentMethod) {
+        params.paymentMethod = filters.paymentMethod;
+      }
+      if (filters.paymentStatus) {
+        params.paymentStatus = filters.paymentStatus;
+      }
+      if (filters.hotel) {
+        params.hotelId = filters.hotel;
+      }
+      if (filters.dateFrom) {
+        params.dateFrom = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.dateTo = filters.dateTo;
+      }
+
+      const result = await adminService.getBookings(params);
+      if (result.success && result.data) {
+        setBookings(result.data.bookings || []);
+        setTotalPages(result.data.pagination?.totalPages || 1);
+        setTotal(result.data.pagination?.total || 0);
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách booking");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách booking");
+    } finally {
       setLoading(false);
     }
   };
 
-  const applyFiltersAndSort = () => {
-    let result = [...bookings];
-
-    // Search filter
-    if (searchTerm) {
-      result = result.filter(
-        (booking) =>
-          booking.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          booking.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          booking.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          booking.hotel_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (filters.status) {
-      result = result.filter((booking) => booking.status === filters.status);
-    }
-
-    // Payment method filter
-    if (filters.paymentMethod) {
-      result = result.filter((booking) => booking.payment_method === filters.paymentMethod);
-    }
-
-    // Payment status filter
-    if (filters.paymentStatus) {
-      result = result.filter((booking) => booking.payment_status === filters.paymentStatus);
-    }
-
-    // Hotel filter
-    if (filters.hotel) {
-      result = result.filter((booking) => booking.hotel_id === filters.hotel);
-    }
-
-    // Date filters
-    if (filters.dateFrom) {
-      result = result.filter((booking) => booking.created_at >= filters.dateFrom);
-    }
-    if (filters.dateTo) {
-      result = result.filter((booking) => booking.created_at <= filters.dateTo);
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let aValue: any, bValue: any;
-      switch (sortBy) {
-        case "created_at":
-          aValue = new Date(a.created_at).getTime();
-          bValue = new Date(b.created_at).getTime();
-          break;
-        case "total_amount":
-          aValue = a.total_amount;
-          bValue = b.total_amount;
-          break;
-        case "status":
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortOrder === "ASC") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    setFilteredBookings(result);
-    setCurrentPage(1);
-  };
-
   const handleSendEmail = async (bookingId: string) => {
     try {
-      // TODO: API call
-      showToast("success", "Đã gửi lại email xác nhận");
+      const result = await adminService.sendBookingConfirmationEmail(bookingId);
+      if (result.success) {
+        showToast("success", result.message || "Đã gửi lại email xác nhận");
+      } else {
+        showToast("error", result.message || "Không thể gửi email");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể gửi email");
     }
@@ -196,25 +155,26 @@ const BookingList = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentBookings = filteredBookings.slice(startIndex, endIndex);
+  const currentBookings = bookings;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "CREATED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Tạo mới</span>;
+      case "PENDING_CONFIRMATION":
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Chờ xác nhận</span>;
       case "CONFIRMED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Đã xác nhận</span>;
-      case "PAID":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Đã thanh toán</span>;
+      case "CHECKED_IN":
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Đã check-in</span>;
+      case "CHECKED_OUT":
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Đã check-out</span>;
       case "COMPLETED":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Hoàn thành</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Hoàn thành</span>;
       case "CANCELLED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Đã hủy</span>;
       default:
-        return null;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
     }
   };
 
@@ -247,8 +207,22 @@ const BookingList = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Danh sách booking</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold text-gray-900">Danh sách booking</h1>
+            {badgeCounts.pendingConfirmation > 0 && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+                Chờ xác nhận: {badgeCounts.pendingConfirmation}
+              </span>
+            )}
+            {badgeCounts.checkedIn > 0 && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
+                Chờ checkout: {badgeCounts.checkedIn}
+              </span>
+            )}
+          </div>
           <p className="text-gray-600 mt-1">Quản lý tất cả các đặt phòng trong hệ thống</p>
         </div>
         <button
@@ -270,8 +244,8 @@ const BookingList = () => {
               <input
                 type="text"
                 placeholder="Tìm kiếm theo mã booking, tên khách hàng, email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -280,13 +254,18 @@ const BookingList = () => {
           {/* Status Filter */}
           <select
             value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, status: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="CREATED">Tạo mới</option>
+            <option value="PENDING_CONFIRMATION">Chờ xác nhận</option>
             <option value="CONFIRMED">Đã xác nhận</option>
-            <option value="PAID">Đã thanh toán</option>
+            <option value="CHECKED_IN">Đã check-in</option>
+            <option value="CHECKED_OUT">Đã check-out</option>
             <option value="COMPLETED">Hoàn thành</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
@@ -294,7 +273,10 @@ const BookingList = () => {
           {/* Payment Status Filter */}
           <select
             value={filters.paymentStatus}
-            onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, paymentStatus: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trạng thái thanh toán</option>
@@ -308,27 +290,30 @@ const BookingList = () => {
           {/* Payment Method Filter */}
           <select
             value={filters.paymentMethod}
-            onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, paymentMethod: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả phương thức</option>
             <option value="VNPAY">VNPAY</option>
             <option value="MOMO">MOMO</option>
             <option value="CASH">Tiền mặt</option>
-            <option value="BANK">Chuyển khoản</option>
+            <option value="BANK_TRANSFER">Chuyển khoản</option>
           </select>
 
           {/* Hotel Filter */}
           <select
             value={filters.hotel}
-            onChange={(e) => setFilters({ ...filters, hotel: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, hotel: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả khách sạn</option>
-            <option value="H001">Hanoi Old Quarter Hotel</option>
-            <option value="H002">My Khe Beach Resort</option>
-            <option value="H003">Saigon Riverside Hotel</option>
-            <option value="H004">Sofitel Metropole</option>
+            {/* TODO: Fetch hotels list from API */}
           </select>
 
           {/* Date From */}
@@ -337,7 +322,10 @@ const BookingList = () => {
             <input
               type="date"
               value={filters.dateFrom}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateFrom: e.target.value });
+                setCurrentPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Từ ngày"
             />
@@ -349,7 +337,10 @@ const BookingList = () => {
             <input
               type="date"
               value={filters.dateTo}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateTo: e.target.value });
+                setCurrentPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Đến ngày"
             />
@@ -361,7 +352,10 @@ const BookingList = () => {
           <span className="text-sm font-medium text-gray-700">Sắp xếp theo:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => {
+              setSortBy(e.target.value as any);
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="created_at">Ngày tạo</option>
@@ -369,7 +363,10 @@ const BookingList = () => {
             <option value="status">Trạng thái</option>
           </select>
           <button
-            onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
+            onClick={() => {
+              setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC");
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             {sortOrder === "ASC" ? "↑ Tăng dần" : "↓ Giảm dần"}
@@ -396,7 +393,13 @@ const BookingList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentBookings.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : currentBookings.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     Không tìm thấy booking nào
@@ -434,7 +437,7 @@ const BookingList = () => {
                           <Eye size={18} />
                         </button>
                         <button
-                          onClick={() => navigate(`/admin/bookings/${booking.booking_id}/edit`)}
+                          onClick={() => navigate(`/admin/bookings/${booking.booking_id}`)}
                           className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                           title="Chỉnh sửa"
                         >
@@ -447,13 +450,6 @@ const BookingList = () => {
                         >
                           <Mail size={18} />
                         </button>
-                        <button
-                          onClick={() => {/* TODO: Show notes modal */}}
-                          className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
-                          title="Ghi chú"
-                        >
-                          <FileText size={18} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -464,11 +460,11 @@ const BookingList = () => {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {total > 0 && (
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredBookings.length)} trong tổng số {filteredBookings.length} booking
+                Hiển thị {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, total)} trong tổng số {total} booking
               </span>
               <select
                 value={itemsPerPage}
@@ -486,7 +482,7 @@ const BookingList = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={20} />
@@ -496,7 +492,7 @@ const BookingList = () => {
               </span>
               <button
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || loading}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={20} />

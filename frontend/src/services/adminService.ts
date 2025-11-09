@@ -1274,4 +1274,407 @@ export const adminService = {
     });
     return response.data;
   },
+
+  // Update available rooms for a specific date
+  updateRoomTypeDateAvailability: async (
+    roomTypeId: string,
+    date: string,
+    totalAvailableRooms: number
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/rooms/room-types/${roomTypeId}/date-availability`, {
+      date,
+      totalAvailableRooms,
+    });
+    return response.data;
+  },
+
+  // ========== ROOM DASHBOARD ==========
+  
+  getRoomDashboardStats: async (): Promise<{
+    success: boolean;
+    data?: {
+      totalRoomTypes: number;
+      totalRooms: number;
+      activeRooms: number;
+      maintenanceRooms: number;
+      inactiveRooms: number;
+      fullRooms: number;
+      availableRooms: number;
+      avgBasePrice: number;
+      avgOccupancyRate: number;
+      roomsByHotel: Array<{ hotel: string; count: number }>;
+      bedsByType: Array<{ bedType: string; count: number }>;
+      occupancyTrends: Array<{ month: string; rate: number }>;
+      topRevenueRoomTypes: Array<{
+        room_type_id: string;
+        name: string;
+        revenue: number;
+        hotel_name: string;
+      }>;
+      topBookedRooms: Array<{
+        room_id: string;
+        room_number: string;
+        room_type: string;
+        booking_count: number;
+        hotel_name: string;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/rooms/dashboard");
+    return response.data;
+  },
+
+  // ========== BOOKING MANAGER APIs ==========
+  
+  // Dashboard Stats
+  getBookingDashboardStats: async (params?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalBookings: number;
+      activeBookings: number;
+      paidBookings: number;
+      cancelledBookings: number;
+      monthlyRevenue: number;
+      bookingsByMonth: Array<{ month: string; count: number }>;
+      bookingsByStatus: Array<{ status: string; count: number }>;
+      revenueTrend: Array<{ date: string; revenue: number }>;
+      topCustomers: Array<{
+        account_id: string;
+        full_name: string;
+        email: string;
+        booking_count: number;
+        total_spent: number;
+      }>;
+      topHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        booking_count: number;
+        revenue: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/dashboard", { params });
+    return response.data;
+  },
+
+  // Reports
+  getBookingReports: async (params?: {
+    period?: "7days" | "month" | "quarter" | "year";
+    hotelId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalBookings: number;
+      totalRevenue: number;
+      cancelledRate: number;
+      paymentMethods: Array<{
+        method: string;
+        count: number;
+        revenue: number;
+      }>;
+      topCustomers: Array<{
+        account_id: string;
+        full_name: string;
+        total_spent: number;
+        booking_count: number;
+      }>;
+      topHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        booking_count: number;
+        revenue: number;
+      }>;
+      revenueByMonth: Array<{
+        month: string;
+        revenue: number;
+      }>;
+      cancellationTrend: Array<{
+        month: string;
+        cancelled: number;
+        total: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/reports", { params });
+    return response.data;
+  },
+
+  // Get All Bookings
+  getBookings: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    hotelId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    sortBy?: "created_at" | "total_amount" | "status";
+    sortOrder?: "ASC" | "DESC";
+  }): Promise<{
+    success: boolean;
+    data?: {
+      bookings: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/", { params });
+    return response.data;
+  },
+
+  // Get Booking Detail
+  getBookingDetailForAdmin: async (bookingId: string): Promise<{
+    success: boolean;
+    data?: any;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/bookings/${bookingId}`);
+    return response.data;
+  },
+
+  // Update Booking Status
+  updateBookingStatus: async (
+    bookingId: string,
+    status: string,
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/bookings/${bookingId}/status`, {
+      status,
+      reason,
+    });
+    return response.data;
+  },
+
+  // Update Booking
+  updateBooking: async (
+    bookingId: string,
+    data: {
+      specialRequests?: string;
+      checkIn?: string;
+      checkOut?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/bookings/${bookingId}`, data);
+    return response.data;
+  },
+
+  // Add Internal Note
+  addBookingInternalNote: async (
+    bookingId: string,
+    note: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/bookings/${bookingId}/notes`, {
+      note,
+    });
+    return response.data;
+  },
+
+  // Send Confirmation Email
+  sendBookingConfirmationEmail: async (bookingId: string): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.post(`/api/admin/bookings/${bookingId}/send-email`);
+    return response.data;
+  },
+
+  // Create Manual Booking
+  createManualBooking: async (data: {
+    accountId: string;
+    hotelId: string;
+    roomIds: string[];
+    checkIn: string;
+    checkOut: string;
+    guestsCount: number;
+    paymentMethod: string;
+    specialRequests?: string;
+    skipAvailabilityCheck?: boolean;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      bookingId: string;
+      bookingCode: string;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.post("/api/admin/bookings/", data);
+    return response.data;
+  },
+
+  // Get Payments List
+  getBookingPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    paymentMethod?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      payments: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+      statistics?: {
+        totalRevenue: number;
+        pendingAmount: number;
+        refundedAmount: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/payments/list", { params });
+    return response.data;
+  },
+
+  // Update Payment Status
+  updatePaymentStatus: async (
+    paymentId: string,
+    status: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    const response = await adminApi.put(`/api/admin/bookings/payments/${paymentId}/status`, {
+      status,
+    });
+    return response.data;
+  },
+
+  // Get Discount Usage
+  getBookingDiscountUsage: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    discountType?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      discounts: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/discounts/list", { params });
+    return response.data;
+  },
+
+  // Get Activity Logs
+  getBookingActivityLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    adminId?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      logs: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/activity/list", { params });
+    return response.data;
+  },
+
+  // Get Available Rooms by Room Type with dates
+  getAvailableRoomsByRoomType: async (
+    roomTypeId: string,
+    checkIn: string,
+    checkOut: string,
+    roomsNeeded?: number
+  ): Promise<{
+    success: boolean;
+    data?: any[];
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/rooms/available", {
+      params: {
+        roomTypeId,
+        checkIn,
+        checkOut,
+        roomsNeeded: roomsNeeded || 1,
+      },
+    });
+    return response.data;
+  },
+
+  // Get Booking Reports
+  getBookingReports: async (params?: {
+    period?: "7days" | "month" | "quarter" | "year";
+    hotelId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalBookings: number;
+      totalRevenue: number;
+      cancelledRate: number;
+      paymentMethods: Array<{ method: string; count: number; revenue: number }>;
+      topCustomers: Array<{
+        account_id: string;
+        full_name: string;
+        total_spent: number;
+        booking_count: number;
+      }>;
+      topHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        booking_count: number;
+        revenue: number;
+      }>;
+      revenueByMonth: Array<{ month: string; revenue: number }>;
+      cancellationTrend: Array<{ month: string; cancelled: number; total: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/bookings/reports", { params });
+    return response.data;
+  },
 };

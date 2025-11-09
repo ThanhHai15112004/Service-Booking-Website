@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Calendar, DollarSign, CheckCircle, XCircle, Clock, TrendingUp, Users, Hotel } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DashboardStats {
   totalBookings: number;
@@ -42,63 +43,26 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
+      const result = await adminService.getBookingDashboardStats();
+      if (result.success && result.data) {
         setStats({
-          totalBookings: 1245,
-          activeBookings: 342,
-          paidBookings: 856,
-          cancelledBookings: 47,
-          monthlyRevenue: 2450000000,
-          bookingsByMonth: [
-            { month: "Th1", count: 85 },
-            { month: "Th2", count: 92 },
-            { month: "Th3", count: 108 },
-            { month: "Th4", count: 125 },
-            { month: "Th5", count: 142 },
-            { month: "Th6", count: 168 },
-            { month: "Th7", count: 195 },
-            { month: "Th8", count: 178 },
-            { month: "Th9", count: 165 },
-            { month: "Th10", count: 152 },
-            { month: "Th11", count: 138 },
-            { month: "Th12", count: 97 },
-          ],
-          bookingsByStatus: [
-            { status: "Paid", count: 856 },
-            { status: "Confirmed", count: 342 },
-            { status: "Created", count: 47 },
-            { status: "Cancelled", count: 47 },
-          ],
-          revenueTrend: [
-            { date: "01/11", revenue: 180000000 },
-            { date: "05/11", revenue: 220000000 },
-            { date: "10/11", revenue: 195000000 },
-            { date: "15/11", revenue: 245000000 },
-            { date: "20/11", revenue: 280000000 },
-            { date: "25/11", revenue: 265000000 },
-            { date: "30/11", revenue: 300000000 },
-          ],
-          topCustomers: [
-            { account_id: "ACC001", full_name: "Nguyễn Văn A", email: "nguyenvana@email.com", booking_count: 12, total_spent: 45000000 },
-            { account_id: "ACC002", full_name: "Trần Thị B", email: "tranthib@email.com", booking_count: 9, total_spent: 32000000 },
-            { account_id: "ACC003", full_name: "Lê Văn C", email: "levanc@email.com", booking_count: 8, total_spent: 28000000 },
-            { account_id: "ACC004", full_name: "Phạm Thị D", email: "phamthid@email.com", booking_count: 7, total_spent: 25000000 },
-            { account_id: "ACC005", full_name: "Hoàng Văn E", email: "hoangvane@email.com", booking_count: 6, total_spent: 22000000 },
-          ],
-          topHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", booking_count: 245, revenue: 680000000 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", booking_count: 198, revenue: 750000000 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", booking_count: 167, revenue: 520000000 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", booking_count: 134, revenue: 580000000 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", booking_count: 98, revenue: 320000000 },
-          ],
+          totalBookings: result.data.totalBookings || 0,
+          activeBookings: result.data.activeBookings || 0,
+          paidBookings: result.data.paidBookings || 0,
+          cancelledBookings: result.data.cancelledBookings || 0,
+          monthlyRevenue: result.data.monthlyRevenue || 0,
+          bookingsByMonth: result.data.bookingsByMonth || [],
+          bookingsByStatus: result.data.bookingsByStatus || [],
+          revenueTrend: result.data.revenueTrend || [],
+          topCustomers: result.data.topCustomers || [],
+          topHotels: result.data.topHotels || [],
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };
@@ -129,6 +93,40 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Booking</h1>
           <p className="text-gray-600 mt-1">Tổng quan hệ thống đặt phòng và doanh thu</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {stats && (
+            <>
+              {(() => {
+                const pendingConfirmation = stats.bookingsByStatus?.find(
+                  (s) => s.status === "PENDING_CONFIRMATION"
+                )?.count || 0;
+                if (pendingConfirmation > 0) {
+                  return (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+                      <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+                      Chờ xác nhận: {pendingConfirmation}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+              {(() => {
+                const checkedIn = stats.bookingsByStatus?.find(
+                  (s) => s.status === "CHECKED_IN"
+                )?.count || 0;
+                if (checkedIn > 0) {
+                  return (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                      <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
+                      Chờ checkout: {checkedIn}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </>
+          )}
         </div>
       </div>
 

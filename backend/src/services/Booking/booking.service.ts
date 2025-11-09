@@ -13,7 +13,7 @@ import {
 } from "../../models/Booking/booking.model";
 import { BookingValidator } from "../../utils/booking.validator";
 import { calculateNights } from "../../helpers/date.helper";
-import { BOOKING_EXPIRATION_MINUTES } from "../../config/booking.constants";
+import { BOOKING_EXPIRATION_MINUTES, BOOKING_TAX_RATE } from "../../config/booking.constants";
 import { RoomAmenity } from "../../models/Hotel/roomAmenity.model";
 import { Facility } from "../../models/Hotel/facility.model";
 import { Room } from "../../models/Hotel/room.model";
@@ -126,7 +126,8 @@ export class BookingService {
       const totalSubtotal = priceCalculation.subtotal * request.rooms;
       const totalPackageDiscount = (priceCalculation.packageDiscount || 0) * request.rooms;
       const totalSubtotalAfterPackage = totalSubtotal - totalPackageDiscount;
-      const totalTaxAmount = totalSubtotalAfterPackage * 0.1;
+      // ✅ Sử dụng tax rate từ constant (10% VAT theo quy định Việt Nam)
+      const totalTaxAmount = totalSubtotalAfterPackage * BOOKING_TAX_RATE;
       const totalCodeDiscount = (priceCalculation.codeDiscount || 0) * request.rooms;
       const totalDiscountAmount = totalPackageDiscount + totalCodeDiscount;
       const totalAmount = totalSubtotalAfterPackage + totalTaxAmount - totalCodeDiscount;
@@ -493,7 +494,8 @@ export class BookingService {
       const totalSubtotal = priceCalculation.subtotal * request.rooms;
       const totalPackageDiscount = (priceCalculation.packageDiscount || 0) * request.rooms;
       const totalSubtotalAfterPackage = totalSubtotal - totalPackageDiscount;
-      const totalTaxAmount = totalSubtotalAfterPackage * 0.1;
+      // ✅ Sử dụng tax rate từ constant (10% VAT theo quy định Việt Nam)
+      const totalTaxAmount = totalSubtotalAfterPackage * BOOKING_TAX_RATE;
       const totalCodeDiscount = codeDiscountAmount; // ✅ Sử dụng discount amount từ validate
       const totalDiscountAmount = totalPackageDiscount + totalCodeDiscount;
       const totalAmount = totalSubtotalAfterPackage + totalTaxAmount - totalCodeDiscount;

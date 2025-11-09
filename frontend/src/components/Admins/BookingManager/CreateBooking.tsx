@@ -3,10 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Search, Calendar, User, Hotel, Bed, DollarSign, CreditCard, Save, X, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface HotelOption {
   hotel_id: string;
   name: string;
+  checkin_time?: string;
+  checkout_time?: string;
 }
 
 interface RoomTypeOption {
@@ -21,6 +24,7 @@ interface RoomOption {
   room_id: string;
   room_number: string;
   room_type_id: string;
+  price_per_night?: number;
 }
 
 interface AccountOption {
@@ -73,9 +77,17 @@ const CreateBooking = () => {
 
   useEffect(() => {
     if (form.hotel_id) {
-      fetchRoomTypes();
+      if (form.check_in && form.check_out) {
+        fetchRoomTypes();
+      } else {
+        // Fetch room types without availability if no dates selected
+        fetchRoomTypesWithoutDates();
+      }
+    } else {
+      setRoomTypes([]);
     }
-  }, [form.hotel_id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.hotel_id, form.check_in, form.check_out]);
 
   useEffect(() => {
     if (form.check_in && form.check_out) {
@@ -85,61 +97,163 @@ const CreateBooking = () => {
 
   const fetchHotels = async () => {
     try {
-      // TODO: API call
-      setTimeout(() => {
-        setHotels([
-          { hotel_id: "H001", name: "Hanoi Old Quarter Hotel" },
-          { hotel_id: "H002", name: "My Khe Beach Resort" },
-          { hotel_id: "H003", name: "Saigon Riverside Hotel" },
-          { hotel_id: "H004", name: "Sofitel Metropole" },
-        ]);
-      }, 300);
+      const result = await adminService.getHotels({ limit: 100 });
+      if (result.success && result.data) {
+        setHotels(
+          result.data.hotels.map((hotel: any) => ({
+            hotel_id: hotel.hotel_id,
+            name: hotel.name,
+            checkin_time: hotel.checkin_time || "14:00",
+            checkout_time: hotel.checkout_time || "12:00",
+          }))
+        );
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách khách sạn");
     }
   };
 
-  const fetchRoomTypes = async () => {
+  const fetchRoomTypesWithoutDates = async () => {
+    if (!form.hotel_id) {
+      setRoomTypes([]);
+      return;
+    }
     setLoading(true);
     try {
-      // TODO: API call với hotel_id và check-in/out dates
-      setTimeout(() => {
-        setRoomTypes([
-          { room_type_id: "RT001", name: "Deluxe Sea View", hotel_id: form.hotel_id, price_base: 2500000, available_rooms: 5 },
-          { room_type_id: "RT002", name: "Executive Suite", hotel_id: form.hotel_id, price_base: 3500000, available_rooms: 3 },
-        ]);
-        setLoading(false);
-      }, 300);
+      const result = await adminService.getRoomTypesByHotel(form.hotel_id, { limit: 100 });
+      if (result.success && result.data) {
+        // Just fetch room types without availability/pricing
+        const roomTypesList = result.data.roomTypes.map((rt: any) => ({
+          room_type_id: rt.room_type_id,
+          name: rt.name,
+          hotel_id: form.hotel_id,
+          price_base: rt.price_base || 0,
+          available_rooms: 0, // Will be fetched when dates are selected
+        }));
+        setRoomTypes(roomTypesList);
+      }
     } catch (error: any) {
+      console.error("Error fetching room types:", error);
       showToast("error", error.message || "Không thể tải loại phòng");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoomTypes = async () => {
+    if (!form.hotel_id || !form.check_in || !form.check_out) {
+      // If no dates, fetch without availability
+      fetchRoomTypesWithoutDates();
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await adminService.getRoomTypesByHotel(form.hotel_id, { limit: 100 });
+      if (result.success && result.data) {
+        // Fetch availability and pricing for each room type
+        const roomTypesWithAvailability = await Promise.all(
+          result.data.roomTypes.map(async (rt: any) => {
+            try {
+              // Fetch available rooms for this room type with dates
+              const availableResult = await adminService.getAvailableRoomsByRoomType(
+                rt.room_type_id,
+                form.check_in,
+                form.check_out,
+                1
+              );
+              
+              if (availableResult.success && availableResult.data && availableResult.data.length > 0) {
+                // Get price from first available room (rooms in same room type should have similar pricing)
+                const firstRoom = availableResult.data[0];
+                const price = firstRoom.final_price || firstRoom.base_price || 0;
+                const availableCount = availableResult.data.length;
+                
+                return {
+                  room_type_id: rt.room_type_id,
+                  name: rt.name,
+                  hotel_id: form.hotel_id,
+                  price_base: price,
+                  available_rooms: availableCount,
+                };
+              } else {
+                return {
+                  room_type_id: rt.room_type_id,
+                  name: rt.name,
+                  hotel_id: form.hotel_id,
+                  price_base: rt.price_base || 0,
+                  available_rooms: 0,
+                };
+              }
+            } catch (err) {
+              console.error(`Error fetching availability for room type ${rt.room_type_id}:`, err);
+              return {
+                room_type_id: rt.room_type_id,
+                name: rt.name,
+                hotel_id: form.hotel_id,
+                price_base: rt.price_base || 0,
+                available_rooms: 0,
+              };
+            }
+          })
+        );
+        
+        // Show all room types, even if no availability (user can still see them)
+        setRoomTypes(roomTypesWithAvailability);
+      }
+    } catch (error: any) {
+      console.error("Error fetching room types with availability:", error);
+      showToast("error", error.message || "Không thể tải loại phòng");
+    } finally {
       setLoading(false);
     }
   };
 
   const fetchRooms = async (roomTypeId: string) => {
+    if (!form.hotel_id || !form.check_in || !form.check_out) {
+      showToast("error", "Vui lòng chọn ngày check-in và check-out");
+      return;
+    }
     try {
-      // TODO: API call
-      setTimeout(() => {
-        setRooms([
-          { room_id: "R001", room_number: "101", room_type_id: roomTypeId },
-          { room_id: "R002", room_number: "102", room_type_id: roomTypeId },
-          { room_id: "R003", room_number: "201", room_type_id: roomTypeId },
-        ]);
-      }, 300);
+      // Fetch available rooms with dates and pricing
+      const result = await adminService.getAvailableRoomsByRoomType(
+        roomTypeId,
+        form.check_in,
+        form.check_out,
+        10 // Get up to 10 available rooms
+      );
+      
+      if (result.success && result.data && result.data.length > 0) {
+        setRooms(
+          result.data.map((room: any) => ({
+            room_id: room.room_id || room.roomId,
+            room_number: room.room_number || room.roomNumber || "",
+            room_type_id: roomTypeId,
+            price_per_night: room.final_price || room.base_price || 0,
+          }))
+        );
+      } else {
+        setRooms([]);
+        showToast("error", "Không có phòng nào khả dụng cho khoảng thời gian đã chọn");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách phòng");
+      setRooms([]);
     }
   };
 
   const fetchAccounts = async () => {
     try {
-      // TODO: API call
-      setTimeout(() => {
-        setAccounts([
-          { account_id: "ACC001", full_name: "Nguyễn Văn A", email: "nguyenvana@email.com", phone: "0901234567" },
-          { account_id: "ACC002", full_name: "Trần Thị B", email: "tranthib@email.com", phone: "0901234568" },
-        ]);
-      }, 300);
+      const result = await adminService.getAccounts({ limit: 100, role: "USER" });
+      if (result.success && result.data) {
+        setAccounts(
+          result.data.accounts.map((acc: any) => ({
+            account_id: acc.account_id,
+            full_name: acc.full_name,
+            email: acc.email,
+            phone: acc.phone_number || "",
+          }))
+        );
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách tài khoản");
     }
@@ -156,14 +270,20 @@ const CreateBooking = () => {
     return 1;
   };
 
-  const handleAddRoom = (roomTypeId: string, roomId: string, pricePerNight: number) => {
+  const handleAddRoom = (room: RoomOption, pricePerNight?: number) => {
     const nights = calculateNights();
+    // Check if room is already selected
+    if (selectedRooms.some(r => r.room_id === room.room_id)) {
+      showToast("error", "Phòng này đã được chọn");
+      return;
+    }
+    const price = pricePerNight || room.price_per_night || 0;
     setSelectedRooms([
       ...selectedRooms,
       {
-        room_type_id: roomTypeId,
-        room_id: roomId,
-        price_per_night: pricePerNight,
+        room_type_id: room.room_type_id,
+        room_id: room.room_id,
+        price_per_night: price,
         nights: nights,
       },
     ]);
@@ -186,16 +306,31 @@ const CreateBooking = () => {
   };
 
   const handleSubmit = async () => {
-    if (!form.account_id || !form.hotel_id || selectedRooms.length === 0) {
+    if (!form.account_id || !form.hotel_id || selectedRooms.length === 0 || !form.check_in || !form.check_out) {
       showToast("error", "Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     setSubmitting(true);
     try {
-      // TODO: API call
-      showToast("success", "Tạo booking thành công");
-      setTimeout(() => navigate("/admin/bookings"), 1500);
+      const result = await adminService.createManualBooking({
+        accountId: form.account_id,
+        hotelId: form.hotel_id,
+        roomIds: selectedRooms.map((r) => r.room_id),
+        checkIn: form.check_in,
+        checkOut: form.check_out,
+        guestsCount: form.guest_count,
+        paymentMethod: form.payment_method,
+        specialRequests: form.special_requests || undefined,
+        skipAvailabilityCheck: form.skip_availability_check,
+      });
+      if (result.success) {
+        showToast("success", result.message || "Tạo booking thành công");
+        setTimeout(() => navigate(`/admin/bookings/${result.data?.bookingId}`), 1500);
+      } else {
+        showToast("error", result.message || "Không thể tạo booking");
+        setSubmitting(false);
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tạo booking");
       setSubmitting(false);
@@ -212,6 +347,25 @@ const CreateBooking = () => {
       account.full_name.toLowerCase().includes(searchAccountTerm.toLowerCase()) ||
       account.email.toLowerCase().includes(searchAccountTerm.toLowerCase())
   );
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
+
+  const formatTime = (timeString?: string, defaultTime: string = "00:00") => {
+    if (!timeString) return defaultTime;
+    // Format từ "HH:MM:SS" hoặc "HH:MM" thành "HH:MM"
+    return timeString.substring(0, 5);
+  };
 
   const totalAmount = selectedRooms.reduce((sum, room) => sum + room.price_per_night * room.nights, 0);
 
@@ -386,6 +540,11 @@ const CreateBooking = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   required
                 />
+                {form.hotel_id && form.check_in && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Giờ check-in: {formatTime(hotels.find(h => h.hotel_id === form.hotel_id)?.checkin_time, "14:00")}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Check-out *</label>
@@ -397,6 +556,11 @@ const CreateBooking = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   required
                 />
+                {form.hotel_id && form.check_out && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Giờ check-out: {formatTime(hotels.find(h => h.hotel_id === form.hotel_id)?.checkout_time, "12:00")}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -404,28 +568,64 @@ const CreateBooking = () => {
             {form.hotel_id && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Loại phòng có sẵn</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {roomTypes.map((roomType) => (
-                    <div
-                      key={roomType.room_type_id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900">{roomType.name}</p>
-                          <p className="text-sm text-gray-600">{roomType.available_rooms} phòng có sẵn</p>
-                        </div>
-                        <p className="font-bold text-blue-600">{new Intl.NumberFormat("vi-VN").format(roomType.price_base)} VNĐ/đêm</p>
-                      </div>
-                      <button
-                        onClick={() => fetchRooms(roomType.room_type_id)}
-                        className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                {!form.check_in || !form.check_out ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 text-sm flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      Vui lòng chọn ngày check-in và check-out để xem phòng có sẵn và giá
+                    </p>
+                  </div>
+                ) : roomTypes.length === 0 ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-gray-600 text-center">Đang tải loại phòng...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {roomTypes.map((roomType) => (
+                      <div
+                        key={roomType.room_type_id}
+                        className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 transition-colors"
                       >
-                        Chọn phòng
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-gray-900">{roomType.name}</p>
+                            {form.check_in && form.check_out ? (
+                              <p className="text-sm text-gray-600">
+                                {roomType.available_rooms > 0 
+                                  ? `${roomType.available_rooms} phòng có sẵn` 
+                                  : "Không có phòng khả dụng"}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-500">Chọn ngày để xem availability</p>
+                            )}
+                          </div>
+                          {roomType.price_base > 0 ? (
+                            <p className="font-bold text-blue-600">{new Intl.NumberFormat("vi-VN").format(roomType.price_base)} VNĐ/đêm</p>
+                          ) : (
+                            <p className="text-sm text-gray-500">Chọn ngày để xem giá</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!form.check_in || !form.check_out) {
+                              showToast("error", "Vui lòng chọn ngày check-in và check-out trước");
+                              return;
+                            }
+                            fetchRooms(roomType.room_type_id);
+                          }}
+                          disabled={!form.check_in || !form.check_out}
+                          className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {!form.check_in || !form.check_out 
+                            ? "Chọn ngày để tiếp tục" 
+                            : roomType.available_rooms === 0 
+                            ? "Hết phòng" 
+                            : "Chọn phòng"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -439,20 +639,39 @@ const CreateBooking = () => {
                       <X size={24} />
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    {rooms.map((room) => {
-                      const roomType = roomTypes.find((rt) => rt.room_type_id === room.room_type_id);
-                      return (
-                        <button
-                          key={room.room_id}
-                          onClick={() => handleAddRoom(room.room_type_id, room.room_id, roomType?.price_base || 0)}
-                          className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors"
-                        >
-                          <p className="font-medium text-gray-900">Phòng {room.room_number}</p>
-                          <p className="text-sm text-gray-600">{roomType?.name}</p>
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {rooms.length === 0 ? (
+                      <p className="text-center text-gray-500 py-4">Không có phòng nào khả dụng</p>
+                    ) : (
+                      rooms.map((room) => {
+                        const roomType = roomTypes.find((rt) => rt.room_type_id === room.room_type_id);
+                        const price = room.price_per_night || roomType?.price_base || 0;
+                        const isSelected = selectedRooms.some(r => r.room_id === room.room_id);
+                        return (
+                          <button
+                            key={room.room_id}
+                            onClick={() => handleAddRoom(room, price)}
+                            disabled={isSelected}
+                            className={`w-full text-left px-4 py-3 border rounded-lg transition-colors ${
+                              isSelected
+                                ? "bg-gray-100 border-gray-300 cursor-not-allowed"
+                                : "border-gray-200 hover:bg-blue-50 hover:border-blue-500"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">Phòng {room.room_number || room.room_id}</p>
+                                <p className="text-sm text-gray-600">{roomType?.name}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium text-blue-600">{formatPrice(price)} VNĐ/đêm</p>
+                                {isSelected && <p className="text-xs text-gray-500">Đã chọn</p>}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -599,8 +818,8 @@ const CreateBooking = () => {
               <h3 className="font-medium text-gray-900 mb-3">Thông tin booking</h3>
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                 <p><span className="font-medium">Khách sạn:</span> {hotels.find(h => h.hotel_id === form.hotel_id)?.name}</p>
-                <p><span className="font-medium">Check-in:</span> {form.check_in}</p>
-                <p><span className="font-medium">Check-out:</span> {form.check_out}</p>
+                <p><span className="font-medium">Check-in:</span> {formatDate(form.check_in)} {formatTime(hotels.find(h => h.hotel_id === form.hotel_id)?.checkin_time, "14:00")}</p>
+                <p><span className="font-medium">Check-out:</span> {formatDate(form.check_out)} {formatTime(hotels.find(h => h.hotel_id === form.hotel_id)?.checkout_time, "12:00")}</p>
                 <p><span className="font-medium">Số khách:</span> {form.guest_count}</p>
               </div>
             </div>
@@ -651,6 +870,7 @@ const CreateBooking = () => {
   );
 };
 
+// Helper function để format price
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat("vi-VN").format(price);
 };

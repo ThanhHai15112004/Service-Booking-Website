@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Bed, Hotel, DollarSign, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DashboardStats {
   totalRoomTypes: number;
@@ -49,63 +50,15 @@ const Dashboard = ({ onSelectHotel: _onSelectHotel }: DashboardProps = {}) => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setStats({
-          totalRoomTypes: 45,
-          totalRooms: 234,
-          activeRooms: 198,
-          maintenanceRooms: 12,
-          fullRooms: 18,
-          availableRooms: 168,
-          avgBasePrice: 1250000,
-          avgOccupancyRate: 72.5,
-          roomsByHotel: [
-            { hotel: "Hanoi Old Quarter", count: 30 },
-            { hotel: "My Khe Beach Resort", count: 80 },
-            { hotel: "Saigon Riverside", count: 60 },
-            { hotel: "Sofitel Metropole", count: 64 },
-          ],
-          bedsByType: [
-            { bedType: "Double", count: 120 },
-            { bedType: "Single", count: 45 },
-            { bedType: "King", count: 58 },
-            { bedType: "Twin", count: 11 },
-          ],
-          occupancyTrends: [
-            { month: "Th1", rate: 65 },
-            { month: "Th2", rate: 68 },
-            { month: "Th3", rate: 72 },
-            { month: "Th4", rate: 75 },
-            { month: "Th5", rate: 78 },
-            { month: "Th6", rate: 80 },
-            { month: "Th7", rate: 85 },
-            { month: "Th8", rate: 82 },
-            { month: "Th9", rate: 79 },
-            { month: "Th10", rate: 76 },
-            { month: "Th11", rate: 74 },
-            { month: "Th12", rate: 72 },
-          ],
-          topRevenueRoomTypes: [
-            { room_type_id: "RT001", name: "Deluxe Sea View", revenue: 45000000, hotel_name: "My Khe Beach Resort" },
-            { room_type_id: "RT002", name: "Executive Suite", revenue: 38000000, hotel_name: "Sofitel Metropole" },
-            { room_type_id: "RT003", name: "Superior Garden", revenue: 32000000, hotel_name: "Hanoi Old Quarter" },
-            { room_type_id: "RT004", name: "Premium Room", revenue: 28000000, hotel_name: "Saigon Riverside" },
-            { room_type_id: "RT005", name: "Family Suite", revenue: 25000000, hotel_name: "My Khe Beach Resort" },
-          ],
-          topBookedRooms: [
-            { room_id: "R001", room_number: "101", room_type: "Deluxe Sea View", booking_count: 45, hotel_name: "My Khe Beach Resort" },
-            { room_id: "R002", room_number: "201", room_type: "Executive Suite", booking_count: 38, hotel_name: "Sofitel Metropole" },
-            { room_id: "R003", room_number: "301", room_type: "Superior Garden", booking_count: 32, hotel_name: "Hanoi Old Quarter" },
-            { room_id: "R004", room_number: "102", room_type: "Premium Room", booking_count: 28, hotel_name: "Saigon Riverside" },
-            { room_id: "R005", room_number: "202", room_type: "Family Suite", booking_count: 25, hotel_name: "My Khe Beach Resort" },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const result = await adminService.getRoomDashboardStats();
+      if (result.success && result.data) {
+        setStats(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };

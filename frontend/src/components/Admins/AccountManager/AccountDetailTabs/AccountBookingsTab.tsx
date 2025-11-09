@@ -315,7 +315,7 @@ const AccountBookingsTab = ({ accountId }: AccountBookingsTabProps) => {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Thuế (10%):</span>
+                    <span className="text-gray-600">Thuế VAT (10%):</span>
                     <span className="font-medium">{formatCurrency(selectedBooking.tax_amount || 0)}</span>
                   </div>
                   <div className="pt-2 border-t border-gray-300 flex justify-between font-bold text-lg">

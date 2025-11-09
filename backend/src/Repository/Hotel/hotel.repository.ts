@@ -52,13 +52,38 @@ export class HotelSearchRepository {
         return [];
       }
       
+      console.log(`[HotelRepository] search - Found ${rows.length} rows from query`);
+      
       const results = this.mapResults(rows, params);
       
-      await this.attachImagesToResults(results);
-      await this.attachFacilitiesToResults(results);
-      await this.attachPoliciesToResults(results);
+      console.log(`[HotelRepository] search - Mapped to ${results.length} results`);
       
-      return results;
+      // ✅ FIX: Deduplicate hotels - nếu có nhiều room types cùng giá, chỉ giữ 1 hotel
+      // Sử dụng Map để đảm bảo mỗi hotel chỉ xuất hiện 1 lần
+      const uniqueHotels = new Map<string, HotelSearchResult>();
+      for (const hotel of results) {
+        if (!uniqueHotels.has(hotel.hotelId)) {
+          // Lần đầu tiên gặp hotel này, thêm vào map
+          uniqueHotels.set(hotel.hotelId, hotel);
+        } else {
+          // Đã có hotel này rồi, so sánh và giữ hotel có giá tốt hơn hoặc room type ưu tiên hơn
+          const existing = uniqueHotels.get(hotel.hotelId)!;
+          // Ưu tiên hotel có giá thấp hơn
+          if (hotel.bestOffer.avgPricePerNight < existing.bestOffer.avgPricePerNight) {
+            uniqueHotels.set(hotel.hotelId, hotel);
+          }
+          // Nếu cùng giá, giữ hotel đầu tiên (hoặc có thể ưu tiên room type cụ thể)
+        }
+      }
+      
+      // Convert Map thành array
+      const deduplicatedResults = Array.from(uniqueHotels.values());
+      
+      await this.attachImagesToResults(deduplicatedResults);
+      await this.attachFacilitiesToResults(deduplicatedResults);
+      await this.attachPoliciesToResults(deduplicatedResults);
+      
+      return deduplicatedResults;
     } catch (error: any) {
       console.error('[HotelRepository] search error:', error.message);
       throw error;
@@ -275,6 +300,8 @@ export class HotelSearchRepository {
     const whereConditions = this.buildSequelizeWhereConditions(params, checkinDate, checkoutDateStr, nights);
     const order = this.buildSequelizeOrder(params.sort);
 
+    // ✅ FIX: Revert về query ban đầu - đơn giản và ổn định
+    // Deduplication sẽ được thực hiện hoàn toàn ở code level để tránh vấn đề với SQL
     const results = await sequelize.query(`
       SELECT
         t1.hotel_id,

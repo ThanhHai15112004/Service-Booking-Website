@@ -54,7 +54,15 @@ const RoomModal = ({ isOpen, onClose, onSuccess, roomTypeId, room }: RoomModalPr
           status: room.status,
           image_url: room.image_url || "",
         });
-        setImagePreview(room.image_url || null);
+        // Xử lý image URL: nếu là đường dẫn tương đối, thêm base URL
+        if (room.image_url) {
+          const imageUrl = room.image_url.startsWith("http") 
+            ? room.image_url 
+            : `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}${room.image_url}`;
+          setImagePreview(imageUrl);
+        } else {
+          setImagePreview(null);
+        }
         setImageFile(null);
       } else {
         // Create mode - reset form
@@ -222,12 +230,18 @@ const RoomModal = ({ isOpen, onClose, onSuccess, roomTypeId, room }: RoomModalPr
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Chỉ đóng modal khi click vào backdrop (không phải vào modal content)
+    if (e.target === e.currentTarget && !loading && !uploading) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={(e) => {
-      if (e.target === e.currentTarget && !loading && !uploading) {
-        onClose();
-      }
-    }}>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+      onClick={handleBackdropClick}
+    >
       {toast && <Toast type={toast.type} message={toast.message} />}
       <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
@@ -255,6 +269,10 @@ const RoomModal = ({ isOpen, onClose, onSuccess, roomTypeId, room }: RoomModalPr
                       src={imagePreview}
                       alt="Room preview"
                       className="w-32 h-32 rounded-lg object-cover border-2 border-gray-200"
+                      onError={(e) => {
+                        // Nếu ảnh từ server bị lỗi, hiển thị placeholder
+                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/128x128?text=Image+Error";
+                      }}
                     />
                     <button
                       type="button"
@@ -263,7 +281,8 @@ const RoomModal = ({ isOpen, onClose, onSuccess, roomTypeId, room }: RoomModalPr
                         setImageFile(null);
                         setFormData({ ...formData, image_url: "" });
                       }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      disabled={loading || uploading}
                     >
                       <X size={16} />
                     </button>
@@ -275,15 +294,19 @@ const RoomModal = ({ isOpen, onClose, onSuccess, roomTypeId, room }: RoomModalPr
                 )}
               </div>
               <div className="flex-1">
-                <label className="cursor-pointer">
+                <label 
+                  htmlFor="room-image-upload"
+                  className={`cursor-pointer inline-block ${(loading || uploading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
                   <input
+                    id="room-image-upload"
                     type="file"
                     accept="image/*"
                     onChange={handleImageChange}
                     disabled={loading || uploading}
                     className="hidden"
                   />
-                  <div className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <div className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${(loading || uploading) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                     <Upload size={18} className="text-gray-600" />
                     <span className="text-sm font-medium text-gray-700">
                       {imagePreview ? "Thay đổi ảnh" : "Chọn ảnh"}

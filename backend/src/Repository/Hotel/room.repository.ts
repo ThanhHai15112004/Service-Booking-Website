@@ -125,9 +125,14 @@ export class RoomRepository {
       );
 
       return availableRooms.map((room: any) => ({
+        room_id: room.room_id || room.roomId,
         roomId: room.room_id || room.roomId,
+        room_number: room.room_number || room.roomNumber,
         roomNumber: room.room_number || room.roomNumber,
-        minAvailable: room.minAvailable || 0
+        minAvailable: room.minAvailable || 0,
+        base_price: room.base_price || 0,
+        final_price: room.final_price || room.base_price || 0,
+        discount_percent: room.discount_percent || 0
       }));
     } catch (error: any) {
       console.error("[RoomRepository] getAvailableRoomsByRoomTypeId error:", error.message);

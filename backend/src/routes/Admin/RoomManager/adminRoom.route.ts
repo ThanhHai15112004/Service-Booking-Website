@@ -36,6 +36,8 @@ import {
   getRoomTypeDatePolicies,
   updateRoomTypeDatePolicies,
   updateRoomTypeDateBasePrice,
+  updateRoomTypeDateAvailability,
+  getDashboardStats,
 } from "../../../controllers/Admin/RoomManager/adminRoom.controller";
 
 const router = Router();
@@ -57,6 +59,7 @@ router.post("/room-types", asyncHandler(createRoomType));
 // to avoid route conflicts. Express matches routes in order.
 router.put("/room-types/:roomTypeId/discount", asyncHandler(updateRoomTypeDateDiscount));
 router.put("/room-types/:roomTypeId/date-base-price", asyncHandler(updateRoomTypeDateBasePrice));
+router.put("/room-types/:roomTypeId/date-availability", asyncHandler(updateRoomTypeDateAvailability));
 router.put("/room-types/:roomTypeId/date-policies", asyncHandler(updateRoomTypeDatePolicies));
 router.get("/room-types/:roomTypeId/date-policies", asyncHandler(getRoomTypeDatePolicies));
 router.put("/room-types/:roomTypeId/base-price", asyncHandler(updateRoomTypeBasePrice));
@@ -96,6 +99,9 @@ router.get("/facilities", asyncHandler(getAllFacilities));
 
 // ========== ROOM POLICIES ==========
 router.get("/policy-types", asyncHandler(getAllPolicyTypes));
+
+// ========== DASHBOARD ==========
+router.get("/dashboard", asyncHandler(getDashboardStats));
 
 export default router;
 

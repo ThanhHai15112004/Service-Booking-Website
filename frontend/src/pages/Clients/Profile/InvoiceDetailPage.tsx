@@ -4,6 +4,7 @@ import MainLayout from '../../../layouts/MainLayout';
 import { getBookingById } from '../../../services/bookingService';
 import { getHotelDetail } from '../../../services/hotelService';
 import api from '../../../api/axiosClient';
+import { formatDateTime } from '../../../utils/formatters';
 import {
   ArrowLeft,
   Download,

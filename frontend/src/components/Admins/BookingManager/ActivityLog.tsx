@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, History, User, Calendar, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ActivityLog {
   id: number;
@@ -21,10 +22,12 @@ const ActivityLog = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<ActivityLog[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [admins, setAdmins] = useState<Array<{ account_id: string; full_name: string }>>([]);
   const [filters, setFilters] = useState({
     admin: "",
     action: "",
@@ -33,114 +36,97 @@ const ActivityLog = () => {
   });
 
   useEffect(() => {
-    fetchActivityLogs();
+    fetchAdmins();
   }, []);
 
   useEffect(() => {
-    applyFilters();
-  }, [logs, searchTerm, filters]);
+    fetchActivityLogs();
+  }, [currentPage, itemsPerPage, searchTerm, filters]);
+
+  const fetchAdmins = async () => {
+    try {
+      const result = await adminService.getAccounts({ 
+        limit: 100, 
+        role: "ADMIN" 
+      });
+      if (result.success && result.data) {
+        setAdmins(
+          result.data.accounts.map((acc: any) => ({
+            account_id: acc.account_id,
+            full_name: acc.full_name,
+          }))
+        );
+      }
+    } catch (error: any) {
+      console.error("Error fetching admins:", error);
+    }
+  };
 
   const fetchActivityLogs = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setLogs([
-          {
-            id: 1,
-            date: "2025-11-03T14:30:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            booking_id: "BK1023",
-            action: "Thay đổi trạng thái",
-            old_value: "CREATED",
-            new_value: "CONFIRMED",
-            note: "Khách gọi xác nhận",
-          },
-          {
-            id: 2,
-            date: "2025-11-02T16:45:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            booking_id: "BK0999",
-            action: "Hủy booking",
-            old_value: "CONFIRMED",
-            new_value: "CANCELLED",
-            note: "Không thanh toán",
-          },
-          {
-            id: 3,
-            date: "2025-11-02T10:20:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            booking_id: "BK0898",
-            action: "Cập nhật thông tin",
-            note: "Đổi số điện thoại khách hàng",
-          },
-          {
-            id: 4,
-            date: "2025-11-01T15:10:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            booking_id: "BK0756",
-            action: "Thêm ghi chú",
-            note: "Khách yêu cầu check-in sớm",
-          },
-          {
-            id: 5,
-            date: "2025-11-01T09:00:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            booking_id: "BK0543",
-            action: "Thay đổi trạng thái",
-            old_value: "PAID",
-            new_value: "COMPLETED",
-            note: "Khách đã check-out",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      if (filters.admin) {
+        params.adminId = filters.admin;
+      }
+      if (filters.action) {
+        params.action = filters.action;
+      }
+      if (filters.dateFrom) {
+        params.dateFrom = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.dateTo = filters.dateTo;
+      }
+
+      const result = await adminService.getBookingActivityLogs(params);
+      if (result.success && result.data) {
+        // Map backend format to frontend format
+        const mappedLogs = (result.data.logs || []).map((log: any, index: number) => {
+          // Parse change_details để lấy old_value và new_value
+          let oldValue = "";
+          let newValue = "";
+          if (log.change_details) {
+            // Format: "old_value → new_value" hoặc "old_value->new_value" hoặc "old_value -> new_value"
+            // Sử dụng multiple separators: →, ->, hoặc ->
+            const arrowRegex = /\s*(?:→|->|->)\s*/;
+            const parts = log.change_details.split(arrowRegex);
+            if (parts.length >= 2) {
+              oldValue = parts[0]?.trim() || "";
+              newValue = parts[1]?.trim() || "";
+            }
+          }
+
+          return {
+            id: log.id || index + 1,
+            date: log.time || log.date || new Date().toISOString(),
+            admin_name: log.user || log.admin_name || "Hệ thống",
+            admin_id: log.admin_id || log.user_id || "",
+            booking_id: log.booking_id || "",
+            action: log.action || log.action_type || "",
+            old_value: log.old_value || oldValue,
+            new_value: log.new_value || newValue,
+            note: log.note || "",
+          };
+        });
+        setLogs(mappedLogs);
+        setTotalPages(result.data.pagination?.totalPages || 1);
+        setTotal(result.data.pagination?.total || 0);
+      } else {
+        showToast("error", result.message || "Không thể tải lịch sử hoạt động");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải nhật ký hoạt động");
+      showToast("error", error.message || "Không thể tải lịch sử hoạt động");
+    } finally {
       setLoading(false);
     }
-  };
-
-  const applyFilters = () => {
-    let result = [...logs];
-
-    if (searchTerm) {
-      result = result.filter(
-        (log) =>
-          log.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.admin_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.note?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.admin) {
-      result = result.filter((log) => log.admin_id === filters.admin);
-    }
-
-    if (filters.action) {
-      result = result.filter((log) => log.action === filters.action);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((log) => log.date >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((log) => log.date <= filters.dateTo);
-    }
-
-    // Sort by date descending
-    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    setFilteredLogs(result);
-    setCurrentPage(1);
   };
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -148,23 +134,39 @@ const ActivityLog = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentLogs = filteredLogs.slice(startIndex, endIndex);
+  const currentLogs = logs;
 
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("vi-VN");
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "N/A";
+      }
+      return date.toLocaleString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch (error) {
+      return "N/A";
+    }
   };
 
   const getActionBadge = (action: string) => {
     const colorMap: Record<string, string> = {
+      "Tạo booking": "bg-gray-100 text-gray-800",
       "Thay đổi trạng thái": "bg-blue-100 text-blue-800",
       "Hủy booking": "bg-red-100 text-red-800",
       "Cập nhật thông tin": "bg-green-100 text-green-800",
       "Thêm ghi chú": "bg-purple-100 text-purple-800",
-      "Tạo booking": "bg-gray-100 text-gray-800",
+      "Chờ thanh toán": "bg-yellow-100 text-yellow-800",
+      "Thanh toán thành công": "bg-green-100 text-green-800",
+      "Check-in": "bg-blue-100 text-blue-800",
+      "Check-out": "bg-purple-100 text-purple-800",
     };
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorMap[action] || "bg-gray-100 text-gray-800"}`}>
@@ -196,7 +198,10 @@ const ActivityLog = () => {
                 type="text"
                 placeholder="Tìm kiếm theo booking ID, admin, hành động..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -204,39 +209,58 @@ const ActivityLog = () => {
 
           <select
             value={filters.admin}
-            onChange={(e) => setFilters({ ...filters, admin: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, admin: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả admin</option>
-            <option value="ADM001">admin01</option>
-            <option value="STAFF002">staff02</option>
+            {admins.map((admin) => (
+              <option key={admin.account_id} value={admin.account_id}>
+                {admin.full_name}
+              </option>
+            ))}
           </select>
 
           <select
             value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, action: e.target.value });
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả hành động</option>
+            <option value="Tạo booking">Tạo booking</option>
             <option value="Thay đổi trạng thái">Thay đổi trạng thái</option>
             <option value="Hủy booking">Hủy booking</option>
             <option value="Cập nhật thông tin">Cập nhật thông tin</option>
             <option value="Thêm ghi chú">Thêm ghi chú</option>
-            <option value="Tạo booking">Tạo booking</option>
+            <option value="Chờ thanh toán">Chờ thanh toán</option>
+            <option value="Thanh toán thành công">Thanh toán thành công</option>
+            <option value="Check-in">Check-in</option>
+            <option value="Check-out">Check-out</option>
           </select>
 
           <div className="flex gap-2">
             <input
               type="date"
               value={filters.dateFrom}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateFrom: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Từ ngày"
             />
             <input
               type="date"
               value={filters.dateTo}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              onChange={(e) => {
+                setFilters({ ...filters, dateTo: e.target.value });
+                setCurrentPage(1);
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Đến ngày"
             />
@@ -329,7 +353,7 @@ const ActivityLog = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredLogs.length)} trong tổng số {filteredLogs.length} hoạt động
+                Hiển thị {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, total)} trong tổng số {total} hoạt động
               </span>
               <select
                 value={itemsPerPage}

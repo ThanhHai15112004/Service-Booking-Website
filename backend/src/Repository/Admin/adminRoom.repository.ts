@@ -1346,4 +1346,357 @@ export class AdminRoomRepository {
       connection.release();
     }
   }
+
+  // Update available rooms for a room type on a specific date
+  async updateRoomTypeDateAvailability(
+    roomTypeId: string,
+    date: string,
+    totalAvailableRooms: number
+  ): Promise<boolean> {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Get all active rooms for this room type
+      const [rooms]: any = await connection.query(
+        `SELECT room_id 
+         FROM room 
+         WHERE room_type_id = ? AND status = 'ACTIVE'`,
+        [roomTypeId]
+      );
+
+      if (rooms.length === 0) {
+        await connection.rollback();
+        throw new Error("Không tìm thấy phòng nào thuộc loại phòng này");
+      }
+
+      const totalRooms = rooms.length;
+      
+      // Validate: totalAvailableRooms cannot exceed totalRooms
+      if (totalAvailableRooms > totalRooms) {
+        await connection.rollback();
+        throw new Error(`Số phòng trống không thể vượt quá tổng số phòng (${totalRooms} phòng)`);
+      }
+
+      if (totalAvailableRooms < 0) {
+        await connection.rollback();
+        throw new Error("Số phòng trống không thể nhỏ hơn 0");
+      }
+
+      // Calculate how many rooms should have available_rooms = 1
+      // Remaining rooms will have available_rooms = 0
+      const roomsWithAvailability = totalAvailableRooms;
+      
+      // Update or create schedules for each room
+      for (let i = 0; i < rooms.length; i++) {
+        const room = rooms[i];
+        const shouldHaveAvailability = i < roomsWithAvailability;
+        const availableRoomsValue = shouldHaveAvailability ? 1 : 0;
+
+        // Check if schedule exists
+        const [existing]: any = await connection.query(
+          `SELECT schedule_id, base_price, discount_percent
+           FROM room_price_schedule
+           WHERE room_id = ? AND DATE(date) = DATE(?)`,
+          [room.room_id, date]
+        );
+
+        if (existing.length > 0) {
+          // Update existing schedule
+          const scheduleId = existing[0].schedule_id;
+          const basePrice = Number(existing[0].base_price) || 0;
+          const discountPercent = Number(existing[0].discount_percent) || 0;
+          const finalPrice = basePrice * (1 - discountPercent / 100);
+
+          await connection.query(
+            `UPDATE room_price_schedule 
+             SET available_rooms = ?,
+                 final_price = ?
+             WHERE schedule_id = ?`,
+            [availableRoomsValue, finalPrice, scheduleId]
+          );
+        } else {
+          // Create new schedule if it doesn't exist
+          // Get room base price
+          const [roomData]: any = await connection.query(
+            `SELECT price_base FROM room WHERE room_id = ?`,
+            [room.room_id]
+          );
+          
+          const basePrice = roomData[0]?.price_base || 0;
+          const scheduleId = `RPS${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+          const finalPrice = basePrice;
+
+          await connection.query(
+            `INSERT INTO room_price_schedule 
+             (schedule_id, room_id, date, base_price, discount_percent, final_price, available_rooms, refundable, pay_later, created_at)
+             VALUES (?, ?, DATE(?), ?, 0, ?, ?, 1, 0, NOW())`,
+            [scheduleId, room.room_id, date, basePrice, finalPrice, availableRoomsValue]
+          );
+        }
+      }
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // ========== DASHBOARD STATS ==========
+
+  async getDashboardStats() {
+    try {
+      // 1. Tổng số loại phòng
+      const [totalRoomTypes]: any = await pool.query(
+        `SELECT COUNT(DISTINCT room_type_id) as count FROM room_type`
+      );
+      const totalRoomTypesCount = totalRoomTypes[0]?.count || 0;
+
+      // 2. Tổng số phòng vật lý
+      const [totalRooms]: any = await pool.query(
+        `SELECT COUNT(*) as count FROM room`
+      );
+      const totalRoomsCount = totalRooms[0]?.count || 0;
+
+      // 3. Phòng theo status
+      const [statusRows]: any = await pool.query(
+        `SELECT status, COUNT(*) as count FROM room GROUP BY status`
+      );
+      const statusMap: Record<string, number> = {};
+      statusRows.forEach((row: any) => {
+        statusMap[row.status] = row.count;
+      });
+      const activeRooms = statusMap["ACTIVE"] || 0;
+      const maintenanceRooms = statusMap["MAINTENANCE"] || 0;
+      const inactiveRooms = statusMap["INACTIVE"] || 0;
+
+      // 4. Phòng đầy (tính từ booking hiện tại và room_price_schedule với available_rooms = 0)
+      // Lấy số phòng đang được đặt trong khoảng thời gian hiện tại
+      const today = new Date().toISOString().split('T')[0];
+      const [fullRoomsData]: any = await pool.query(
+        `SELECT COUNT(DISTINCT r.room_id) as count
+         FROM room r
+         WHERE r.status = 'ACTIVE'
+         AND NOT EXISTS (
+           SELECT 1 FROM room_price_schedule rps
+           WHERE rps.room_id = r.room_id
+           AND rps.date = DATE(?)
+           AND rps.available_rooms > 0
+         )
+         AND EXISTS (
+           SELECT 1 FROM booking_detail bd
+           JOIN booking b ON b.booking_id = bd.booking_id
+           WHERE bd.room_id = r.room_id
+           AND b.status IN ('CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT')
+           AND DATE(?) BETWEEN bd.checkin_date AND DATE_SUB(bd.checkout_date, INTERVAL 1 DAY)
+         )`,
+        [today, today]
+      );
+      const fullRooms = fullRoomsData[0]?.count || 0;
+
+      // 5. Phòng còn trống (available rooms từ room_price_schedule hoặc room active không có booking)
+      const [availableRoomsData]: any = await pool.query(
+        `SELECT COUNT(DISTINCT r.room_id) as count
+         FROM room r
+         WHERE r.status = 'ACTIVE'
+         AND (
+           EXISTS (
+             SELECT 1 FROM room_price_schedule rps
+             WHERE rps.room_id = r.room_id
+             AND rps.date = DATE(?)
+             AND rps.available_rooms > 0
+           )
+           OR NOT EXISTS (
+             SELECT 1 FROM booking_detail bd
+             JOIN booking b ON b.booking_id = bd.booking_id
+             WHERE bd.room_id = r.room_id
+             AND b.status IN ('CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT')
+             AND DATE(?) BETWEEN bd.checkin_date AND DATE_SUB(bd.checkout_date, INTERVAL 1 DAY)
+           )
+         )`,
+        [today, today]
+      );
+      const availableRooms = availableRoomsData[0]?.count || 0;
+
+      // 6. Giá trung bình
+      const [avgPriceData]: any = await pool.query(
+        `SELECT AVG(price_base) as avg_price FROM room WHERE price_base > 0 AND status = 'ACTIVE'`
+      );
+      const avgBasePrice = Number(avgPriceData[0]?.avg_price) || 0;
+
+      // 7. Tỷ lệ công suất trung bình (tính từ booking trong 12 tháng gần nhất)
+      // Tính tổng số đêm đã được đặt và tổng số đêm có thể đặt
+      const [occupancyData]: any = await pool.query(
+        `SELECT 
+          COALESCE(SUM(bd.nights_count), 0) as total_nights_booked,
+          (SELECT COUNT(*) FROM room WHERE status = 'ACTIVE') as total_active_rooms,
+          DATEDIFF(CURDATE(), DATE_SUB(CURDATE(), INTERVAL 12 MONTH)) as total_days
+         FROM booking_detail bd
+         JOIN booking b ON b.booking_id = bd.booking_id
+         JOIN room r ON r.room_id = bd.room_id
+         WHERE b.status IN ('CONFIRMED', 'COMPLETED', 'CHECKED_IN', 'CHECKED_OUT')
+         AND bd.checkin_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+         AND r.status = 'ACTIVE'`
+      );
+      const totalNightsBooked = Number(occupancyData[0]?.total_nights_booked) || 0;
+      const totalActiveRooms = Number(occupancyData[0]?.total_active_rooms) || 0;
+      const totalDays = Number(occupancyData[0]?.total_days) || 365;
+      const totalPossibleNights = totalActiveRooms * totalDays;
+      const avgOccupancyRate = totalPossibleNights > 0 
+        ? Math.round((totalNightsBooked / totalPossibleNights) * 100 * 10) / 10 
+        : 0;
+
+      // 8. Số lượng phòng theo khách sạn
+      const [roomsByHotelData]: any = await pool.query(
+        `SELECT 
+          h.name as hotel,
+          COUNT(DISTINCT r.room_id) as count
+         FROM hotel h
+         LEFT JOIN room_type rt ON rt.hotel_id = h.hotel_id
+         LEFT JOIN room r ON r.room_type_id = rt.room_type_id
+         WHERE h.status = 'ACTIVE'
+         GROUP BY h.hotel_id, h.name
+         ORDER BY count DESC
+         LIMIT 10`
+      );
+      const roomsByHotel = roomsByHotelData.map((row: any) => ({
+        hotel: row.hotel || "Unknown",
+        count: Number(row.count) || 0,
+      }));
+
+      // 9. Phân bố loại giường
+      const [bedsByTypeData]: any = await pool.query(
+        `SELECT 
+          COALESCE(rt.bed_type, 'Unknown') as bedType,
+          COUNT(*) as count
+         FROM room_type rt
+         GROUP BY rt.bed_type
+         ORDER BY count DESC`
+      );
+      const bedsByType = bedsByTypeData.map((row: any) => ({
+        bedType: row.bedType || "Unknown",
+        count: Number(row.count) || 0,
+      }));
+
+      // 10. Tỷ lệ công suất theo tháng (12 tháng gần nhất)
+      const [occupancyTrendsData]: any = await pool.query(
+        `SELECT 
+          DATE_FORMAT(bd.checkin_date, '%Y-%m') as month_key,
+          COALESCE(SUM(bd.nights_count), 0) as total_nights_booked
+         FROM booking_detail bd
+         JOIN booking b ON b.booking_id = bd.booking_id
+         JOIN room r ON r.room_id = bd.room_id
+         WHERE b.status IN ('CONFIRMED', 'COMPLETED', 'CHECKED_IN', 'CHECKED_OUT')
+         AND bd.checkin_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+         AND r.status = 'ACTIVE'
+         GROUP BY DATE_FORMAT(bd.checkin_date, '%Y-%m')
+         ORDER BY month_key ASC`
+      );
+      
+      // Sử dụng lại biến totalActiveRooms đã tính ở trên
+      
+      // Tạo map từ dữ liệu booking
+      const trendsMap = new Map();
+      occupancyTrendsData.forEach((row: any) => {
+        trendsMap.set(row.month_key, Number(row.total_nights_booked) || 0);
+      });
+      
+      // Tạo đầy đủ 12 tháng và tính tỷ lệ
+      const occupancyTrends: Array<{ month: string; rate: number }> = [];
+      const currentDate = new Date();
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = `Th${date.getMonth() + 1}`;
+        
+        // Tính số ngày trong tháng
+        const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        const totalNightsBooked = trendsMap.get(monthKey) || 0;
+        const totalPossibleNights = totalActiveRooms * daysInMonth;
+        const rate = totalPossibleNights > 0 ? (totalNightsBooked / totalPossibleNights) * 100 : 0;
+        
+        occupancyTrends.push({
+          month: monthName,
+          rate: Math.round(rate * 10) / 10, // Làm tròn 1 chữ số thập phân
+        });
+      }
+
+      // 11. Top loại phòng có doanh thu cao nhất
+      const [topRevenueData]: any = await pool.query(
+        `SELECT 
+          rt.room_type_id,
+          rt.name,
+          h.name as hotel_name,
+          COALESCE(SUM(bd.total_price), 0) as revenue
+         FROM room_type rt
+         LEFT JOIN hotel h ON h.hotel_id = rt.hotel_id
+         LEFT JOIN room r ON r.room_type_id = rt.room_type_id
+         LEFT JOIN booking_detail bd ON bd.room_id = r.room_id
+         LEFT JOIN booking b ON b.booking_id = bd.booking_id
+         WHERE b.status IN ('CONFIRMED', 'COMPLETED', 'CHECKED_IN', 'CHECKED_OUT')
+         AND bd.checkin_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+         GROUP BY rt.room_type_id, rt.name, h.name
+         ORDER BY revenue DESC
+         LIMIT 5`
+      );
+      const topRevenueRoomTypes = topRevenueData.map((row: any) => ({
+        room_type_id: row.room_type_id,
+        name: row.name || "Unknown",
+        revenue: Number(row.revenue) || 0,
+        hotel_name: row.hotel_name || "Unknown",
+      }));
+
+      // 12. Top phòng có giá trị booking cao nhất (số lần booking)
+      const [topBookedData]: any = await pool.query(
+        `SELECT 
+          r.room_id,
+          r.room_number,
+          rt.name as room_type,
+          h.name as hotel_name,
+          COUNT(DISTINCT bd.booking_id) as booking_count
+         FROM room r
+         JOIN room_type rt ON rt.room_type_id = r.room_type_id
+         JOIN hotel h ON h.hotel_id = rt.hotel_id
+         LEFT JOIN booking_detail bd ON bd.room_id = r.room_id
+         LEFT JOIN booking b ON b.booking_id = bd.booking_id
+         WHERE b.status IN ('CONFIRMED', 'COMPLETED', 'CHECKED_IN', 'CHECKED_OUT')
+         AND bd.checkin_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+         GROUP BY r.room_id, r.room_number, rt.name, h.name
+         ORDER BY booking_count DESC
+         LIMIT 5`
+      );
+      const topBookedRooms = topBookedData.map((row: any) => ({
+        room_id: row.room_id,
+        room_number: row.room_number || "N/A",
+        room_type: row.room_type || "Unknown",
+        booking_count: Number(row.booking_count) || 0,
+        hotel_name: row.hotel_name || "Unknown",
+      }));
+
+      return {
+        totalRoomTypes: totalRoomTypesCount,
+        totalRooms: totalRoomsCount,
+        activeRooms,
+        maintenanceRooms,
+        inactiveRooms,
+        fullRooms,
+        availableRooms,
+        avgBasePrice,
+        avgOccupancyRate,
+        roomsByHotel,
+        bedsByType,
+        occupancyTrends,
+        topRevenueRoomTypes,
+        topBookedRooms,
+      };
+    } catch (error: any) {
+      console.error("[AdminRoomRepository] Error getting dashboard stats:", error);
+      throw error;
+    }
+  }
 }

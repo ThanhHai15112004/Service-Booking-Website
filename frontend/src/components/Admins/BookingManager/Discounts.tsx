@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, XCircle, CheckCircle, Tag, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface DiscountUsage {
   id: number;
@@ -43,43 +44,37 @@ const Discounts = () => {
   const fetchDiscounts = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setDiscounts([
-          {
-            id: 1,
-            booking_id: "BK001",
-            discount_code: "SUMMER2025",
-            discount_type: "DISCOUNT_CODE",
-            discount_value: 200000,
-            discount_percent: 10,
-            status: "USED",
-            used_at: "2025-11-01T10:30:00",
-          },
-          {
-            id: 2,
-            booking_id: "BK002",
-            discount_type: "PROMOTION",
-            discount_value: 500000,
-            promotion_name: "Khuyến mãi tháng 11",
-            status: "USED",
-            used_at: "2025-11-02T14:20:00",
-          },
-          {
-            id: 3,
-            booking_id: "BK003",
-            discount_code: "WELCOME10",
-            discount_type: "DISCOUNT_CODE",
-            discount_value: 0,
-            discount_percent: 15,
-            status: "ACTIVE",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      if (filters.discountType) {
+        params.discountType = filters.discountType;
+      }
+      if (filters.status) {
+        params.status = filters.status;
+      }
+      if (filters.dateFrom) {
+        params.dateFrom = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.dateTo = filters.dateTo;
+      }
+
+      const result = await adminService.getBookingDiscountUsage(params);
+      if (result.success && result.data) {
+        setDiscounts(result.data.discounts || []);
+        // Update pagination if available
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách mã giảm giá");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách mã giảm giá");
+    } finally {
       setLoading(false);
     }
   };

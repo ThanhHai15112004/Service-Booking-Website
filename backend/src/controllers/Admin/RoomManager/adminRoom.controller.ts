@@ -407,3 +407,54 @@ export const updateRoomTypeDateBasePrice = asyncHandler(async (req: Request, res
   }
 });
 
+// Update available rooms for a specific date
+export const updateRoomTypeDateAvailability = asyncHandler(async (req: Request, res: Response) => {
+  const { roomTypeId } = req.params;
+  const { date, totalAvailableRooms } = req.body;
+
+  if (!date || typeof date !== "string") {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu thông tin ngày",
+    });
+  }
+
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) {
+    return res.status(400).json({
+      success: false,
+      message: "Định dạng ngày không hợp lệ. Vui lòng sử dụng định dạng YYYY-MM-DD",
+    });
+  }
+
+  const roomsValue = typeof totalAvailableRooms === "string" ? parseInt(totalAvailableRooms) : totalAvailableRooms;
+
+  if (typeof roomsValue !== "number" || isNaN(roomsValue) || roomsValue < 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Số phòng trống phải là số nguyên lớn hơn hoặc bằng 0",
+    });
+  }
+
+  try {
+    const result = await roomService.updateRoomTypeDateAvailability(
+      roomTypeId,
+      date,
+      roomsValue
+    );
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Lỗi khi cập nhật số phòng trống",
+    });
+  }
+});
+
+// ========== DASHBOARD STATS ==========
+
+export const getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
+  const result = await roomService.getDashboardStats();
+  res.status(result.success ? 200 : 400).json(result);
+});
+

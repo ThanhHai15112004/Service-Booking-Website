@@ -268,10 +268,11 @@ const RoomsList = ({ selectedHotelId, onHotelChange }: RoomsListProps = {}) => {
       {/* Filters */}
       {currentHotelId && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="text"
                   placeholder="Tìm kiếm theo số phòng, ID..."
@@ -284,40 +285,46 @@ const RoomsList = ({ selectedHotelId, onHotelChange }: RoomsListProps = {}) => {
                       fetchRooms();
                     }
                   }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
-            <select
-              value={filters.roomType}
-              onChange={(e) => {
-                setFilters({ ...filters, roomType: e.target.value });
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tất cả loại phòng</option>
-              {roomTypes.map((roomType) => (
-                <option key={roomType.room_type_id} value={roomType.room_type_id}>
-                  {roomType.name}
-                </option>
-              ))}
-            </select>
+            {/* Room Type Filter */}
+            <div className="w-[200px]">
+              <select
+                value={filters.roomType}
+                onChange={(e) => {
+                  setFilters({ ...filters, roomType: e.target.value });
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Tất cả loại phòng</option>
+                {roomTypes.map((roomType) => (
+                  <option key={roomType.room_type_id} value={roomType.room_type_id}>
+                    {roomType.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={filters.status}
-              onChange={(e) => {
-                setFilters({ ...filters, status: e.target.value });
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="MAINTENANCE">Bảo trì</option>
-              <option value="INACTIVE">Không hoạt động</option>
-            </select>
+            {/* Status Filter */}
+            <div className="w-[180px]">
+              <select
+                value={filters.status}
+                onChange={(e) => {
+                  setFilters({ ...filters, status: e.target.value });
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="ACTIVE">Đang hoạt động</option>
+                <option value="MAINTENANCE">Bảo trì</option>
+                <option value="INACTIVE">Không hoạt động</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -476,8 +483,19 @@ const RoomsList = ({ selectedHotelId, onHotelChange }: RoomsListProps = {}) => {
 
       {/* Detail Modal */}
       {showDetailModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDetailModal(false);
+              setSelectedRoom(null);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Chi tiết phòng vật lý</h2>
               <button

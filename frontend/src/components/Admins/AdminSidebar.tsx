@@ -20,7 +20,7 @@ interface MenuItem {
   label: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { label: string; path: string }[];
+  subItems?: { label: string; path: string; badge?: number }[];
   badge?: number;
 }
 
@@ -28,6 +28,7 @@ const AdminSidebar = () => {
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [totalPendingBookings, setTotalPendingBookings] = useState(0);
+  const [bookingBadgeCount, setBookingBadgeCount] = useState(0);
 
   // Auto-expand menu items based on current route
   useEffect(() => {
@@ -88,6 +89,32 @@ const AdminSidebar = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch booking badge count (PENDING_CONFIRMATION + CHECKED_IN)
+  useEffect(() => {
+    const fetchBookingBadgeCount = async () => {
+      try {
+        const response = await adminService.getBookingDashboardStats();
+        if (response.success && response.data) {
+          // Tổng số booking cần xử lý: PENDING_CONFIRMATION (đỏ) + CHECKED_IN (vàng - chờ checkout)
+          const pendingConfirmation = response.data.bookingsByStatus?.find(
+            (s: any) => s.status === "PENDING_CONFIRMATION"
+          )?.count || 0;
+          const checkedIn = response.data.bookingsByStatus?.find(
+            (s: any) => s.status === "CHECKED_IN"
+          )?.count || 0;
+          setBookingBadgeCount(pendingConfirmation + checkedIn);
+        }
+      } catch (error) {
+        console.error("Error fetching booking badge count:", error);
+      }
+    };
+
+    fetchBookingBadgeCount();
+    // Auto-refresh mỗi 60 giây
+    const interval = setInterval(fetchBookingBadgeCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const menuItems: MenuItem[] = [
     {
       id: "reports",
@@ -143,14 +170,23 @@ const AdminSidebar = () => {
       label: "Quản lý booking",
       icon: <Calendar size={20} />,
       subItems: [
-        { label: "Dashboard", path: "/admin/bookings/dashboard" },
-        { label: "Danh sách booking", path: "/admin/bookings" },
+        { 
+          label: "Dashboard", 
+          path: "/admin/bookings/dashboard",
+          badge: bookingBadgeCount > 0 ? bookingBadgeCount : undefined,
+        },
+        { 
+          label: "Danh sách booking", 
+          path: "/admin/bookings",
+          badge: bookingBadgeCount > 0 ? bookingBadgeCount : undefined,
+        },
         { label: "Tạo booking", path: "/admin/bookings/create" },
         { label: "Thanh toán", path: "/admin/bookings/payments" },
         { label: "Mã giảm giá", path: "/admin/bookings/discounts" },
         { label: "Thống kê & Báo cáo", path: "/admin/bookings/reports" },
         { label: "Nhật ký hoạt động", path: "/admin/bookings/activity" },
       ],
+      badge: bookingBadgeCount > 0 ? bookingBadgeCount : undefined,
     },
     {
       id: "payments",
@@ -283,13 +319,20 @@ const AdminSidebar = () => {
                           // Prevent event bubbling to parent button
                           e.stopPropagation();
                         }}
-                        className={`block px-14 py-2.5 text-sm transition-colors duration-200 ${
+                        className={`block px-14 py-2.5 text-sm transition-colors duration-200 relative ${
                           isActive(subItem.path)
                             ? "text-white font-medium bg-gray-900"
                             : "text-gray-400 hover:text-white hover:bg-gray-900"
                         }`}
                       >
-                        {subItem.label}
+                        <div className="flex items-center justify-between">
+                          <span>{subItem.label}</span>
+                          {subItem.badge && subItem.badge > 0 && (
+                            <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                              {subItem.badge > 99 ? "99+" : subItem.badge}
+                            </span>
+                          )}
+                        </div>
                       </Link>
                     ))}
                   </div>

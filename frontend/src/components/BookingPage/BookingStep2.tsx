@@ -351,7 +351,7 @@ export default function BookingStep2({
           )}
           
           <div className="flex justify-between text-gray-600">
-            <span>Thuế và phí (10%)</span>
+            <span>Thuế VAT (10%)</span>
             <span className="font-medium">{formatPrice(tax)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
@@ -368,7 +368,7 @@ export default function BookingStep2({
             <span className="text-xl font-bold text-red-600">{formatPrice(total - discount)}</span>
           </div>
           <p className="text-xs text-gray-500">
-            Giá đã bao gồm: Phí dịch vụ 5%, Thuế 8%
+            Giá đã bao gồm thuế VAT 10%
           </p>
         </div>
       </div>

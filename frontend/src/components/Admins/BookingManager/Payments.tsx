@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, CheckCircle, XCircle, Clock, DollarSign, CreditCard, ChevronLeft, ChevronRight, Calendar, Filter } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Payment {
   payment_id: string;
@@ -19,9 +20,15 @@ const Payments = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [statistics, setStatistics] = useState({
+    totalRevenue: 0,
+    pendingAmount: 0,
+    refundedAmount: 0,
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     paymentMethod: "",
@@ -35,91 +42,61 @@ const Payments = () => {
 
   useEffect(() => {
     fetchPayments();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [payments, searchTerm, filters]);
+  }, [currentPage, itemsPerPage, searchTerm, filters]);
 
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
-        setPayments([
-          {
-            payment_id: "PAY001",
-            booking_id: "BK001",
-            payment_method: "VNPAY",
-            amount: 3650000,
-            status: "SUCCESS",
-            created_at: "2025-11-01T10:30:00",
-            updated_at: "2025-11-01T10:35:00",
-          },
-          {
-            payment_id: "PAY002",
-            booking_id: "BK002",
-            payment_method: "MOMO",
-            amount: 8500000,
-            status: "SUCCESS",
-            created_at: "2025-11-02T14:20:00",
-          },
-          {
-            payment_id: "PAY003",
-            booking_id: "BK003",
-            payment_method: "CASH",
-            amount: 4200000,
-            status: "PENDING",
-            created_at: "2025-11-03T09:15:00",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      if (filters.paymentMethod) {
+        params.paymentMethod = filters.paymentMethod;
+      }
+      if (filters.status) {
+        params.status = filters.status;
+      }
+      if (filters.dateFrom) {
+        params.dateFrom = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.dateTo = filters.dateTo;
+      }
+
+      const result = await adminService.getBookingPayments(params);
+      if (result.success && result.data) {
+        setPayments(result.data.payments || []);
+        setTotalPages(result.data.pagination?.totalPages || 1);
+        setTotal(result.data.pagination?.total || 0);
+        if (result.data.statistics) {
+          setStatistics(result.data.statistics);
+        }
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách thanh toán");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải danh sách thanh toán");
+    } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...payments];
-
-    if (searchTerm) {
-      result = result.filter(
-        (payment) =>
-          payment.payment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.booking_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.paymentMethod) {
-      result = result.filter((payment) => payment.payment_method === filters.paymentMethod);
-    }
-
-    if (filters.status) {
-      result = result.filter((payment) => payment.status === filters.status);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((payment) => payment.created_at >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((payment) => payment.created_at <= filters.dateTo);
-    }
-
-    setFilteredPayments(result);
-    setCurrentPage(1);
-  };
-
   const handleUpdateStatus = async (paymentId: string, newStatus: string) => {
     try {
-      // TODO: API call
-      showToast("success", `Đã cập nhật trạng thái sang ${newStatus}`);
-      fetchPayments();
-      setShowStatusModal(false);
-      setSelectedPayment(null);
+      const result = await adminService.updatePaymentStatus(paymentId, newStatus);
+      if (result.success) {
+        showToast("success", result.message || `Đã cập nhật trạng thái sang ${newStatus}`);
+        fetchPayments();
+        setShowStatusModal(false);
+        setSelectedPayment(null);
+      } else {
+        showToast("error", result.message || "Không thể cập nhật trạng thái");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể cập nhật trạng thái");
     }
@@ -130,10 +107,7 @@ const Payments = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+  const currentPayments = payments;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -159,13 +133,13 @@ const Payments = () => {
     return date.toLocaleString("vi-VN");
   };
 
-  // Calculate statistics
-  const totalRevenue = payments.filter(p => p.status === "SUCCESS").reduce((sum, p) => sum + p.amount, 0);
-  const pendingAmount = payments.filter(p => p.status === "PENDING").reduce((sum, p) => sum + p.amount, 0);
-  const refundedAmount = payments.filter(p => p.status === "REFUNDED").reduce((sum, p) => sum + p.amount, 0);
+  // Statistics from API (calculated from all payments, not just current page)
+  const totalRevenue = statistics.totalRevenue || 0;
+  const pendingAmount = statistics.pendingAmount || 0;
+  const refundedAmount = statistics.refundedAmount || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {toast && <Toast type={toast.type} message={toast.message} />}
       {loading && <Loading message="Đang tải danh sách thanh toán..." />}
 
@@ -179,53 +153,59 @@ const Payments = () => {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Tổng doanh thu</p>
-              <p className="text-2xl font-bold text-green-600 mt-2">{formatPrice(totalRevenue)} VNĐ</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-600 truncate">Tổng doanh thu</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600 mt-2 truncate" title={formatPrice(totalRevenue) + " VNĐ"}>
+                {formatPrice(totalRevenue)} VNĐ
+              </p>
             </div>
-            <div className="bg-green-100 rounded-full p-3">
-              <DollarSign className="text-green-600" size={24} />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Đang chờ thanh toán</p>
-              <p className="text-2xl font-bold text-yellow-600 mt-2">{formatPrice(pendingAmount)} VNĐ</p>
-            </div>
-            <div className="bg-yellow-100 rounded-full p-3">
-              <Clock className="text-yellow-600" size={24} />
+            <div className="bg-green-100 rounded-full p-2 md:p-3 flex-shrink-0">
+              <DollarSign className="text-green-600" size={20} />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Đã hoàn tiền</p>
-              <p className="text-2xl font-bold text-purple-600 mt-2">{formatPrice(refundedAmount)} VNĐ</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-600 truncate">Đang chờ thanh toán</p>
+              <p className="text-xl md:text-2xl font-bold text-yellow-600 mt-2 truncate" title={formatPrice(pendingAmount) + " VNĐ"}>
+                {formatPrice(pendingAmount)} VNĐ
+              </p>
             </div>
-            <div className="bg-purple-100 rounded-full p-3">
-              <XCircle className="text-purple-600" size={24} />
+            <div className="bg-yellow-100 rounded-full p-2 md:p-3 flex-shrink-0">
+              <Clock className="text-yellow-600" size={20} />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-600 truncate">Đã hoàn tiền</p>
+              <p className="text-xl md:text-2xl font-bold text-purple-600 mt-2 truncate" title={formatPrice(refundedAmount) + " VNĐ"}>
+                {formatPrice(refundedAmount)} VNĐ
+              </p>
+            </div>
+            <div className="bg-purple-100 rounded-full p-2 md:p-3 flex-shrink-0">
+              <XCircle className="text-purple-600" size={20} />
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-2">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+          <div className="lg:col-span-2 min-w-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Tìm kiếm theo mã payment, booking..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-3 md:pl-10 md:pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -233,7 +213,7 @@ const Payments = () => {
           <select
             value={filters.paymentMethod}
             onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 md:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả phương thức</option>
             <option value="VNPAY">VNPAY</option>
@@ -245,7 +225,7 @@ const Payments = () => {
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 md:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="PENDING">Chờ thanh toán</option>
@@ -254,19 +234,19 @@ const Payments = () => {
             <option value="REFUNDED">Đã hoàn tiền</option>
           </select>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 min-w-0">
             <input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 min-w-0 px-2 md:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Từ ngày"
             />
             <input
               type="date"
               value={filters.dateTo}
               onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 min-w-0 px-2 md:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Đến ngày"
             />
           </div>
@@ -276,48 +256,51 @@ const Payments = () => {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã Payment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã Booking</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phương thức</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiền</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày tạo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Mã Payment</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Mã Booking</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Phương thức</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Số tiền</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Trạng thái</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Ngày tạo</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {currentPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-3 py-12 text-center text-gray-500">
                     Không tìm thấy payment nào
                   </td>
                 </tr>
               ) : (
                 currentPayments.map((payment) => (
                   <tr key={payment.payment_id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{payment.payment_id}</div>
+                    <td className="px-3 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]" title={payment.payment_id}>
+                        {payment.payment_id}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-4 whitespace-nowrap">
                       <button
                         onClick={() => navigate(`/admin/bookings/${payment.booking_id}`)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm truncate max-w-[120px]"
+                        title={payment.booking_id}
                       >
                         {payment.booking_id}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.payment_method}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{payment.payment_method}</td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {formatPrice(payment.amount)} VNĐ
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(payment.status)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-3 py-4 whitespace-nowrap">{getStatusBadge(payment.status)}</td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatDateTime(payment.created_at)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
@@ -355,7 +338,7 @@ const Payments = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} trong tổng số {filteredPayments.length} payment
+                Hiển thị {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, total)} trong tổng số {total} payment
               </span>
               <select
                 value={itemsPerPage}

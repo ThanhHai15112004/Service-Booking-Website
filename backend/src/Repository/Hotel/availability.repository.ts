@@ -96,13 +96,50 @@ export class AvailabilityRepository {
         type: QueryTypes.SELECT
       }) as any[];
       
-      return results.map((row: any) => ({
-        room_id: row.room_id,
-        roomId: row.room_id,
-        room_number: row.room_number,
-        roomNumber: row.room_number,
-        minAvailable: parseInt(row.minAvailable) || 0
-      }));
+      // Get price for each room from room_price_schedule
+      const roomsWithPrice = await Promise.all(
+        results.map(async (row: any) => {
+          try {
+            const priceSchedule = await RoomPriceSchedule.findOne({
+              where: {
+                room_id: row.room_id,
+                date: startDate
+              },
+              attributes: ['base_price', 'final_price', 'discount_percent'],
+              raw: true
+            });
+            
+            const basePrice = priceSchedule ? Number(priceSchedule.base_price) : 0;
+            const discountPercent = priceSchedule ? Number(priceSchedule.discount_percent) : 0;
+            const finalPrice = basePrice * (1 - discountPercent / 100);
+            
+            return {
+              room_id: row.room_id,
+              roomId: row.room_id,
+              room_number: row.room_number,
+              roomNumber: row.room_number,
+              minAvailable: parseInt(row.minAvailable) || 0,
+              base_price: basePrice,
+              final_price: finalPrice,
+              discount_percent: discountPercent
+            };
+          } catch (err) {
+            console.error(`Error fetching price for room ${row.room_id}:`, err);
+            return {
+              room_id: row.room_id,
+              roomId: row.room_id,
+              room_number: row.room_number,
+              roomNumber: row.room_number,
+              minAvailable: parseInt(row.minAvailable) || 0,
+              base_price: 0,
+              final_price: 0,
+              discount_percent: 0
+            };
+          }
+        })
+      );
+      
+      return roomsWithPrice;
     } else {
       // ✅ Overnight: original query with date range
       const sql = `
@@ -130,13 +167,66 @@ export class AvailabilityRepository {
         type: QueryTypes.SELECT
       }) as any[];
       
-      return results.map((row: any) => ({
-        room_id: row.room_id,
-        roomId: row.room_id,
-        room_number: row.room_number,
-        roomNumber: row.room_number,
-        minAvailable: parseInt(row.minAvailable) || 0
-      }));
+      // Get average price for each room from room_price_schedule (for date range)
+      const roomsWithPrice = await Promise.all(
+        results.map(async (row: any) => {
+          try {
+            const priceSchedules = await RoomPriceSchedule.findAll({
+              where: {
+                room_id: row.room_id,
+                date: {
+                  [Op.gte]: startDate,
+                  [Op.lt]: endDate
+                }
+              },
+              attributes: ['base_price', 'final_price', 'discount_percent'],
+              raw: true
+            });
+            
+            if (priceSchedules.length > 0) {
+              const avgBasePrice = priceSchedules.reduce((sum: number, p: any) => sum + Number(p.base_price || 0), 0) / priceSchedules.length;
+              const avgDiscountPercent = priceSchedules.reduce((sum: number, p: any) => sum + Number(p.discount_percent || 0), 0) / priceSchedules.length;
+              const avgFinalPrice = avgBasePrice * (1 - avgDiscountPercent / 100);
+              
+              return {
+                room_id: row.room_id,
+                roomId: row.room_id,
+                room_number: row.room_number,
+                roomNumber: row.room_number,
+                minAvailable: parseInt(row.minAvailable) || 0,
+                base_price: avgBasePrice,
+                final_price: avgFinalPrice,
+                discount_percent: avgDiscountPercent
+              };
+            } else {
+              return {
+                room_id: row.room_id,
+                roomId: row.room_id,
+                room_number: row.room_number,
+                roomNumber: row.room_number,
+                minAvailable: parseInt(row.minAvailable) || 0,
+                base_price: 0,
+                final_price: 0,
+                discount_percent: 0
+              };
+            }
+          } catch (err) {
+            console.error(`Error fetching price for room ${row.room_id}:`, err);
+            return {
+              room_id: row.room_id,
+              roomId: row.room_id,
+              room_number: row.room_number,
+              roomNumber: row.room_number,
+              minAvailable: parseInt(row.minAvailable) || 0,
+              base_price: 0,
+              final_price: 0,
+              discount_percent: 0
+            };
+          }
+        })
+      );
+      
+      return roomsWithPrice;
     }
   }
 

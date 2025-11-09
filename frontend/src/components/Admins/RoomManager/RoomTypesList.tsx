@@ -446,99 +446,103 @@ const RoomTypesList = ({ selectedHotelId, onHotelChange, onViewDetail }: RoomTyp
       {/* Filters */}
       {currentHotelId && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="flex flex-wrap items-end gap-3">
             {/* Search */}
-            <div className="lg:col-span-2">
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="text"
                   placeholder="Tìm kiếm theo tên, ID..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
-                    // Trigger fetch when search changes (with debounce would be better)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       fetchRoomTypes();
                     }
                   }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             {/* Bed Type Filter */}
-            <select
-              value={filters.bedType}
-              onChange={(e) => {
-                setFilters({ ...filters, bedType: e.target.value });
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tất cả loại giường</option>
-              {bedTypes.map((bedType) => (
-                <option key={bedType} value={bedType}>
-                  {bedType}
-                </option>
-              ))}
-            </select>
+            <div className="w-[160px]">
+              <select
+                value={filters.bedType}
+                onChange={(e) => {
+                  setFilters({ ...filters, bedType: e.target.value });
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Tất cả loại giường</option>
+                {bedTypes.map((bedType) => (
+                  <option key={bedType} value={bedType}>
+                    {bedType}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Capacity Filter */}
-            <select
-              value={filters.capacity}
-              onChange={(e) => setFilters({ ...filters, capacity: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tất cả sức chứa</option>
-              <option value="1">1 người</option>
-              <option value="2">2 người</option>
-              <option value="3">3 người</option>
-              <option value="4">4 người</option>
-              <option value="5">5+ người</option>
-            </select>
+            <div className="w-[150px]">
+              <select
+                value={filters.capacity}
+                onChange={(e) => setFilters({ ...filters, capacity: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Tất cả sức chứa</option>
+                <option value="1">1 người</option>
+                <option value="2">2 người</option>
+                <option value="3">3 người</option>
+                <option value="4">4 người</option>
+                <option value="5">5+ người</option>
+              </select>
+            </div>
 
             {/* Price Range */}
-            <div className="lg:col-span-2 grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 placeholder="Giá min"
                 value={filters.priceMin}
                 onChange={(e) => setFilters({ ...filters, priceMin: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <span className="text-gray-400">-</span>
               <input
                 type="number"
                 placeholder="Giá max"
                 value={filters.priceMax}
                 onChange={(e) => setFilters({ ...filters, priceMax: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-          </div>
 
-        {/* Sort */}
-        <div className="flex items-center gap-4 mt-4">
-          <span className="text-sm font-medium text-gray-700">Sắp xếp theo:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="name">Tên</option>
-            <option value="price">Giá</option>
-            <option value="area">Diện tích</option>
-            <option value="capacity">Sức chứa</option>
-          </select>
-          <button
-            onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            {sortOrder === "ASC" ? "↑ Tăng dần" : "↓ Giảm dần"}
-          </button>
-        </div>
+            {/* Sort */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap">Sắp xếp:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-28 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="name">Tên</option>
+                <option value="price">Giá</option>
+                <option value="area">Diện tích</option>
+                <option value="capacity">Sức chứa</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+              >
+                {sortOrder === "ASC" ? "↑" : "↓"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -824,7 +824,7 @@ const BookingDetailModal = ({ hotelId, bookingId, onClose, onStatusUpdate }: Boo
                       <span className="font-medium text-gray-900">{formatCurrency(booking.subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Thuế (10%)</span>
+                      <span className="text-gray-600">Thuế VAT (10%)</span>
                       <span className="font-medium text-gray-900">{formatCurrency(booking.tax_amount)}</span>
                     </div>
                     {booking.discount_amount > 0 && (

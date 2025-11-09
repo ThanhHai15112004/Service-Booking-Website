@@ -100,7 +100,26 @@ export default function BookingSummary({
     return `${days[date.getDay()]}, ngày ${date.getDate()}, ${months[date.getMonth()]}`;
   };
 
-  const roomImage = room?.images?.[0]?.imageUrl || room?.images?.find(img => img.isPrimary)?.imageUrl || hotel.main_image || hotel.mainImage;
+  // ✅ FIX: Xử lý image URL để đảm bảo hiển thị đúng
+  const getImageUrl = (url?: string): string | null => {
+    if (!url) return null;
+    // Nếu URL đã là đường dẫn đầy đủ (bắt đầu bằng http), trả về nguyên
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Nếu là đường dẫn tương đối, thêm base URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    // Đảm bảo url bắt đầu bằng / nếu chưa có
+    const imagePath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${imagePath}`;
+  };
+
+  const roomImage = getImageUrl(
+    room?.images?.[0]?.imageUrl || 
+    room?.images?.find(img => img.isPrimary)?.imageUrl || 
+    hotel.main_image || 
+    hotel.mainImage
+  );
   const roomFeatures = room?.facilities || [];
   const discountPercent = 0; // TODO: Calculate from original price
 
@@ -151,6 +170,11 @@ export default function BookingSummary({
             src={roomImage}
             alt={room?.roomName || hotel.name}
             className="w-full h-32 object-cover rounded-lg mb-3"
+            onError={(e) => {
+              // Nếu ảnh lỗi, hiển thị placeholder
+              e.currentTarget.src = 'https://via.placeholder.com/400x200?text=No+Image';
+              e.currentTarget.alt = 'Ảnh không tải được';
+            }}
           />
         )}
         <h3 className="font-bold text-black text-base mb-1">{hotel.name}</h3>
@@ -275,7 +299,15 @@ export default function BookingSummary({
                   {roomFeatures.slice(0, 5).map((facility, index) => (
                     <div key={facility.facilityId || index} className="flex items-center gap-2">
                       {facility.icon ? (
-                        <img src={facility.icon} alt={facility.name} className="w-4 h-4 object-contain flex-shrink-0" />
+                        <img 
+                          src={getImageUrl(facility.icon) || facility.icon} 
+                          alt={facility.name} 
+                          className="w-4 h-4 object-contain flex-shrink-0"
+                          onError={(e) => {
+                            // Nếu ảnh lỗi, ẩn thẻ img và hiển thị icon mặc định
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
                       ) : (
                         <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                       )}
@@ -386,7 +418,7 @@ export default function BookingSummary({
           )}
           
           <div className="flex justify-between text-gray-600">
-            <span>Thuế và phí (10%)</span>
+            <span>Thuế VAT (10%)</span>
             <span className="font-medium">{formatPrice(tax)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
@@ -400,7 +432,7 @@ export default function BookingSummary({
            </span>
          </div>
           <p className="text-xs text-gray-500 mt-2">
-            Giá đã bao gồm: Phí dịch vụ 5%, Thuế 8%
+            Giá đã bao gồm thuế VAT 10%
           </p>
           {paymentMethod === 'pay_at_hotel' && (
             <p className="text-xs text-gray-500 mt-1">

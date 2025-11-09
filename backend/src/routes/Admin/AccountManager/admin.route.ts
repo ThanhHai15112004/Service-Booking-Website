@@ -12,7 +12,7 @@ import hotelRoutes from "../HotelManager/hotel.route";
 import categoryRoutes from "../CategoryManager/category.route";
 import locationRoutes from "../CategoryManager/location.route";
 import roomRoutes from "../RoomManager/adminRoom.route";
-import { getBookingDetail } from "../../../controllers/Admin/AccountManager/booking.controller";
+import bookingManagerRoutes from "../BookingManager/adminBooking.route";
 import { toggleReviewVisibility, deleteReview } from "../../../controllers/Admin/AccountManager/review.controller";
 
 const router = Router();
@@ -25,9 +25,6 @@ router.use("/accounts", accountRoutes);
 
 // Account Bookings - nested under accounts
 router.use("/accounts", bookingRoutes);
-
-// Booking Detail - standalone route
-router.get("/bookings/:bookingId", authenticateJWT, requireAdmin, asyncHandler(getBookingDetail));
 
 // Account Reviews - nested under accounts
 router.use("/accounts", reviewRoutes);
@@ -56,5 +53,8 @@ router.use("/locations", locationRoutes);
 
 // Room management
 router.use("/rooms", roomRoutes);
+
+// Booking management (Booking Manager)
+router.use("/bookings", bookingManagerRoutes);
 
 export default router;

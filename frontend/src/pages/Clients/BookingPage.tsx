@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSearch } from '../../contexts/SearchContext';
-import { BOOKING_EXPIRATION_MINUTES } from '../../config/booking.constants';
+import { BOOKING_EXPIRATION_MINUTES, BOOKING_TAX_RATE } from '../../config/booking.constants';
 import {
   BookingSummary,
   BookingSuccess,
@@ -674,7 +674,8 @@ export default function BookingPage() {
         const currentSubtotal = rehydratedTotals?.subtotal || subtotal;
         const currentPackageDiscount = rehydratedTotals?.packageDiscount || 0;
         const currentSubtotalAfterPackage = currentSubtotal - currentPackageDiscount;
-        const currentTax = rehydratedTotals?.tax || (currentSubtotalAfterPackage * 0.1);
+        // ✅ FIX: Sử dụng tax rate từ constant (8%)
+        const currentTax = rehydratedTotals?.tax || (currentSubtotalAfterPackage * BOOKING_TAX_RATE);
         const codeDiscountAmount = validation.discountAmount;
         const finalTotal = currentSubtotalAfterPackage + currentTax - codeDiscountAmount;
         
@@ -758,7 +759,8 @@ export default function BookingPage() {
       calculatedSubtotal = 0;
     }
     
-    const calculatedTax = calculatedSubtotal * 0.1;
+    // ✅ FIX: Sử dụng tax rate từ constant (8%)
+    const calculatedTax = calculatedSubtotal * BOOKING_TAX_RATE;
     const calculatedTotal = calculatedSubtotal + calculatedTax;
     
     return {

@@ -828,5 +828,61 @@ export class AdminRoomService {
       };
     }
   }
+
+  async updateRoomTypeDateAvailability(
+    roomTypeId: string,
+    date: string,
+    totalAvailableRooms: number
+  ) {
+    try {
+      if (totalAvailableRooms < 0) {
+        return {
+          success: false,
+          message: "Số phòng trống phải lớn hơn hoặc bằng 0",
+        };
+      }
+
+      const updated = await this.repo.updateRoomTypeDateAvailability(
+        roomTypeId,
+        date,
+        totalAvailableRooms
+      );
+
+      if (!updated) {
+        return {
+          success: false,
+          message: "Không thể cập nhật số phòng trống",
+        };
+      }
+
+      return {
+        success: true,
+        message: "Cập nhật số phòng trống thành công",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi cập nhật số phòng trống",
+      };
+    }
+  }
+
+  // ========== DASHBOARD STATS ==========
+
+  async getDashboardStats() {
+    try {
+      const stats = await this.repo.getDashboardStats();
+      return {
+        success: true,
+        data: stats,
+      };
+    } catch (error: any) {
+      console.error("[AdminRoomService] Error getting dashboard stats:", error);
+      return {
+        success: false,
+        message: error.message || "Lỗi khi lấy thống kê dashboard",
+      };
+    }
+  }
 }
 

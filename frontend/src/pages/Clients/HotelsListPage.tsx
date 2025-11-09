@@ -243,9 +243,27 @@ export default function HotelsListPage() {
 
           // Handle new response format: { success, data: { hotels, pagination, searchParams } }
           if (res.success && res.data && res.data.hotels) {
-            setHotels(res.data.hotels);
-            setFilteredHotels(res.data.hotels);
-            if (res.data.hotels.length === 0) {
+            // ✅ FIX: Deduplicate hotels ở frontend (safety net) - loại bỏ trùng lặp theo hotelId
+            const hotelsArray = Array.isArray(res.data.hotels) ? res.data.hotels : [];
+            const uniqueHotelsMap = new Map<string, HotelSearchResult>();
+            
+            for (const hotel of hotelsArray) {
+              if (!uniqueHotelsMap.has(hotel.hotelId)) {
+                uniqueHotelsMap.set(hotel.hotelId, hotel);
+              } else {
+                // Nếu đã có hotel này, giữ hotel có giá thấp hơn
+                const existing = uniqueHotelsMap.get(hotel.hotelId)!;
+                if (hotel.bestOffer?.avgPricePerNight < existing.bestOffer?.avgPricePerNight) {
+                  uniqueHotelsMap.set(hotel.hotelId, hotel);
+                }
+              }
+            }
+            
+            const uniqueHotels = Array.from(uniqueHotelsMap.values());
+            
+            setHotels(uniqueHotels);
+            setFilteredHotels(uniqueHotels);
+            if (uniqueHotels.length === 0) {
               setError(res.message || 'Không tìm thấy khách sạn nào phù hợp với bộ lọc');
             }
           } else {
@@ -508,8 +526,8 @@ export default function HotelsListPage() {
 
               <div className="lg:col-span-3">
                 <div className="space-y-4">
-                  {filteredHotels.map((hotel) => (
-                    <HotelResultCard key={hotel.hotelId} hotel={hotel} />
+                  {filteredHotels.map((hotel, index) => (
+                    <HotelResultCard key={`${hotel.hotelId}-${index}`} hotel={hotel} />
                   ))}
                 </div>
 

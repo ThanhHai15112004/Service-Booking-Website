@@ -6,7 +6,7 @@ import {
   BookingStatus
 } from "../../models/Booking/booking.model";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
-import { BOOKING_EXPIRATION_MINUTES } from "../../config/booking.constants";
+import { BOOKING_EXPIRATION_MINUTES, BOOKING_TAX_RATE } from "../../config/booking.constants";
 
 export class BookingRepository {
   // Hàm generate booking ID
@@ -164,7 +164,8 @@ export class BookingRepository {
       const subtotal = subtotalPerRoom * roomsCount;
       const packageDiscount = 0; // TODO: Implement package discount logic
       const subtotalAfterPackage = subtotal - packageDiscount;
-      const taxAmount = subtotalAfterPackage * 0.1;
+      // ✅ Sử dụng tax rate từ constant (10% VAT theo quy định Việt Nam)
+      const taxAmount = subtotalAfterPackage * BOOKING_TAX_RATE;
       const codeDiscount = 0; // TODO: Implement discount code logic
       const discountAmount = packageDiscount + codeDiscount;
       const totalAmount = subtotalAfterPackage + taxAmount - codeDiscount;

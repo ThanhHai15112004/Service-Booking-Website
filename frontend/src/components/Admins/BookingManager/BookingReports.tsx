@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Calendar, DollarSign, TrendingUp, Users, Hotel, XCircle, CreditCard, Filter } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReportStats {
   totalBookings: number;
@@ -31,79 +32,65 @@ const BookingReports = () => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [stats, setStats] = useState<ReportStats | null>(null);
+  const [hotels, setHotels] = useState<Array<{ hotel_id: string; name: string }>>([]);
   const [filters, setFilters] = useState({
-    period: "month", // 7days, month, quarter
-    city: "",
+    period: "month" as "7days" | "month" | "quarter" | "year",
     hotel: "",
   });
+
+  useEffect(() => {
+    fetchHotels();
+  }, []);
 
   useEffect(() => {
     fetchReports();
   }, [filters]);
 
+  const fetchHotels = async () => {
+    try {
+      const result = await adminService.getHotels({ limit: 100 });
+      if (result.success && result.data) {
+        setHotels(
+          result.data.hotels.map((hotel: any) => ({
+            hotel_id: hotel.hotel_id,
+            name: hotel.name,
+          }))
+        );
+      }
+    } catch (error: any) {
+      console.error("Error fetching hotels:", error);
+    }
+  };
+
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // Mock data
-      setTimeout(() => {
+      const params: any = {
+        period: filters.period,
+      };
+      
+      if (filters.hotel) {
+        params.hotelId = filters.hotel;
+      }
+
+      const result = await adminService.getBookingReports(params);
+      if (result.success && result.data) {
         setStats({
-          totalBookings: 1245,
-          totalRevenue: 3450000000,
-          cancelledRate: 3.8,
-          paymentMethods: [
-            { method: "VNPAY", count: 456, revenue: 1200000000 },
-            { method: "MOMO", count: 389, revenue: 980000000 },
-            { method: "CASH", count: 245, revenue: 650000000 },
-            { method: "BANK", count: 155, revenue: 620000000 },
-          ],
-          topCustomers: [
-            { account_id: "ACC001", full_name: "Nguyễn Văn A", total_spent: 45000000, booking_count: 12 },
-            { account_id: "ACC002", full_name: "Trần Thị B", total_spent: 32000000, booking_count: 9 },
-            { account_id: "ACC003", full_name: "Lê Văn C", total_spent: 28000000, booking_count: 8 },
-            { account_id: "ACC004", full_name: "Phạm Thị D", total_spent: 25000000, booking_count: 7 },
-            { account_id: "ACC005", full_name: "Hoàng Văn E", total_spent: 22000000, booking_count: 6 },
-          ],
-          topHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", booking_count: 245, revenue: 680000000 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", booking_count: 198, revenue: 750000000 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", booking_count: 167, revenue: 520000000 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", booking_count: 134, revenue: 580000000 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", booking_count: 98, revenue: 320000000 },
-          ],
-          revenueByMonth: [
-            { month: "Th1", revenue: 280000000 },
-            { month: "Th2", revenue: 320000000 },
-            { month: "Th3", revenue: 380000000 },
-            { month: "Th4", revenue: 420000000 },
-            { month: "Th5", revenue: 480000000 },
-            { month: "Th6", revenue: 550000000 },
-            { month: "Th7", revenue: 620000000 },
-            { month: "Th8", revenue: 580000000 },
-            { month: "Th9", revenue: 540000000 },
-            { month: "Th10", revenue: 500000000 },
-            { month: "Th11", revenue: 460000000 },
-            { month: "Th12", revenue: 380000000 },
-          ],
-          cancellationTrend: [
-            { month: "Th1", cancelled: 5, total: 85 },
-            { month: "Th2", cancelled: 4, total: 92 },
-            { month: "Th3", cancelled: 6, total: 108 },
-            { month: "Th4", cancelled: 3, total: 125 },
-            { month: "Th5", cancelled: 5, total: 142 },
-            { month: "Th6", cancelled: 7, total: 168 },
-            { month: "Th7", cancelled: 8, total: 195 },
-            { month: "Th8", cancelled: 6, total: 178 },
-            { month: "Th9", cancelled: 4, total: 165 },
-            { month: "Th10", cancelled: 5, total: 152 },
-            { month: "Th11", cancelled: 3, total: 138 },
-            { month: "Th12", cancelled: 4, total: 97 },
-          ],
+          totalBookings: result.data.totalBookings || 0,
+          totalRevenue: result.data.totalRevenue || 0,
+          cancelledRate: result.data.cancelledRate || 0,
+          paymentMethods: result.data.paymentMethods || [],
+          topCustomers: result.data.topCustomers || [],
+          topHotels: result.data.topHotels || [],
+          revenueByMonth: result.data.revenueByMonth || [],
+          cancellationTrend: result.data.cancellationTrend || [],
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu báo cáo");
+      }
     } catch (error: any) {
       showToast("error", error.message || "Không thể tải dữ liệu báo cáo");
+    } finally {
       setLoading(false);
     }
   };
@@ -139,11 +126,11 @@ const BookingReports = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <Filter className="text-gray-400" size={20} />
           <select
             value={filters.period}
-            onChange={(e) => setFilters({ ...filters, period: e.target.value })}
+            onChange={(e) => setFilters({ ...filters, period: e.target.value as "7days" | "month" | "quarter" | "year" })}
             className="px-4 py-2 border border-gray-300 rounded-lg"
           >
             <option value="7days">7 ngày qua</option>
@@ -152,24 +139,16 @@ const BookingReports = () => {
             <option value="year">Năm này</option>
           </select>
           <select
-            value={filters.city}
-            onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">Tất cả thành phố</option>
-            <option value="Hanoi">Hà Nội</option>
-            <option value="DaNang">Đà Nẵng</option>
-            <option value="HCM">TP. Hồ Chí Minh</option>
-          </select>
-          <select
             value={filters.hotel}
             onChange={(e) => setFilters({ ...filters, hotel: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-4 py-2 border border-gray-300 rounded-lg min-w-[200px]"
           >
             <option value="">Tất cả khách sạn</option>
-            <option value="H001">Hanoi Old Quarter Hotel</option>
-            <option value="H002">My Khe Beach Resort</option>
-            <option value="H003">Saigon Riverside Hotel</option>
+            {hotels.map((hotel) => (
+              <option key={hotel.hotel_id} value={hotel.hotel_id}>
+                {hotel.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -216,7 +195,11 @@ const BookingReports = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Phương thức phổ biến</p>
-              <p className="text-xl font-bold text-purple-600 mt-2">{stats.paymentMethods[0]?.method}</p>
+              <p className="text-xl font-bold text-purple-600 mt-2">
+                {stats.paymentMethods && stats.paymentMethods.length > 0 
+                  ? stats.paymentMethods[0]?.method || "N/A"
+                  : "N/A"}
+              </p>
             </div>
             <div className="bg-purple-100 rounded-full p-3">
               <CreditCard className="text-purple-600" size={24} />
@@ -234,14 +217,20 @@ const BookingReports = () => {
             Doanh thu theo tháng
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stats.revenueByMonth}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value: number) => `${(value / 1000000).toFixed(0)}M VNĐ`} />
-              <Legend />
-              <Bar dataKey="revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
-            </BarChart>
+            {stats.revenueByMonth && stats.revenueByMonth.length > 0 ? (
+              <BarChart data={stats.revenueByMonth}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value: number) => `${(value / 1000000).toFixed(0)}M VNĐ`} />
+                <Legend />
+                <Bar dataKey="revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Không có dữ liệu
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
 
@@ -252,23 +241,29 @@ const BookingReports = () => {
             Phương thức thanh toán phổ biến
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={stats.paymentMethods}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ method, count }) => `${method}: ${count}`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="count"
-              >
-                {stats.paymentMethods.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
+            {stats.paymentMethods && stats.paymentMethods.length > 0 ? (
+              <PieChart>
+                <Pie
+                  data={stats.paymentMethods}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ method, count }) => `${method}: ${count}`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="count"
+                >
+                  {stats.paymentMethods.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Không có dữ liệu
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
       </div>
@@ -280,15 +275,21 @@ const BookingReports = () => {
           Tỷ lệ hủy đặt / hoàn tiền
         </h3>
         <ResponsiveContainer width="100%" height={350}>
-          <LineChart data={stats.cancellationTrend}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2} name="Hủy" dot={{ fill: "#ef4444", r: 4 }} />
-            <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Tổng" dot={{ fill: "#3b82f6", r: 4 }} />
-          </LineChart>
+          {stats.cancellationTrend && stats.cancellationTrend.length > 0 ? (
+            <LineChart data={stats.cancellationTrend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2} name="Hủy" dot={{ fill: "#ef4444", r: 4 }} />
+              <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Tổng" dot={{ fill: "#3b82f6", r: 4 }} />
+            </LineChart>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              Không có dữ liệu
+            </div>
+          )}
         </ResponsiveContainer>
       </div>
 
