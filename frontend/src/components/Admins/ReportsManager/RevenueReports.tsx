@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { DollarSign, Download, Filter, Building2, CreditCard, TrendingUp, Calendar } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface RevenueReport {
   totalRevenue: number;
@@ -57,76 +58,29 @@ const RevenueReports = () => {
 
   useEffect(() => {
     fetchRevenueReport();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, filters.hotel, filters.paymentMethod, filters.viewType]);
 
   const fetchRevenueReport = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          totalRevenue: 45678000000,
-          revenueByPeriod: {
-            daily: [
-              { date: "01/11", revenue: 85000000 },
-              { date: "02/11", revenue: 95000000 },
-              { date: "03/11", revenue: 110000000 },
-              { date: "04/11", revenue: 125000000 },
-              { date: "05/11", revenue: 145000000 },
-            ],
-            weekly: [
-              { week: "Tuần 1", revenue: 580000000 },
-              { week: "Tuần 2", revenue: 620000000 },
-              { week: "Tuần 3", revenue: 680000000 },
-              { week: "Tuần 4", revenue: 720000000 },
-            ],
-            monthly: [
-              { month: "Th1", revenue: 2800000000 },
-              { month: "Th2", revenue: 3200000000 },
-              { month: "Th3", revenue: 3450000000 },
-              { month: "Th4", revenue: 3800000000 },
-            ],
-            yearly: [
-              { year: "2022", revenue: 35000000000 },
-              { year: "2023", revenue: 42000000000 },
-              { year: "2024", revenue: 45678000000 },
-            ],
-          },
-          revenueByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", revenue: 8500000000, percentage: 18.6 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", revenue: 7200000000, percentage: 15.8 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", revenue: 6500000000, percentage: 14.2 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", revenue: 5800000000, percentage: 12.7 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", revenue: 5200000000, percentage: 11.4 },
-          ],
-          revenueByCity: [
-            { city: "Hà Nội", revenue: 18500000000, percentage: 40.5 },
-            { city: "TP. Hồ Chí Minh", revenue: 15200000000, percentage: 33.3 },
-            { city: "Đà Nẵng", revenue: 7800000000, percentage: 17.1 },
-            { city: "Khác", revenue: 4178000000, percentage: 9.1 },
-          ],
-          revenueByRoomType: [
-            { room_type: "Deluxe", revenue: 18500000000, percentage: 40.5 },
-            { room_type: "Standard", revenue: 15200000000, percentage: 33.3 },
-            { room_type: "Suite", revenue: 7800000000, percentage: 17.1 },
-            { room_type: "Villa", revenue: 4178000000, percentage: 9.1 },
-          ],
-          revenueByPaymentMethod: [
-            { method: "VNPay", revenue: 22839000000, percentage: 50.0 },
-            { method: "Momo", revenue: 13703400000, percentage: 30.0 },
-            { method: "Cash", revenue: 4567800000, percentage: 10.0 },
-            { method: "Bank Transfer", revenue: 4567800000, percentage: 10.0 },
-          ],
-          revenueByPackage: [
-            { package_name: "Premium", revenue: 22839000000, percentage: 50.0 },
-            { package_name: "Standard", revenue: 13703400000, percentage: 30.0 },
-            { package_name: "Basic", revenue: 9135600000, percentage: 20.0 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        viewType: filters.viewType,
+      };
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.hotel) params.hotel_id = filters.hotel;
+      if (filters.paymentMethod) params.paymentMethod = filters.paymentMethod;
+
+      const result = await adminService.getRevenueReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo doanh thu");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo doanh thu");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo doanh thu");
+    } finally {
       setLoading(false);
     }
   };
@@ -280,7 +234,7 @@ const RevenueReports = () => {
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={getRevenueData()}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={filters.viewType === "daily" ? "date" : filters.viewType === "weekly" ? "week" : filters.viewType === "monthly" ? "month" : "year"} />
+            <XAxis dataKey={filters.viewType === "daily" ? "date" : filters.viewType === "weekly" ? "week" : filters.viewType === "monthly" ? "month" : filters.viewType === "yearly" ? "year" : "month"} />
             <YAxis />
             <Tooltip formatter={(value: number) => formatPrice(value)} />
             <Legend />

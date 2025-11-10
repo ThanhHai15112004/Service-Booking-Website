@@ -16,7 +16,8 @@ import bookingManagerRoutes from "../BookingManager/adminBooking.route";
 import paymentManagerRoutes from "../PaymentManager/adminPayment.route";
 import discountManagerRoutes from "../DiscountManager/adminDiscount.route";
 import promotionManagerRoutes from "../PromotionManager/adminPromotion.route";
-import { toggleReviewVisibility, deleteReview } from "../../../controllers/Admin/AccountManager/review.controller";
+import reviewManagerRoutes from "../ReviewManager/adminReview.route";
+import reportsRoutes from "../Reports/adminReports.route";
 
 const router = Router();
 
@@ -29,12 +30,8 @@ router.use("/accounts", accountRoutes);
 // Account Bookings - nested under accounts
 router.use("/accounts", bookingRoutes);
 
-// Account Reviews - nested under accounts
+// Account Reviews - nested under accounts (for account-specific reviews)
 router.use("/accounts", reviewRoutes);
-
-// Review actions - standalone routes
-router.put("/reviews/:reviewId/visibility", authenticateJWT, requireAdmin, asyncHandler(toggleReviewVisibility));
-router.delete("/reviews/:reviewId", authenticateJWT, requireAdmin, asyncHandler(deleteReview));
 
 // Account Addresses - nested under accounts
 router.use("/accounts", addressRoutes);
@@ -68,5 +65,11 @@ router.use("/discounts", discountManagerRoutes);
 
 // Promotion management (Promotion Manager)
 router.use("/promotions", promotionManagerRoutes);
+
+// Review management (Review Manager)
+router.use("/reviews", reviewManagerRoutes);
+
+// Reports
+router.use("/reports", reportsRoutes);
 
 export default router;

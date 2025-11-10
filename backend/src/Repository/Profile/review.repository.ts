@@ -46,7 +46,38 @@ export class ReviewRepository {
        ORDER BY r.created_at DESC`,
       [accountId]
     );
-    return rows;
+    
+    // Fetch replies for each review
+    const reviewsWithReplies = await Promise.all(rows.map(async (review: any) => {
+      const [replies]: any = await pool.query(
+        `SELECT 
+          rr.reply_id,
+          rr.reply_text,
+          rr.replied_by,
+          a2.full_name as replied_by_name,
+          rr.created_at as replied_at
+         FROM review_reply rr
+         INNER JOIN account a2 ON a2.account_id = rr.replied_by
+         WHERE rr.review_id = ?
+         ORDER BY rr.created_at DESC
+         LIMIT 1`,
+        [review.review_id]
+      );
+      
+      if (replies && replies.length > 0) {
+        review.reply = {
+          reply_id: replies[0].reply_id,
+          reply_text: replies[0].reply_text,
+          replied_by: replies[0].replied_by,
+          replied_by_name: replies[0].replied_by_name,
+          replied_at: replies[0].replied_at
+        };
+      }
+      
+      return review;
+    }));
+    
+    return reviewsWithReplies;
   }
 
   // Lấy review theo ID
@@ -237,7 +268,38 @@ export class ReviewRepository {
        LIMIT ? OFFSET ?`,
       [hotelId, limit, offset]
     );
-    return rows;
+    
+    // Fetch replies for each review
+    const reviewsWithReplies = await Promise.all(rows.map(async (review: any) => {
+      const [replies]: any = await pool.query(
+        `SELECT 
+          rr.reply_id,
+          rr.reply_text,
+          rr.replied_by,
+          a2.full_name as replied_by_name,
+          rr.created_at as replied_at
+         FROM review_reply rr
+         INNER JOIN account a2 ON a2.account_id = rr.replied_by
+         WHERE rr.review_id = ?
+         ORDER BY rr.created_at DESC
+         LIMIT 1`,
+        [review.review_id]
+      );
+      
+      if (replies && replies.length > 0) {
+        review.reply = {
+          reply_id: replies[0].reply_id,
+          reply_text: replies[0].reply_text,
+          replied_by: replies[0].replied_by,
+          replied_by_name: replies[0].replied_by_name,
+          replied_at: replies[0].replied_at
+        };
+      }
+      
+      return review;
+    }));
+    
+    return reviewsWithReplies;
   }
 
   // Lấy thống kê reviews của hotel (rating từ 1-5, nhưng hiển thị scale 1-10)

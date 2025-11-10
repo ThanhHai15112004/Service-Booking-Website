@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, History, User, Calendar, ChevronLeft, ChevronRight, Filter, Download } from "lucide-react";
+import { Search, Eye, User, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReviewActivityLog {
-  id: number;
+  id: number | string;
   date: string;
   admin_name: string;
   admin_id: string;
@@ -21,6 +22,7 @@ const ReviewActivityLog = () => {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [logs, setLogs] = useState<ReviewActivityLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<ReviewActivityLog[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,105 +36,41 @@ const ReviewActivityLog = () => {
 
   useEffect(() => {
     fetchActivityLogs();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [logs, searchTerm, filters]);
+  }, [currentPage, itemsPerPage, searchTerm, filters.admin, filters.action, filters.violationType, filters.dateFrom, filters.dateTo]);
 
   const fetchActivityLogs = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setLogs([
-          {
-            id: 1,
-            date: "2025-11-04T14:30:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            review_id: "RV1023",
-            action: "Ẩn review",
-            note: "Ngôn từ không phù hợp",
-            violation_type: "TOXIC",
-          },
-          {
-            id: 2,
-            date: "2025-11-03T16:45:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            review_id: "RV0999",
-            action: "Duyệt review",
-            note: "Kiểm tra nội dung ổn",
-          },
-          {
-            id: 3,
-            date: "2025-11-03T10:20:00",
-            admin_name: "admin01",
-            admin_id: "ADM001",
-            review_id: "RV0756",
-            action: "Xóa review",
-            note: "Spam content",
-            violation_type: "SPAM",
-          },
-          {
-            id: 4,
-            date: "2025-11-02T15:10:00",
-            admin_name: "staff02",
-            admin_id: "STAFF002",
-            review_id: "RV0543",
-            action: "Đánh dấu vi phạm",
-            note: "Duplicate review",
-            violation_type: "DUPLICATE",
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) params.search = searchTerm;
+      if (filters.admin) params.admin = filters.admin;
+      if (filters.action) params.action = filters.action;
+      if (filters.violationType) params.violationType = filters.violationType;
+      if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters.dateTo) params.dateTo = filters.dateTo;
+
+      const result = await adminService.getAllReviewActivityLogs(params);
+      if (result.success && result.data) {
+        setLogs(result.data);
+        setTotalLogs(result.total || 0);
+      } else {
+        showToast("error", result.message || "Không thể tải nhật ký hoạt động");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải nhật ký hoạt động");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải nhật ký hoạt động");
+    } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...logs];
-
-    if (searchTerm) {
-      result = result.filter(
-        (log) =>
-          log.review_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.admin_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.note?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.admin) {
-      result = result.filter((log) => log.admin_id === filters.admin);
-    }
-
-    if (filters.action) {
-      result = result.filter((log) => log.action === filters.action);
-    }
-
-    if (filters.violationType) {
-      result = result.filter((log) => log.violation_type === filters.violationType);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((log) => log.date >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((log) => log.date <= filters.dateTo);
-    }
-
-    // Sort by date descending
-    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    setFilteredLogs(result);
-    setCurrentPage(1);
-  };
+  // Filters are handled by backend
+  useEffect(() => {
+    setFilteredLogs(logs);
+  }, [logs]);
 
   const handleExport = async () => {
     try {
@@ -148,10 +86,10 @@ const ReviewActivityLog = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const totalPages = Math.ceil(totalLogs / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentLogs = filteredLogs.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, totalLogs);
+  const currentLogs = filteredLogs;
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -351,7 +289,7 @@ const ReviewActivityLog = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredLogs.length)} trong tổng số {filteredLogs.length} hoạt động
+                Hiển thị {startIndex + 1}-{endIndex} trong tổng số {totalLogs} hoạt động
               </span>
               <select
                 value={itemsPerPage}

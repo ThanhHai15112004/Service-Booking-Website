@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Star, TrendingUp, Download, Filter, Building2, TrendingDown } from "lucide-react";
+import { Star, TrendingUp, Download, Filter, Building2 } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReviewAnalytics {
   totalReviews: number;
@@ -31,6 +32,12 @@ interface ReviewAnalytics {
     average_rating: number;
     review_count: number;
   }>;
+  topComplainedHotels: Array<{
+    hotel_id: string;
+    hotel_name: string;
+    average_rating: number;
+    low_rating_count: number;
+  }>;
   reviewsByMonth: Array<{ month: string; count: number }>;
 }
 
@@ -41,71 +48,44 @@ const ReviewAnalytics = () => {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [analytics, setAnalytics] = useState<ReviewAnalytics | null>(null);
   const [filters, setFilters] = useState({
+    period: "",
     startDate: "",
     endDate: "",
     hotel: "",
     city: "",
+    category: "",
   });
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     fetchReviewAnalytics();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.period, filters.city, filters.category, filters.startDate, filters.endDate]);
 
   const fetchReviewAnalytics = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setAnalytics({
-          totalReviews: 12456,
-          averageRating: 4.3,
-          averageRatingByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", average_rating: 4.8, review_count: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", average_rating: 4.7, review_count: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", average_rating: 4.6, review_count: 298 },
-          ],
-          averageRatingByCity: [
-            { city: "Hà Nội", average_rating: 4.5, review_count: 5234 },
-            { city: "TP. Hồ Chí Minh", average_rating: 4.3, review_count: 4123 },
-            { city: "Đà Nẵng", average_rating: 4.2, review_count: 2678 },
-            { city: "Khác", average_rating: 4.0, review_count: 421 },
-          ],
-          ratingDistribution: [
-            { rating: 5, count: 8532, percentage: 68.5 },
-            { rating: 4, count: 2491, percentage: 20.0 },
-            { rating: 3, count: 747, percentage: 6.0 },
-            { rating: 2, count: 373, percentage: 3.0 },
-            { rating: 1, count: 313, percentage: 2.5 },
-          ],
-          positiveRate: 88.5,
-          negativeRate: 11.5,
-          ratingByCriteria: [
-            { criteria: "Vị trí", average_rating: 4.5 },
-            { criteria: "Dịch vụ", average_rating: 4.3 },
-            { criteria: "Cơ sở vật chất", average_rating: 4.2 },
-            { criteria: "Vệ sinh", average_rating: 4.4 },
-            { criteria: "Giá trị", average_rating: 4.1 },
-          ],
-          topRatedHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", average_rating: 4.8, review_count: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", average_rating: 4.7, review_count: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", average_rating: 4.6, review_count: 298 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", average_rating: 4.5, review_count: 234 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", average_rating: 4.4, review_count: 187 },
-          ],
-          reviewsByMonth: [
-            { month: "Th1", count: 856 },
-            { month: "Th2", count: 924 },
-            { month: "Th3", count: 1088 },
-            { month: "Th4", count: 1256 },
-            { month: "Th5", count: 1420 },
-            { month: "Th6", count: 1680 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        period: filters.period,
+      };
+      if (filters.city) params.city = filters.city;
+      if (filters.category) params.category = filters.category;
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+
+      const result = await adminService.getReviewReports(params);
+      if (result.success && result.data) {
+        setAnalytics(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo đánh giá");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo đánh giá");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo đánh giá");
+    } finally {
       setLoading(false);
     }
   };
@@ -117,11 +97,6 @@ const ReviewAnalytics = () => {
     } catch (error: any) {
       showToast("error", error.message || "Không thể xuất báo cáo");
     }
-  };
-
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
   };
 
   if (loading) {

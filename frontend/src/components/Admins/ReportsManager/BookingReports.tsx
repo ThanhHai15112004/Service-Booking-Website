@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Calendar, Download, Filter, Building2, TrendingUp, Users } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface BookingReport {
   totalBookings: number;
@@ -45,57 +46,28 @@ const BookingReports = () => {
 
   useEffect(() => {
     fetchBookingReport();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, filters.hotel, filters.city, filters.status]);
 
   const fetchBookingReport = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          totalBookings: 15678,
-          bookingsByStatus: [
-            { status: "PAID", count: 8567, percentage: 54.7 },
-            { status: "CONFIRMED", count: 4234, percentage: 27.0 },
-            { status: "CREATED", count: 1876, percentage: 12.0 },
-            { status: "CANCELLED", count: 1001, percentage: 6.3 },
-          ],
-          cancellationRate: 8.2,
-          completionRate: 91.8,
-          averageBookingValue: 2900000,
-          bookingsByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", bookings: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", bookings: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", bookings: 298 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", bookings: 234 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", bookings: 187 },
-          ],
-          bookingsByCity: [
-            { city: "Hà Nội", bookings: 6234 },
-            { city: "TP. Hồ Chí Minh", bookings: 5123 },
-            { city: "Đà Nẵng", bookings: 2678 },
-            { city: "Khác", bookings: 1643 },
-          ],
-          bookingsByCategory: [
-            { category: "Resort", bookings: 5234 },
-            { category: "Boutique Hotel", bookings: 4123 },
-            { category: "Business Hotel", bookings: 3567 },
-            { category: "Khác", bookings: 2754 },
-          ],
-          bookingsByTime: [
-            { date: "01/11", count: 45 },
-            { date: "02/11", count: 52 },
-            { date: "03/11", count: 48 },
-            { date: "04/11", count: 61 },
-            { date: "05/11", count: 58 },
-            { date: "06/11", count: 55 },
-            { date: "07/11", count: 62 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.hotel) params.hotel_id = filters.hotel;
+      if (filters.city) params.city = filters.city;
+      if (filters.status) params.status = filters.status;
+
+      const result = await adminService.getBookingReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo booking");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo booking");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo booking");
+    } finally {
       setLoading(false);
     }
   };

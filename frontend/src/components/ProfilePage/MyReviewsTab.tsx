@@ -23,6 +23,13 @@ interface Review {
   value_rating?: number | null;
   createdAt: string;
   created_at: string;
+  reply?: {
+    reply_id: string;
+    reply_text: string;
+    replied_by: string;
+    replied_by_name: string;
+    replied_at: string;
+  };
 }
 
 interface MyReviewsTabProps {
@@ -75,7 +82,8 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
             cleanliness_rating: r.cleanliness_rating || null,
             value_rating: r.value_rating || null,
             createdAt: r.created_at,
-            created_at: r.created_at
+            created_at: r.created_at,
+            reply: r.reply || undefined
           }));
           setReviews(normalizedReviews);
         }
@@ -207,7 +215,8 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
             cleanliness_rating: r.cleanliness_rating || null,
             value_rating: r.value_rating || null,
             createdAt: r.created_at,
-            created_at: r.created_at
+            created_at: r.created_at,
+            reply: r.reply || undefined
           }));
           setReviews(normalizedReviews);
         }
@@ -535,11 +544,41 @@ export default function MyReviewsTab({ reviews: initialReviews = [] }: MyReviews
                           />
                         </div>
                       ) : (
-                        <div 
-                          className="text-gray-700 leading-relaxed review-content"
-                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
-                          style={{ wordBreak: 'break-word' }}
-                        />
+                        <>
+                          <div 
+                            className="text-gray-700 leading-relaxed review-content"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
+                            style={{ wordBreak: 'break-word' }}
+                          />
+                          
+                          {/* Reply Section */}
+                          {review.reply && (
+                            <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                                    {review.reply.replied_by_name?.charAt(0)?.toUpperCase() || 'A'}
+                                  </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-semibold text-gray-900">
+                                      {review.reply.replied_by_name || 'Quản lý khách sạn'}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {formatDate(review.reply.replied_at)}
+                                    </span>
+                                  </div>
+                                  <div 
+                                    className="text-sm text-gray-700 leading-relaxed review-content"
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.reply.reply_text) }}
+                                    style={{ wordBreak: 'break-word' }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* Error Message */}

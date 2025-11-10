@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Star, User, Calendar } from "lucide-react";
+import { Star, User, Calendar, MessageSquare } from "lucide-react";
 import Toast from "../../../Toast";
 import Loading from "../../../Loading";
 import { adminService } from "../../../../services/adminService";
@@ -11,18 +11,25 @@ interface HotelReviewsTabProps {
 interface Review {
   review_id: string;
   rating: number;
-  title: string;
-  comment: string;
+  title: string | null;
+  comment: string | null;
   status: string;
   created_at: string;
-  location_rating?: number;
-  facilities_rating?: number;
-  service_rating?: number;
-  cleanliness_rating?: number;
-  value_rating?: number;
+  location_rating?: number | null;
+  facilities_rating?: number | null;
+  service_rating?: number | null;
+  cleanliness_rating?: number | null;
+  value_rating?: number | null;
   full_name?: string;
   email?: string;
   avatar_url?: string;
+  reply?: {
+    reply_id: string;
+    reply_text: string;
+    replied_by: string;
+    replied_by_name: string;
+    replied_at: string;
+  };
 }
 
 const HotelReviewsTab = ({ hotelId }: HotelReviewsTabProps) => {
@@ -36,6 +43,9 @@ const HotelReviewsTab = ({ hotelId }: HotelReviewsTabProps) => {
     rating: "",
     status: "",
   });
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyText, setReplyText] = useState("");
 
   useEffect(() => {
     fetchReviews();
@@ -66,6 +76,28 @@ const HotelReviewsTab = ({ hotelId }: HotelReviewsTabProps) => {
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleReply = async () => {
+    if (!selectedReview || !replyText.trim()) {
+      showToast("error", "Vui lòng nhập nội dung phản hồi");
+      return;
+    }
+
+    try {
+      const result = await adminService.createReviewReply(selectedReview.review_id, replyText);
+      if (result.success) {
+        showToast("success", result.message || "Đã gửi phản hồi review thành công");
+        setShowReplyModal(false);
+        setSelectedReview(null);
+        setReplyText("");
+        fetchReviews(); // Reload reviews to show the new reply
+      } else {
+        showToast("error", result.message || "Không thể gửi phản hồi");
+      }
+    } catch (error: any) {
+      showToast("error", error.response?.data?.message || error.message || "Không thể gửi phản hồi");
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -202,11 +234,15 @@ const HotelReviewsTab = ({ hotelId }: HotelReviewsTabProps) => {
               )}
 
               {/* Review Content - HTML from WYSIWYG editor */}
-              <div 
-                className="text-gray-700 mb-4 leading-relaxed review-content"
-                dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
-                style={{ wordBreak: 'break-word' }}
-              />
+              {review.comment ? (
+                <div 
+                  className="text-gray-700 mb-4 leading-relaxed review-content"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
+                  style={{ wordBreak: 'break-word' }}
+                />
+              ) : (
+                <p className="text-gray-500 italic mb-4">Không có bình luận</p>
+              )}
               <style>{`
                 .review-content {
                   line-height: 1.6;
@@ -323,8 +359,122 @@ const HotelReviewsTab = ({ hotelId }: HotelReviewsTabProps) => {
                   )}
                 </div>
               )}
+
+              {/* Reply Section */}
+              {review.reply && (
+                <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                        {review.reply.replied_by_name?.charAt(0)?.toUpperCase() || 'A'}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {review.reply.replied_by_name || 'Quản lý khách sạn'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(review.reply.replied_at).toLocaleDateString('vi-VN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <div 
+                        className="text-sm text-gray-700 leading-relaxed review-content"
+                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.reply.reply_text) }}
+                        style={{ wordBreak: 'break-word' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Reply Button */}
+              {review.status === "ACTIVE" && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setSelectedReview(review);
+                      setReplyText(review.reply?.reply_text || "");
+                      setShowReplyModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    <MessageSquare size={16} />
+                    {review.reply ? "Sửa phản hồi" : "Trả lời review"}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reply Modal */}
+      {showReplyModal && selectedReview && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowReplyModal(false);
+            setSelectedReview(null);
+            setReplyText("");
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Trả lời review</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Review từ {selectedReview.full_name || "Khách hàng"}</p>
+                {selectedReview.title && (
+                  <p className="text-gray-900 font-medium mb-2">{selectedReview.title}</p>
+                )}
+                {selectedReview.comment ? (
+                  <div 
+                    className="text-gray-700 mt-2 review-content"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(selectedReview.comment) }}
+                    style={{ wordBreak: 'break-word' }}
+                  />
+                ) : (
+                  <p className="text-gray-500 italic mt-2">Không có bình luận</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung phản hồi *</label>
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Nhập phản hồi của bạn..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg h-32 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowReplyModal(false);
+                  setSelectedReview(null);
+                  setReplyText("");
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleReply}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <MessageSquare size={18} />
+                {selectedReview.reply ? "Cập nhật phản hồi" : "Gửi phản hồi"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

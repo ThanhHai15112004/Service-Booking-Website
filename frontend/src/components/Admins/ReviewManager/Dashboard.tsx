@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Star, MessageSquare, TrendingUp, AlertCircle, Clock, Building2 } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReviewDashboardStats {
   totalReviews: number;
@@ -49,70 +50,15 @@ const ReviewDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setStats({
-          totalReviews: 12456,
-          monthlyNewReviews: 1245,
-          averageRating: 4.3,
-          fiveStarRate: 68.5,
-          pendingReviews: 23,
-          reviewsByMonth: [
-            { month: "Th1", count: 856 },
-            { month: "Th2", count: 924 },
-            { month: "Th3", count: 1088 },
-            { month: "Th4", count: 1256 },
-            { month: "Th5", count: 1420 },
-            { month: "Th6", count: 1680 },
-            { month: "Th7", count: 1950 },
-            { month: "Th8", count: 1780 },
-            { month: "Th9", count: 1650 },
-            { month: "Th10", count: 1520 },
-            { month: "Th11", count: 1245 },
-            { month: "Th12", count: 0 },
-          ],
-          ratingDistribution: [
-            { rating: 5, count: 8532, percentage: 68.5 },
-            { rating: 4, count: 2491, percentage: 20.0 },
-            { rating: 3, count: 747, percentage: 6.0 },
-            { rating: 2, count: 373, percentage: 3.0 },
-            { rating: 1, count: 313, percentage: 2.5 },
-          ],
-          averageRatingTrend: [
-            { date: "01/11", rating: 4.2 },
-            { date: "05/11", rating: 4.3 },
-            { date: "10/11", rating: 4.25 },
-            { date: "15/11", rating: 4.35 },
-            { date: "20/11", rating: 4.3 },
-            { date: "25/11", rating: 4.32 },
-            { date: "30/11", rating: 4.3 },
-          ],
-          topRatedHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", average_rating: 4.8, review_count: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", average_rating: 4.7, review_count: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", average_rating: 4.6, review_count: 298 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", average_rating: 4.5, review_count: 234 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", average_rating: 4.4, review_count: 187 },
-          ],
-          topComplainedHotels: [
-            { hotel_id: "H010", hotel_name: "Budget Hotel A", low_rating_count: 45, average_rating: 2.8 },
-            { hotel_id: "H011", hotel_name: "City Hotel B", low_rating_count: 38, average_rating: 3.1 },
-            { hotel_id: "H012", hotel_name: "Guesthouse C", low_rating_count: 32, average_rating: 3.2 },
-            { hotel_id: "H013", hotel_name: "Mini Hotel D", low_rating_count: 28, average_rating: 3.0 },
-            { hotel_id: "H014", hotel_name: "Lodge E", low_rating_count: 25, average_rating: 3.3 },
-          ],
-          recentReviews: [
-            { review_id: "RV001", customer_name: "Nguyễn Văn A", hotel_name: "Hanoi Old Quarter Hotel", rating: 5, title: "Rất tuyệt vời!", created_at: "2025-11-03T14:30:00" },
-            { review_id: "RV002", customer_name: "Trần Thị B", hotel_name: "My Khe Beach Resort", rating: 4, title: "Khách sạn đẹp, view đẹp", created_at: "2025-11-03T13:20:00" },
-            { review_id: "RV003", customer_name: "Lê Văn C", hotel_name: "Saigon Riverside Hotel", rating: 3, title: "Ổn nhưng cần cải thiện", created_at: "2025-11-03T12:15:00" },
-            { review_id: "RV004", customer_name: "Phạm Thị D", hotel_name: "Sofitel Metropole", rating: 5, title: "Dịch vụ xuất sắc!", created_at: "2025-11-03T11:00:00" },
-            { review_id: "RV005", customer_name: "Hoàng Văn E", hotel_name: "Da Nang Beach Hotel", rating: 4, title: "Giá cả hợp lý", created_at: "2025-11-03T10:30:00" },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const result = await adminService.getReviewDashboardStats();
+      if (result.success && result.data) {
+        setStats(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu dashboard");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu dashboard");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu dashboard");
+    } finally {
       setLoading(false);
     }
   };

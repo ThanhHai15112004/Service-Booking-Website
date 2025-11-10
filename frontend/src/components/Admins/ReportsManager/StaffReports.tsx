@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { UserCheck, Download, Filter, TrendingUp, Calendar, FileText, Edit, Trash2, CheckCircle } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface StaffReport {
   totalActions: number;
@@ -16,10 +17,11 @@ interface StaffReport {
     staff_name: string;
     action_count: number;
     actions_by_type: {
-      create: number;
-      update: number;
-      delete: number;
-      approve: number;
+      create?: number;
+      update?: number;
+      delete?: number;
+      approve?: number;
+      reply?: number;
     };
   }>;
   actionsByTime: Array<{
@@ -58,96 +60,27 @@ const StaffReports = () => {
 
   useEffect(() => {
     fetchStaffReport();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, filters.staff, filters.actionType]);
 
   const fetchStaffReport = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          totalActions: 15678,
-          actionsByType: [
-            { type: "CREATE", count: 5234, percentage: 33.4 },
-            { type: "UPDATE", count: 6234, percentage: 39.8 },
-            { type: "DELETE", count: 1876, percentage: 12.0 },
-            { type: "APPROVE", count: 2334, percentage: 14.9 },
-          ],
-          actionsByStaff: [
-            {
-              staff_id: "STAFF001",
-              staff_name: "Nguyễn Văn A",
-              action_count: 2456,
-              actions_by_type: { create: 856, update: 1234, delete: 234, approve: 132 },
-            },
-            {
-              staff_id: "STAFF002",
-              staff_name: "Trần Thị B",
-              action_count: 2234,
-              actions_by_type: { create: 745, update: 1123, delete: 198, approve: 168 },
-            },
-            {
-              staff_id: "STAFF003",
-              staff_name: "Lê Văn C",
-              action_count: 1876,
-              actions_by_type: { create: 623, update: 945, delete: 156, approve: 152 },
-            },
-          ],
-          actionsByTime: [
-            { date: "01/11", count: 245 },
-            { date: "02/11", count: 268 },
-            { date: "03/11", count: 289 },
-            { date: "04/11", count: 312 },
-            { date: "05/11", count: 298 },
-            { date: "06/11", count: 334 },
-            { date: "07/11", count: 356 },
-          ],
-          peakHours: [
-            { hour: "08:00", count: 234 },
-            { hour: "09:00", count: 456 },
-            { hour: "10:00", count: 567 },
-            { hour: "11:00", count: 523 },
-            { hour: "14:00", count: 489 },
-            { hour: "15:00", count: 512 },
-            { hour: "16:00", count: 445 },
-          ],
-          actionLogs: [
-            {
-              id: 1,
-              date: "2025-11-07T14:30:00",
-              staff_name: "Nguyễn Văn A",
-              staff_id: "STAFF001",
-              action_type: "CREATE",
-              action_description: "Tạo booking mới",
-              entity_type: "BOOKING",
-              entity_id: "BK001",
-            },
-            {
-              id: 2,
-              date: "2025-11-07T13:20:00",
-              staff_name: "Trần Thị B",
-              staff_id: "STAFF002",
-              action_type: "UPDATE",
-              action_description: "Cập nhật trạng thái booking",
-              entity_type: "BOOKING",
-              entity_id: "BK002",
-            },
-            {
-              id: 3,
-              date: "2025-11-07T12:15:00",
-              staff_name: "Lê Văn C",
-              staff_id: "STAFF003",
-              action_type: "APPROVE",
-              action_description: "Duyệt review",
-              entity_type: "REVIEW",
-              entity_id: "RV001",
-            },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.staff) params.staff = filters.staff;
+      if (filters.actionType) params.actionType = filters.actionType;
+
+      const result = await adminService.getStaffReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo nhân viên");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo nhân viên");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo nhân viên");
+    } finally {
       setLoading(false);
     }
   };
@@ -193,6 +126,8 @@ const StaffReports = () => {
         return <Trash2 className="text-red-600" size={18} />;
       case "APPROVE":
         return <CheckCircle className="text-purple-600" size={18} />;
+      case "REPLY":
+        return <FileText className="text-purple-600" size={18} />;
       default:
         return <FileText className="text-gray-600" size={18} />;
     }
@@ -204,6 +139,7 @@ const StaffReports = () => {
       UPDATE: "bg-blue-100 text-blue-800",
       DELETE: "bg-red-100 text-red-800",
       APPROVE: "bg-purple-100 text-purple-800",
+      REPLY: "bg-purple-100 text-purple-800",
     };
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badges[type] || "bg-gray-100 text-gray-800"}`}>

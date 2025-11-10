@@ -478,6 +478,42 @@ CREATE TABLE review (
   FOREIGN KEY (hotel_id) REFERENCES hotel(hotel_id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE review_reply (
+  reply_id VARCHAR(20) PRIMARY KEY,
+  review_id VARCHAR(20) NOT NULL,
+  replied_by VARCHAR(20) NOT NULL COMMENT 'account_id của admin/staff',
+  reply_text TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (review_id) REFERENCES review(review_id) ON DELETE CASCADE,
+  FOREIGN KEY (replied_by) REFERENCES account(account_id) ON DELETE CASCADE,
+  INDEX idx_review_id (review_id),
+  INDEX idx_replied_by (replied_by)
+);
+
+CREATE TABLE review_report (
+  report_id VARCHAR(20) PRIMARY KEY,
+  review_id VARCHAR(20) NOT NULL,
+  reported_by VARCHAR(20) COMMENT 'account_id của người báo cáo (có thể NULL nếu hệ thống tự động)',
+  report_reason VARCHAR(255) NOT NULL COMMENT 'Lý do báo cáo',
+  violation_type VARCHAR(50) COMMENT 'Loại vi phạm: SPAM, TOXIC, DUPLICATE, INAPPROPRIATE, etc.',
+  status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+    CHECK (status IN ('PENDING', 'RESOLVED', 'REJECTED', 'IGNORED')),
+  resolved_by VARCHAR(20) COMMENT 'account_id của admin/staff xử lý',
+  resolved_at DATETIME,
+  resolution_note TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (review_id) REFERENCES review(review_id) ON DELETE CASCADE,
+  FOREIGN KEY (reported_by) REFERENCES account(account_id) ON DELETE SET NULL,
+  FOREIGN KEY (resolved_by) REFERENCES account(account_id) ON DELETE SET NULL,
+  INDEX idx_review_id (review_id),
+  INDEX idx_status (status),
+  INDEX idx_violation_type (violation_type)
+);
+
+
 -- ============================================
 -- TRIGGERS
 -- ============================================

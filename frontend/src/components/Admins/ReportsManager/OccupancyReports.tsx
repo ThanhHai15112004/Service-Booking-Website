@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { TrendingUp, Download, Filter, Building2, Calendar } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface OccupancyReport {
   averageOccupancyRate: number;
@@ -47,56 +48,27 @@ const OccupancyReports = () => {
 
   useEffect(() => {
     fetchOccupancyReport();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.month, filters.city, filters.category, filters.year]);
 
   const fetchOccupancyReport = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          averageOccupancyRate: 78.5,
-          occupancyByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", occupancy_rate: 92.5 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", occupancy_rate: 88.3 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", occupancy_rate: 85.7 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", occupancy_rate: 82.1 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", occupancy_rate: 79.4 },
-          ],
-          occupancyByMonth: [
-            { month: "Th1", occupancy_rate: 72.5 },
-            { month: "Th2", occupancy_rate: 75.8 },
-            { month: "Th3", occupancy_rate: 78.2 },
-            { month: "Th4", occupancy_rate: 78.5 },
-            { month: "Th5", occupancy_rate: 80.1 },
-            { month: "Th6", occupancy_rate: 82.3 },
-          ],
-          occupancyByCity: [
-            { city: "Hà Nội", occupancy_rate: 82.5 },
-            { city: "TP. Hồ Chí Minh", occupancy_rate: 79.3 },
-            { city: "Đà Nẵng", occupancy_rate: 75.8 },
-            { city: "Khác", occupancy_rate: 68.2 },
-          ],
-          occupancyByCategory: [
-            { category: "Resort", occupancy_rate: 85.2 },
-            { category: "Boutique Hotel", occupancy_rate: 78.5 },
-            { category: "Business Hotel", occupancy_rate: 72.3 },
-          ],
-          occupancyYearOverYear: [
-            { period: "Q1", currentYear: 72.5, previousYear: 68.3 },
-            { period: "Q2", currentYear: 78.2, previousYear: 74.1 },
-            { period: "Q3", currentYear: 82.5, previousYear: 79.8 },
-            { period: "Q4", currentYear: 80.1, previousYear: 76.5 },
-          ],
-          occupancyCalendar: Array.from({ length: 30 }, (_, i) => ({
-            date: `${i + 1}/11`,
-            occupancy_rate: 70 + Math.random() * 25,
-          })),
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.month) params.month = filters.month;
+      if (filters.city) params.city = filters.city;
+      if (filters.category) params.category = filters.category;
+      if (filters.year) params.year = filters.year;
+
+      const result = await adminService.getOccupancyReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo tỷ lệ lấp đầy");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo tỷ lệ lấp đầy");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo tỷ lệ lấp đầy");
+    } finally {
       setLoading(false);
     }
   };

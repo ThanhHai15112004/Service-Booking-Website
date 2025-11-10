@@ -299,6 +299,13 @@ export interface Review {
   comment: string;
   createdAt: string;
   helpful?: number;
+  reply?: {
+    reply_id: string;
+    reply_text: string;
+    replied_by: string;
+    replied_by_name: string;
+    replied_at: string;
+  };
   bookingInfo?: {
     adults: number;
     children: number;

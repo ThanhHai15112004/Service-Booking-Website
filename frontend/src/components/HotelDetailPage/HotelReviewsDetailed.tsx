@@ -55,7 +55,6 @@ export default function HotelReviewsDetailed({
   const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [helpfulReviews, setHelpfulReviews] = useState<Set<string>>(new Set());
   const [loadingReviews, setLoadingReviews] = useState(true); // Start with true to show loading
   const [reviewsData, setReviewsData] = useState<Review[]>([]);
   const [reviewsStats, setReviewsStats] = useState<any>(null);
@@ -194,7 +193,8 @@ export default function HotelReviewsDetailed({
             facilitiesRating: r.facilities_rating ? r.facilities_rating * 2 : undefined,
             serviceRating: r.service_rating ? r.service_rating * 2 : undefined,
             cleanlinessRating: r.cleanliness_rating ? r.cleanliness_rating * 2 : undefined,
-            valueRating: r.value_rating ? r.value_rating * 2 : undefined
+            valueRating: r.value_rating ? r.value_rating * 2 : undefined,
+            reply: r.reply || undefined
           }));
           
           // Show ALL reviews, don't filter anything
@@ -263,7 +263,8 @@ export default function HotelReviewsDetailed({
           facilitiesRating: r.facilities_rating ? r.facilities_rating * 2 : undefined,
           serviceRating: r.service_rating ? r.service_rating * 2 : undefined,
           cleanlinessRating: r.cleanliness_rating ? r.cleanliness_rating * 2 : undefined,
-          valueRating: r.value_rating ? r.value_rating * 2 : undefined
+          valueRating: r.value_rating ? r.value_rating * 2 : undefined,
+          reply: r.reply || undefined
         }));
       
       // Show ALL reviews, don't filter anything
@@ -341,17 +342,6 @@ export default function HotelReviewsDetailed({
     return `Đã nhận xét vào ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  const toggleHelpful = (reviewId: string) => {
-    setHelpfulReviews(prev => {
-      const next = new Set(prev);
-      if (next.has(reviewId)) {
-        next.delete(reviewId);
-      } else {
-        next.add(reviewId);
-      }
-      return next;
-    });
-  };
 
   // Sanitize HTML (comment đã là HTML từ WYSIWYG editor)
   const sanitizeHTML = (html: string): string => {
@@ -793,20 +783,6 @@ export default function HotelReviewsDetailed({
                   <h4 className="text-lg font-bold text-gray-900">
                     {review.title || 'Đánh giá'}
                   </h4>
-                  <button
-                    onClick={() => toggleHelpful(review.reviewId)}
-                    className="text-xs text-gray-500 hover:text-blue-600"
-                  >
-                    {helpfulReviews.has(review.reviewId) ? (
-                      <span className="text-blue-600">CÓ</span>
-                    ) : (
-                      <>
-                        <span className="text-blue-600">CÓ</span>
-                        <span className="mx-1">|</span>
-                        <span className="text-gray-400">KHÔNG</span>
-                      </>
-                    )}
-                  </button>
                 </div>
                 {/* Review Content - HTML from WYSIWYG editor */}
                 <div 
@@ -816,6 +792,37 @@ export default function HotelReviewsDetailed({
                     wordBreak: 'break-word'
                   }}
                 />
+                <p className="text-xs text-gray-500 mb-3">
+                  {formatDate(review.createdAt)}
+                </p>
+                
+                {/* Reply Section */}
+                {review.reply && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                          {review.reply.replied_by_name?.charAt(0)?.toUpperCase() || 'A'}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {review.reply.replied_by_name || 'Quản lý khách sạn'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatDate(review.reply.replied_at)}
+                          </span>
+                        </div>
+                        <div 
+                          className="text-sm text-gray-700 leading-relaxed review-content"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.reply.reply_text) }}
+                          style={{ wordBreak: 'break-word' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <style>{`
                   .review-content {
                     line-height: 1.6;

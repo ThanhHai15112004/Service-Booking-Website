@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, EyeOff, Trash2, MessageSquare, Star, History, User, Building2, Calendar, Image as ImageIcon, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, EyeOff, Trash2, MessageSquare, Star, History, User, Building2 } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReviewDetail {
   review_id: string;
@@ -16,15 +17,15 @@ interface ReviewDetail {
   hotel_address: string;
   hotel_average_rating: number;
   overall_rating: number;
-  location_rating: number;
-  service_rating: number;
-  facilities_rating: number;
-  cleanliness_rating: number;
-  value_rating: number;
-  title: string;
-  comment: string;
+  location_rating: number | null;
+  service_rating: number | null;
+  facilities_rating: number | null;
+  cleanliness_rating: number | null;
+  value_rating: number | null;
+  title: string | null;
+  comment: string | null;
   images?: string[];
-  status: "ACTIVE" | "HIDDEN" | "DELETED" | "PENDING";
+  status: "ACTIVE" | "HIDDEN" | "DELETED";
   created_at: string;
   updated_at?: string;
   booking_id?: string;
@@ -36,9 +37,11 @@ interface ReviewDetail {
     note?: string;
   }>;
   reply?: {
-    id: string;
+    id?: string;
+    reply_id?: string;
     reply_text: string;
     replied_by: string;
+    replied_by_name?: string;
     replied_at: string;
   };
 }
@@ -58,66 +61,48 @@ const ReviewDetail = () => {
     if (reviewId) {
       fetchReviewDetail();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewId]);
 
   const fetchReviewDetail = async () => {
+    if (!reviewId) return;
+    
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
+      const result = await adminService.getReviewDetail(reviewId);
+      if (result.success && result.data) {
+        // Fetch activity log
+        const activityResult = await adminService.getReviewActivityLog(reviewId);
+        const history = activityResult.success && activityResult.data ? activityResult.data.map((log, index) => ({
+          id: index + 1,
+          date: log.date,
+          action: log.action,
+          admin_name: log.admin_name,
+          note: log.note
+        })) : [];
+
         setReview({
-          review_id: reviewId || "RV001",
-          account_id: "ACC001",
-          customer_name: "Nguyễn Văn A",
-          customer_email: "nguyenvana@email.com",
-          provider: "LOCAL",
-          customer_total_reviews: 12,
-          hotel_id: "H001",
-          hotel_name: "Hanoi Old Quarter Hotel",
-          hotel_address: "123 Phố Cổ, Hoàn Kiếm, Hà Nội",
-          hotel_average_rating: 4.5,
-          overall_rating: 5,
-          location_rating: 5,
-          service_rating: 4,
-          facilities_rating: 5,
-          cleanliness_rating: 5,
-          value_rating: 4,
-          title: "Rất tuyệt vời!",
-          comment: "Khách sạn rất đẹp, dịch vụ tốt, nhân viên thân thiện. Vị trí cực kỳ thuận tiện, phòng sạch sẽ và tiện nghi. Giá cả hợp lý cho chất lượng dịch vụ như vậy.",
-          images: [
-            "https://images.unsplash.com/photo-1566073771259-6a8506099945",
-            "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b",
-          ],
-          status: "ACTIVE",
-          created_at: "2025-11-01T10:30:00",
-          updated_at: "2025-11-01T10:30:00",
-          booking_id: "BK001",
-          history: [
-            {
-              id: 1,
-              date: "2025-11-03T14:30:00",
-              action: "Ẩn review",
-              admin_name: "admin01",
-              note: "Nội dung không phù hợp",
-            },
-            {
-              id: 2,
-              date: "2025-11-02T10:00:00",
-              action: "Duyệt review",
-              admin_name: "staff02",
-            },
-          ],
-          reply: {
-            id: "RPL001",
-            reply_text: "Cảm ơn bạn đã đánh giá. Chúng tôi rất vui khi bạn có trải nghiệm tốt tại khách sạn.",
-            replied_by: "Quản lý khách sạn",
-            replied_at: "2025-11-02T15:00:00",
-          },
+          ...result.data,
+          history,
+          images: [], // Backend doesn't return images yet
+          status: result.data.status as "ACTIVE" | "HIDDEN" | "DELETED",
+          updated_at: result.data.updated_at || undefined,
+          booking_id: result.data.booking_id || undefined,
+          reply: result.data.reply ? {
+            id: result.data.reply.reply_id,
+            reply_id: result.data.reply.reply_id,
+            reply_text: result.data.reply.reply_text,
+            replied_by: result.data.reply.replied_by,
+            replied_by_name: result.data.reply.replied_by_name,
+            replied_at: result.data.reply.replied_at
+          } : undefined
         });
-        setLoading(false);
-      }, 800);
+      } else {
+        showToast("error", result.message || "Không thể tải chi tiết review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải chi tiết review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải chi tiết review");
+    } finally {
       setLoading(false);
     }
   };
@@ -126,12 +111,16 @@ const ReviewDetail = () => {
     if (!review) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Đã ẩn review thành công");
-      setShowHideModal(false);
-      fetchReviewDetail();
+      const result = await adminService.updateReviewStatus(review.review_id, "HIDDEN");
+      if (result.success) {
+        showToast("success", result.message || "Đã ẩn review thành công");
+        setShowHideModal(false);
+        fetchReviewDetail();
+      } else {
+        showToast("error", result.message || "Không thể ẩn review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể ẩn review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể ẩn review");
     }
   };
 
@@ -139,12 +128,16 @@ const ReviewDetail = () => {
     if (!review) return;
 
     try {
-      // TODO: API call
-      showToast("success", "Đã xóa review thành công");
-      setShowDeleteModal(false);
-      navigate("/admin/reviews");
+      const result = await adminService.deleteReview(review.review_id);
+      if (result.success) {
+        showToast("success", result.message || "Đã xóa review thành công");
+        setShowDeleteModal(false);
+        navigate("/admin/reviews");
+      } else {
+        showToast("error", result.message || "Không thể xóa review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa review");
     }
   };
 
@@ -155,13 +148,17 @@ const ReviewDetail = () => {
     }
 
     try {
-      // TODO: API call
-      showToast("success", "Đã gửi phản hồi review thành công");
-      setShowReplyModal(false);
-      setReplyText("");
-      fetchReviewDetail();
+      const result = await adminService.createReviewReply(review.review_id, replyText);
+      if (result.success) {
+        showToast("success", result.message || "Đã gửi phản hồi review thành công");
+        setShowReplyModal(false);
+        setReplyText("");
+        fetchReviewDetail();
+      } else {
+        showToast("error", result.message || "Không thể gửi phản hồi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể gửi phản hồi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể gửi phản hồi");
     }
   };
 
@@ -207,11 +204,19 @@ const ReviewDetail = () => {
         return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">Đã ẩn</span>;
       case "DELETED":
         return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">Đã xóa</span>;
-      case "PENDING":
-        return <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">Chờ duyệt</span>;
       default:
         return null;
     }
+  };
+
+  // Sanitize HTML (comment đã là HTML từ WYSIWYG editor)
+  const sanitizeHTML = (html: string): string => {
+    if (!html) return '';
+    // Remove potentially dangerous scripts but keep safe HTML
+    return html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
   };
 
   if (loading) {
@@ -258,30 +263,16 @@ const ReviewDetail = () => {
                 Ẩn review
               </button>
               <button
-                onClick={() => setShowReplyModal(true)}
+                onClick={() => {
+                  setReplyText(review.reply?.reply_text || "");
+                  setShowReplyModal(true);
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <MessageSquare size={18} />
                 {review.reply ? "Sửa phản hồi" : "Trả lời"}
               </button>
             </>
-          )}
-          {review.status === "PENDING" && (
-            <button
-              onClick={async () => {
-                try {
-                  // TODO: API call to approve
-                  showToast("success", "Đã duyệt review thành công");
-                  fetchReviewDetail();
-                } catch (error: any) {
-                  showToast("error", error.message || "Không thể duyệt review");
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <CheckCircle size={18} />
-              Duyệt review
-            </button>
           )}
           <button
             onClick={() => setShowDeleteModal(true)}
@@ -357,12 +348,16 @@ const ReviewDetail = () => {
             ].map((item) => (
               <div key={item.label} className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">{item.label}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    {renderStars(item.rating)}
+                {item.rating ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center">
+                      {renderStars(item.rating)}
+                    </div>
+                    <span className="text-lg font-bold text-gray-900">{convertRatingTo10(item.rating)}/10</span>
                   </div>
-                  <span className="text-lg font-bold text-gray-900">{convertRatingTo10(item.rating)}/10</span>
-                </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Chưa đánh giá</p>
+                )}
               </div>
             ))}
           </div>
@@ -375,11 +370,19 @@ const ReviewDetail = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
-            <p className="text-lg font-medium text-gray-900">{review.title}</p>
+            <p className="text-lg font-medium text-gray-900">{review.title || 'Không có tiêu đề'}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bình luận</label>
-            <p className="text-gray-900 leading-relaxed">{review.comment}</p>
+            {review.comment ? (
+              <div 
+                className="text-gray-900 leading-relaxed review-content"
+                dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
+                style={{ wordBreak: 'break-word' }}
+              />
+            ) : (
+              <p className="text-gray-500 italic">Không có bình luận</p>
+            )}
           </div>
           {review.images && review.images.length > 0 && (
             <div>
@@ -468,10 +471,14 @@ const ReviewDetail = () => {
           </h2>
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-purple-900">{review.reply.replied_by}</p>
+              <p className="text-sm font-medium text-purple-900">{review.reply.replied_by_name || review.reply.replied_by || 'Quản lý khách sạn'}</p>
               <p className="text-sm text-purple-600">{formatDateTime(review.reply.replied_at)}</p>
             </div>
-            <p className="text-gray-900">{review.reply.reply_text}</p>
+            <div 
+              className="text-gray-900 review-content"
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.reply.reply_text) }}
+              style={{ wordBreak: 'break-word' }}
+            />
           </div>
         </div>
       )}
@@ -514,10 +521,99 @@ const ReviewDetail = () => {
         </div>
       </div>
 
+      {/* Styles for HTML content */}
+      <style>{`
+        .review-content {
+          line-height: 1.6;
+        }
+        .review-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 12px 0;
+          border: 1px solid #e5e7eb;
+          cursor: pointer;
+          transition: opacity 0.2s;
+        }
+        .review-content img:hover {
+          opacity: 0.9;
+        }
+        .review-content strong {
+          font-weight: 600;
+        }
+        .review-content em {
+          font-style: italic;
+        }
+        .review-content u {
+          text-decoration: underline;
+        }
+        .review-content s,
+        .review-content strike {
+          text-decoration: line-through;
+        }
+        .review-content h1 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 12px 0 8px 0;
+          line-height: 1.3;
+        }
+        .review-content h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin: 10px 0 6px 0;
+          line-height: 1.3;
+        }
+        .review-content h3 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin: 8px 0 4px 0;
+          line-height: 1.3;
+        }
+        .review-content ul,
+        .review-content ol {
+          margin: 8px 0;
+          padding-left: 24px;
+        }
+        .review-content ul {
+          list-style-type: disc;
+        }
+        .review-content ol {
+          list-style-type: decimal;
+        }
+        .review-content li {
+          margin: 4px 0;
+        }
+        .review-content blockquote {
+          border-left: 4px solid #3b82f6;
+          padding-left: 16px;
+          margin: 12px 0;
+          font-style: italic;
+          color: #6b7280;
+          background-color: #f9fafb;
+          padding: 12px 16px;
+          border-radius: 4px;
+        }
+        .review-content a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        .review-content a:hover {
+          color: #1d4ed8;
+        }
+      `}</style>
+
       {/* Modals */}
       {showHideModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowHideModal(false);
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận ẩn review</h3>
             <p className="text-gray-600 mb-6">
               Review sẽ không hiển thị công khai nhưng vẫn được lưu trong hệ thống.
@@ -541,8 +637,16 @@ const ReviewDetail = () => {
       )}
 
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowDeleteModal(false);
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận xóa review</h3>
             <p className="text-gray-600 mb-6">
               Hành động này không thể hoàn tác. Review sẽ bị xóa vĩnh viễn.
@@ -566,14 +670,33 @@ const ReviewDetail = () => {
       )}
 
       {showReplyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowReplyModal(false);
+            setReplyText(review?.reply?.reply_text || "");
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Trả lời review</h3>
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-2">Review từ {review.customer_name}</p>
-                <p className="text-gray-900 font-medium">{review.title}</p>
-                <p className="text-gray-700 mt-2">{review.comment}</p>
+                {review.title && (
+                  <p className="text-gray-900 font-medium mb-2">{review.title}</p>
+                )}
+                {review.comment ? (
+                  <div 
+                    className="text-gray-700 mt-2 review-content"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(review.comment) }}
+                    style={{ wordBreak: 'break-word' }}
+                  />
+                ) : (
+                  <p className="text-gray-500 italic mt-2">Không có bình luận</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung phản hồi *</label>
@@ -582,7 +705,6 @@ const ReviewDetail = () => {
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Nhập phản hồi của bạn..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg h-32 resize-none"
-                  defaultValue={review.reply?.reply_text}
                   required
                 />
               </div>
@@ -591,7 +713,8 @@ const ReviewDetail = () => {
               <button
                 onClick={() => {
                   setShowReplyModal(false);
-                  setReplyText("");
+                  // Reset to current reply text if exists, otherwise empty
+                  setReplyText(review?.reply?.reply_text || "");
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
@@ -602,7 +725,7 @@ const ReviewDetail = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
                 <MessageSquare size={18} />
-                {review.reply ? "Cập nhật phản hồi" : "Gửi phản hồi"}
+                {review?.reply ? "Cập nhật phản hồi" : "Gửi phản hồi"}
               </button>
             </div>
           </div>

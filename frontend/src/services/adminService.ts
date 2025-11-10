@@ -150,7 +150,7 @@ export const adminService = {
       occupancyRate: number;
       cancellationRate: number;
       revenueByDate: Array<{ date: string; revenue: number }>;
-      bookingsByStatus: Array<{ status: string; count: number; percentage: string }>;
+      bookingsByStatus: Array<{ status: string; count: number; percentage: string | number }>;
       topBookedHotels: Array<{ hotel_id: string; hotel_name: string; bookings: number }>;
       newUsersTrend: Array<{ date: string; count: number }>;
       recentBookings: Array<{
@@ -263,6 +263,226 @@ export const adminService = {
 
   deleteReview: async (reviewId: string): Promise<{ success: boolean; message: string }> => {
     const response = await adminApi.delete(`/api/admin/reviews/${reviewId}`);
+    return response.data;
+  },
+
+  // ========== Review Manager APIs ==========
+  // Dashboard stats
+  getReviewDashboardStats: async (): Promise<{
+    success: boolean;
+    data?: {
+      totalReviews: number;
+      monthlyNewReviews: number;
+      averageRating: number;
+      fiveStarRate: number;
+      pendingReviews: number;
+      reviewsByMonth: Array<{ month: string; count: number }>;
+      ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
+      averageRatingTrend: Array<{ date: string; rating: number }>;
+      topRatedHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        average_rating: number;
+        review_count: number;
+      }>;
+      topComplainedHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        low_rating_count: number;
+        average_rating: number;
+      }>;
+      recentReviews: Array<{
+        review_id: string;
+        customer_name: string;
+        hotel_name: string;
+        rating: number;
+        title: string;
+        created_at: string;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reviews/dashboard");
+    return response.data;
+  },
+
+  // Get reviews list (Review Manager)
+  getReviewManagerReviews: async (params?: {
+    search?: string;
+    hotel_id?: string;
+    rating?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    pendingOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data?: any[];
+    total?: number;
+    page?: number;
+    limit?: number;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reviews", { params });
+    return response.data;
+  },
+
+  // Get review detail
+  getReviewDetail: async (reviewId: string): Promise<{
+    success: boolean;
+    data?: {
+      review_id: string;
+      account_id: string;
+      customer_name: string;
+      customer_email: string;
+      provider: string;
+      customer_total_reviews: number;
+      hotel_id: string;
+      hotel_name: string;
+      hotel_address: string;
+      hotel_average_rating: number;
+      overall_rating: number;
+      location_rating: number | null;
+      service_rating: number | null;
+      facilities_rating: number | null;
+      cleanliness_rating: number | null;
+      value_rating: number | null;
+      title: string | null;
+      comment: string | null;
+      status: string;
+      created_at: string;
+      updated_at: string | null;
+      booking_id: string | null;
+      reply?: {
+        reply_id: string;
+        reply_text: string;
+        replied_by: string;
+        replied_by_name: string;
+        replied_at: string;
+      };
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/reviews/${reviewId}`);
+    return response.data;
+  },
+
+  // Update review status
+  updateReviewStatus: async (
+    reviewId: string,
+    status: "ACTIVE" | "HIDDEN"
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await adminApi.put(`/api/admin/reviews/${reviewId}/status`, { status });
+    return response.data;
+  },
+
+  // Create/Update reply
+  createReviewReply: async (
+    reviewId: string,
+    reply_text: string
+  ): Promise<{ success: boolean; message: string; data?: { reply_id: string } }> => {
+    const response = await adminApi.post(`/api/admin/reviews/${reviewId}/reply`, { reply_text });
+    return response.data;
+  },
+
+  // Get review activity log
+  getReviewActivityLog: async (reviewId: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      id: number;
+      date: string;
+      action: string;
+      admin_name: string;
+      admin_id: string;
+      note?: string;
+      violation_type?: string;
+    }>;
+    message?: string;
+  }> => {
+    const response = await adminApi.get(`/api/admin/reviews/${reviewId}/activity-log`);
+    return response.data;
+  },
+
+  // Get review reports
+  getReviewReports: async (params?: {
+    period?: string;
+    city?: string;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalReviews: number;
+      averageRating: number;
+      averageRatingByHotel: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        average_rating: number;
+        review_count: number;
+      }>;
+      averageRatingByCity: Array<{
+        city: string;
+        average_rating: number;
+        review_count: number;
+      }>;
+      ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
+      reviewsByMonth: Array<{ month: string; count: number }>;
+      positiveRate: number;
+      negativeRate: number;
+      topRatedHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        average_rating: number;
+        review_count: number;
+      }>;
+      topComplainedHotels: Array<{
+        hotel_id: string;
+        hotel_name: string;
+        average_rating: number;
+        low_rating_count: number;
+      }>;
+      ratingByCriteria: Array<{
+        criteria: string;
+        average_rating: number;
+      }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reviews/reports/stats", { params });
+    return response.data;
+  },
+
+  // Get all activity logs
+  getAllReviewActivityLogs: async (params?: {
+    search?: string;
+    admin?: string;
+    action?: string;
+    violationType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data?: Array<{
+      id: number | string;
+      date: string;
+      admin_name: string;
+      admin_id: string;
+      review_id: string;
+      action: string;
+      note?: string;
+      violation_type?: string;
+    }>;
+    total?: number;
+    page?: number;
+    limit?: number;
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reviews/activity-logs/all", { params });
     return response.data;
   },
 
@@ -1363,47 +1583,165 @@ export const adminService = {
   },
 
   // Reports
+  // ========== Reports APIs ==========
   getBookingReports: async (params?: {
-    period?: "7days" | "month" | "quarter" | "year";
-    hotelId?: string;
-    dateFrom?: string;
-    dateTo?: string;
+    startDate?: string;
+    endDate?: string;
+    hotel_id?: string;
+    city?: string;
+    status?: string;
   }): Promise<{
     success: boolean;
     data?: {
       totalBookings: number;
-      totalRevenue: number;
-      cancelledRate: number;
-      paymentMethods: Array<{
-        method: string;
-        count: number;
-        revenue: number;
-      }>;
-      topCustomers: Array<{
-        account_id: string;
-        full_name: string;
-        total_spent: number;
-        booking_count: number;
-      }>;
-      topHotels: Array<{
-        hotel_id: string;
-        hotel_name: string;
-        booking_count: number;
-        revenue: number;
-      }>;
-      revenueByMonth: Array<{
-        month: string;
-        revenue: number;
-      }>;
-      cancellationTrend: Array<{
-        month: string;
-        cancelled: number;
-        total: number;
-      }>;
+      bookingsByStatus: Array<{ status: string; count: number; percentage: number }>;
+      cancellationRate: number;
+      completionRate: number;
+      averageBookingValue: number;
+      bookingsByHotel: Array<{ hotel_id: string; hotel_name: string; bookings: number }>;
+      bookingsByCity: Array<{ city: string; bookings: number }>;
+      bookingsByCategory: Array<{ category: string; bookings: number }>;
+      bookingsByTime: Array<{ date: string; count: number }>;
     };
     message?: string;
   }> => {
-    const response = await adminApi.get("/api/admin/bookings/reports", { params });
+    const response = await adminApi.get("/api/admin/reports/bookings", { params });
+    return response.data;
+  },
+
+  getRevenueReports: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    hotel_id?: string;
+    paymentMethod?: string;
+    viewType?: "daily" | "weekly" | "monthly" | "yearly";
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalRevenue: number;
+      revenueByPeriod: {
+        daily: Array<{ date: string; revenue: number }>;
+        weekly: Array<{ week: string; revenue: number }>;
+        monthly: Array<{ month: string; revenue: number }>;
+        yearly: Array<{ year: string; revenue: number }>;
+      };
+      revenueByHotel: Array<{ hotel_id: string; hotel_name: string; revenue: number; percentage: number }>;
+      revenueByCity: Array<{ city: string; revenue: number; percentage: number }>;
+      revenueByRoomType: Array<{ room_type: string; revenue: number; percentage: number }>;
+      revenueByPaymentMethod: Array<{ method: string; revenue: number; percentage: number }>;
+      revenueByPackage: Array<{ package_name: string; revenue: number; percentage: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reports/revenue", { params });
+    return response.data;
+  },
+
+  getOccupancyReports: async (params?: {
+    month?: string;
+    city?: string;
+    category?: string;
+    year?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      averageOccupancyRate: number;
+      occupancyByHotel: Array<{ hotel_id: string; hotel_name: string; occupancy_rate: number }>;
+      occupancyByMonth: Array<{ month: string; occupancy_rate: number }>;
+      occupancyByCity: Array<{ city: string; occupancy_rate: number }>;
+      occupancyByCategory: Array<{ category: string; occupancy_rate: number }>;
+      occupancyYearOverYear: Array<{ period: string; currentYear: number; previousYear: number }>;
+      occupancyCalendar: Array<{ date: string; occupancy_rate: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reports/occupancy", { params });
+    return response.data;
+  },
+
+  getCustomerInsights: async (): Promise<{
+    success: boolean;
+    data?: {
+      totalCustomers: number;
+      newCustomers: number;
+      returningCustomers: number;
+      activeCustomers: number;
+      inactiveCustomers: number;
+      returnRate: number;
+      customerLifetimeValue: number;
+      topSpendingCustomers: Array<{ customer_id: string; customer_name: string; total_spent: number; booking_count: number }>;
+      newCustomersTrend: Array<{ date: string; count: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reports/customers");
+    return response.data;
+  },
+
+  getPackageReports: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    package?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalUsersByPackage: Array<{ package_name: string; user_count: number; percentage: number }>;
+      revenueByPackage: Array<{ package_name: string; revenue: number; percentage: number }>;
+      monthlyRecurringRevenue: Array<{ month: string; revenue: number }>;
+      mostPopularPackage: { package_name: string; user_count: number; revenue: number };
+      renewalRate: number;
+      cancellationRate: number;
+      packageStats: Array<{ package_name: string; total_users: number; active_users: number; cancelled_users: number; total_revenue: number; monthly_revenue: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reports/packages", { params });
+    return response.data;
+  },
+
+  getStaffReports: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    staff?: string;
+    actionType?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalActions: number;
+      actionsByType: Array<{ type: string; count: number; percentage: number }>;
+      actionsByStaff: Array<{ staff_id: string; staff_name: string; action_count: number; actions_by_type: { create: number; update: number; delete: number; approve: number } }>;
+      actionsByTime: Array<{ date: string; count: number }>;
+      peakHours: Array<{ hour: string; count: number }>;
+      actionLogs: Array<{ id: number; date: string; staff_name: string; staff_id: string; action_type: string; action_description: string; entity_type: string; entity_id: string }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reports/staff", { params });
+    return response.data;
+  },
+
+  getReviewAnalytics: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    hotel?: string;
+    city?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      totalReviews: number;
+      averageRating: number;
+      averageRatingByHotel: Array<{ hotel_id: string; hotel_name: string; average_rating: number; review_count: number }>;
+      averageRatingByCity: Array<{ city: string; average_rating: number; review_count: number }>;
+      ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
+      positiveRate: number;
+      negativeRate: number;
+      ratingByCriteria: Array<{ criteria: string; average_rating: number }>;
+      topRatedHotels: Array<{ hotel_id: string; hotel_name: string; average_rating: number; review_count: number }>;
+      reviewsByMonth: Array<{ month: string; count: number }>;
+    };
+    message?: string;
+  }> => {
+    const response = await adminApi.get("/api/admin/reviews/reports/stats", { params });
     return response.data;
   },
 

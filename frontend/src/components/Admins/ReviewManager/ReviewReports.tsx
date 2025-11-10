@@ -3,6 +3,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Star, TrendingUp, TrendingDown, Download, Filter, Building2, Users, AlertCircle } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface ReviewReportStats {
   averageRatingByHotel: Array<{
@@ -54,63 +55,24 @@ const ReviewReports = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setStats({
-          averageRatingByHotel: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", average_rating: 4.8, review_count: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", average_rating: 4.7, review_count: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", average_rating: 4.6, review_count: 298 },
-          ],
-          ratingDistribution: [
-            { rating: 5, count: 8532, percentage: 68.5 },
-            { rating: 4, count: 2491, percentage: 20.0 },
-            { rating: 3, count: 747, percentage: 6.0 },
-            { rating: 2, count: 373, percentage: 3.0 },
-            { rating: 1, count: 313, percentage: 2.5 },
-          ],
-          reviewsByMonth: [
-            { month: "Th1", count: 856 },
-            { month: "Th2", count: 924 },
-            { month: "Th3", count: 1088 },
-            { month: "Th4", count: 1256 },
-            { month: "Th5", count: 1420 },
-            { month: "Th6", count: 1680 },
-            { month: "Th7", count: 1950 },
-            { month: "Th8", count: 1780 },
-            { month: "Th9", count: 1650 },
-            { month: "Th10", count: 1520 },
-            { month: "Th11", count: 1245 },
-            { month: "Th12", count: 0 },
-          ],
-          positiveRate: 88.5,
-          negativeRate: 11.5,
-          topRatedHotels: [
-            { hotel_id: "H001", hotel_name: "Hanoi Old Quarter Hotel", average_rating: 4.8, review_count: 456 },
-            { hotel_id: "H002", hotel_name: "My Khe Beach Resort", average_rating: 4.7, review_count: 389 },
-            { hotel_id: "H003", hotel_name: "Saigon Riverside Hotel", average_rating: 4.6, review_count: 298 },
-            { hotel_id: "H004", hotel_name: "Sofitel Metropole", average_rating: 4.5, review_count: 234 },
-            { hotel_id: "H005", hotel_name: "Da Nang Beach Hotel", average_rating: 4.4, review_count: 187 },
-          ],
-          topComplainedHotels: [
-            { hotel_id: "H010", hotel_name: "Budget Hotel A", average_rating: 2.8, low_rating_count: 45 },
-            { hotel_id: "H011", hotel_name: "City Hotel B", average_rating: 3.1, low_rating_count: 38 },
-            { hotel_id: "H012", hotel_name: "Guesthouse C", average_rating: 3.2, low_rating_count: 32 },
-            { hotel_id: "H013", hotel_name: "Mini Hotel D", average_rating: 3.0, low_rating_count: 28 },
-            { hotel_id: "H014", hotel_name: "Lodge E", average_rating: 3.3, low_rating_count: 25 },
-          ],
-          ratingByCriteria: [
-            { criteria: "Vị trí", average_rating: 4.5 },
-            { criteria: "Dịch vụ", average_rating: 4.3 },
-            { criteria: "Cơ sở vật chất", average_rating: 4.2 },
-            { criteria: "Vệ sinh", average_rating: 4.4 },
-            { criteria: "Giá trị", average_rating: 4.1 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        period: filters.period,
+      };
+
+      if (filters.city) params.city = filters.city;
+      if (filters.category) params.category = filters.category;
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+
+      const result = await adminService.getReviewReports(params);
+      if (result.success && result.data) {
+        setStats(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu báo cáo");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu báo cáo");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu báo cáo");
+    } finally {
       setLoading(false);
     }
   };

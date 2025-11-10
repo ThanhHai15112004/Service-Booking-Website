@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Package, DollarSign, Users, TrendingUp, Download, Filter, TrendingDown } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface PackageReport {
   totalUsersByPackage: Array<{
@@ -50,70 +51,26 @@ const PackageReports = () => {
 
   useEffect(() => {
     fetchPackageReport();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, filters.package]);
 
   const fetchPackageReport = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReport({
-          totalUsersByPackage: [
-            { package_name: "Premium", user_count: 5234, percentage: 42.0 },
-            { package_name: "Standard", user_count: 4123, percentage: 33.1 },
-            { package_name: "Basic", user_count: 3099, percentage: 24.9 },
-          ],
-          revenueByPackage: [
-            { package_name: "Premium", revenue: 22839000000, percentage: 50.0 },
-            { package_name: "Standard", revenue: 13703400000, percentage: 30.0 },
-            { package_name: "Basic", revenue: 9135600000, percentage: 20.0 },
-          ],
-          monthlyRecurringRevenue: [
-            { month: "Th1", revenue: 2850000000 },
-            { month: "Th2", revenue: 3200000000 },
-            { month: "Th3", revenue: 3450000000 },
-            { month: "Th4", revenue: 3800000000 },
-            { month: "Th5", revenue: 3950000000 },
-            { month: "Th6", revenue: 4100000000 },
-          ],
-          mostPopularPackage: {
-            package_name: "Premium",
-            user_count: 5234,
-            revenue: 22839000000,
-          },
-          renewalRate: 85.5,
-          cancellationRate: 14.5,
-          packageStats: [
-            {
-              package_name: "Premium",
-              total_users: 5234,
-              active_users: 4456,
-              cancelled_users: 778,
-              total_revenue: 22839000000,
-              monthly_revenue: 1903250000,
-            },
-            {
-              package_name: "Standard",
-              total_users: 4123,
-              active_users: 3589,
-              cancelled_users: 534,
-              total_revenue: 13703400000,
-              monthly_revenue: 1141950000,
-            },
-            {
-              package_name: "Basic",
-              total_users: 3099,
-              active_users: 2678,
-              cancelled_users: 421,
-              total_revenue: 9135600000,
-              monthly_revenue: 761300000,
-            },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const params: any = {};
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.package) params.package = filters.package;
+
+      const result = await adminService.getPackageReports(params);
+      if (result.success && result.data) {
+        setReport(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải báo cáo gói tài khoản");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải báo cáo gói tài khoản");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải báo cáo gói tài khoản");
+    } finally {
       setLoading(false);
     }
   };

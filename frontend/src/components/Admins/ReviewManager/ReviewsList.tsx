@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, EyeOff, Trash2, MessageSquare, Star, ChevronLeft, ChevronRight, Filter, Clock } from "lucide-react";
+import { Search, Eye, EyeOff, Trash2, MessageSquare, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface Review {
   review_id: string;
@@ -11,10 +12,10 @@ interface Review {
   hotel_id: string;
   hotel_name: string;
   rating: number;
-  title: string;
-  comment: string;
+  title: string | null;
+  comment: string | null;
   created_at: string;
-  status: "ACTIVE" | "HIDDEN" | "DELETED" | "PENDING";
+  status: "ACTIVE" | "HIDDEN" | "DELETED";
   has_reply: boolean;
 }
 
@@ -24,6 +25,7 @@ const ReviewsList = () => {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
+  const [totalReviews, setTotalReviews] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,7 +35,6 @@ const ReviewsList = () => {
     status: "",
     dateFrom: "",
     dateTo: "",
-    pendingOnly: false,
   });
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [showHideModal, setShowHideModal] = useState(false);
@@ -43,129 +44,58 @@ const ReviewsList = () => {
 
   useEffect(() => {
     fetchReviews();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [reviews, searchTerm, filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, itemsPerPage, searchTerm, filters.hotel, filters.rating, filters.status, filters.dateFrom, filters.dateTo]);
 
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setReviews([
-          {
-            review_id: "RV001",
-            customer_name: "Nguyễn Văn A",
-            customer_email: "nguyenvana@email.com",
-            hotel_id: "H001",
-            hotel_name: "Hanoi Old Quarter Hotel",
-            rating: 5,
-            title: "Rất tuyệt vời!",
-            comment: "Khách sạn rất đẹp, dịch vụ tốt, nhân viên thân thiện.",
-            created_at: "2025-11-01T10:30:00",
-            status: "ACTIVE",
-            has_reply: false,
-          },
-          {
-            review_id: "RV002",
-            customer_name: "Trần Thị B",
-            customer_email: "tranthib@email.com",
-            hotel_id: "H002",
-            hotel_name: "My Khe Beach Resort",
-            rating: 4,
-            title: "Khách sạn đẹp",
-            comment: "View đẹp nhưng giá hơi cao.",
-            created_at: "2025-11-02T14:20:00",
-            status: "ACTIVE",
-            has_reply: true,
-          },
-          {
-            review_id: "RV003",
-            customer_name: "Lê Văn C",
-            customer_email: "levanc@email.com",
-            hotel_id: "H003",
-            hotel_name: "Saigon Riverside Hotel",
-            rating: 3,
-            title: "Ổn nhưng cần cải thiện",
-            comment: "Phòng sạch nhưng dịch vụ còn chậm.",
-            created_at: "2025-11-03T09:15:00",
-            status: "PENDING",
-            has_reply: false,
-          },
-        ]);
-        setLoading(false);
-      }, 800);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (searchTerm) params.search = searchTerm;
+      if (filters.hotel) params.hotel_id = filters.hotel;
+      if (filters.rating) params.rating = filters.rating;
+      if (filters.status) params.status = filters.status;
+      if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters.dateTo) params.dateTo = filters.dateTo;
+
+      const result = await adminService.getReviewManagerReviews(params);
+      if (result.success && result.data) {
+        setReviews(result.data);
+        setTotalReviews(result.total || 0);
+      } else {
+        showToast("error", result.message || "Không thể tải danh sách review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải danh sách review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải danh sách review");
+    } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let result = [...reviews];
-
-    if (searchTerm) {
-      result = result.filter(
-        (review) =>
-          review.review_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.hotel_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filters.hotel) {
-      result = result.filter((review) => review.hotel_id === filters.hotel);
-    }
-
-    if (filters.rating) {
-      result = result.filter((review) => review.rating === Number(filters.rating));
-    }
-
-    if (filters.status) {
-      result = result.filter((review) => review.status === filters.status);
-    }
-
-    if (filters.dateFrom) {
-      result = result.filter((review) => review.created_at >= filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      result = result.filter((review) => review.created_at <= filters.dateTo);
-    }
-
-    if (filters.pendingOnly) {
-      result = result.filter((review) => review.status === "PENDING");
-    }
-
-    setFilteredReviews(result);
-    setCurrentPage(1);
-  };
-
-  const handleApprove = async (reviewId: string) => {
-    try {
-      // TODO: API call
-      showToast("success", "Đã duyệt review thành công");
-      fetchReviews();
-    } catch (error: any) {
-      showToast("error", error.message || "Không thể duyệt review");
-    }
-  };
+  // Filters are now handled by backend, no need for client-side filtering
+  useEffect(() => {
+    setFilteredReviews(reviews);
+  }, [reviews]);
 
   const handleHide = async () => {
     if (!selectedReview) return;
 
     try {
-      // TODO: API call
-      showToast("success", `Đã ẩn review ${selectedReview.review_id}`);
-      setShowHideModal(false);
-      setSelectedReview(null);
-      fetchReviews();
+      const result = await adminService.updateReviewStatus(selectedReview.review_id, "HIDDEN");
+      if (result.success) {
+        showToast("success", result.message || `Đã ẩn review ${selectedReview.review_id}`);
+        setShowHideModal(false);
+        setSelectedReview(null);
+        fetchReviews();
+      } else {
+        showToast("error", result.message || "Không thể ẩn review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể ẩn review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể ẩn review");
     }
   };
 
@@ -173,13 +103,17 @@ const ReviewsList = () => {
     if (!selectedReview) return;
 
     try {
-      // TODO: API call
-      showToast("success", `Đã xóa review ${selectedReview.review_id}`);
-      setShowDeleteModal(false);
-      setSelectedReview(null);
-      fetchReviews();
+      const result = await adminService.deleteReview(selectedReview.review_id);
+      if (result.success) {
+        showToast("success", result.message || `Đã xóa review ${selectedReview.review_id}`);
+        setShowDeleteModal(false);
+        setSelectedReview(null);
+        fetchReviews();
+      } else {
+        showToast("error", result.message || "Không thể xóa review");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể xóa review");
+      showToast("error", error.response?.data?.message || error.message || "Không thể xóa review");
     }
   };
 
@@ -190,14 +124,18 @@ const ReviewsList = () => {
     }
 
     try {
-      // TODO: API call
-      showToast("success", "Đã gửi phản hồi review thành công");
-      setShowReplyModal(false);
-      setSelectedReview(null);
-      setReplyText("");
-      fetchReviews();
+      const result = await adminService.createReviewReply(selectedReview.review_id, replyText);
+      if (result.success) {
+        showToast("success", result.message || "Đã gửi phản hồi review thành công");
+        setShowReplyModal(false);
+        setSelectedReview(null);
+        setReplyText("");
+        fetchReviews();
+      } else {
+        showToast("error", result.message || "Không thể gửi phản hồi");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể gửi phản hồi");
+      showToast("error", error.response?.data?.message || error.message || "Không thể gửi phản hồi");
     }
   };
 
@@ -206,10 +144,11 @@ const ReviewsList = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
+  // Pagination is handled by backend
+  const currentReviews = filteredReviews;
+  const totalPages = Math.ceil(totalReviews / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentReviews = filteredReviews.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, totalReviews);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -219,8 +158,6 @@ const ReviewsList = () => {
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Đã ẩn</span>;
       case "DELETED":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Đã xóa</span>;
-      case "PENDING":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Chờ duyệt</span>;
       default:
         return null;
     }
@@ -251,6 +188,16 @@ const ReviewsList = () => {
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString("vi-VN");
+  };
+
+  // Sanitize HTML (comment đã là HTML từ WYSIWYG editor)
+  const sanitizeHTML = (html: string): string => {
+    if (!html) return '';
+    // Remove potentially dangerous scripts but keep safe HTML
+    return html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
   };
 
   return (
@@ -315,21 +262,7 @@ const ReviewsList = () => {
             <option value="ACTIVE">Hiển thị</option>
             <option value="HIDDEN">Đã ẩn</option>
             <option value="DELETED">Đã xóa</option>
-            <option value="PENDING">Chờ duyệt</option>
           </select>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="pendingOnly"
-              checked={filters.pendingOnly}
-              onChange={(e) => setFilters({ ...filters, pendingOnly: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <label htmlFor="pendingOnly" className="text-sm text-gray-700 cursor-pointer">
-              Chờ duyệt
-            </label>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -390,7 +323,7 @@ const ReviewsList = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-900 max-w-xs truncate">{review.title}</p>
+                      <p className="text-sm text-gray-900 max-w-xs truncate">{review.title || 'Không có tiêu đề'}</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatDateTime(review.created_at)}
@@ -405,15 +338,6 @@ const ReviewsList = () => {
                         >
                           <Eye size={18} />
                         </button>
-                        {review.status === "PENDING" && (
-                          <button
-                            onClick={() => handleApprove(review.review_id)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                            title="Duyệt"
-                          >
-                            <Clock size={18} />
-                          </button>
-                        )}
                         {review.status === "ACTIVE" && (
                           <>
                             <button
@@ -462,7 +386,7 @@ const ReviewsList = () => {
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
-                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredReviews.length)} trong tổng số {filteredReviews.length} review
+                Hiển thị {startIndex + 1}-{endIndex} trong tổng số {totalReviews} review
               </span>
               <select
                 value={itemsPerPage}
@@ -502,8 +426,17 @@ const ReviewsList = () => {
 
       {/* Hide Modal */}
       {showHideModal && selectedReview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowHideModal(false);
+            setSelectedReview(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận ẩn review</h3>
             <p className="text-gray-600 mb-6">
               Bạn có chắc chắn muốn ẩn review này? Review sẽ không hiển thị công khai nhưng vẫn được lưu trong hệ thống.
@@ -531,8 +464,17 @@ const ReviewsList = () => {
 
       {/* Delete Modal */}
       {showDeleteModal && selectedReview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowDeleteModal(false);
+            setSelectedReview(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận xóa review</h3>
             <p className="text-gray-600 mb-6">
               Bạn có chắc chắn muốn xóa review này? Hành động này không thể hoàn tác.
@@ -560,14 +502,34 @@ const ReviewsList = () => {
 
       {/* Reply Modal */}
       {showReplyModal && selectedReview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowReplyModal(false);
+            setSelectedReview(null);
+            setReplyText("");
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Trả lời review</h3>
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-2">Review từ {selectedReview.customer_name}</p>
-                <p className="text-gray-900 font-medium">{selectedReview.title}</p>
-                <p className="text-gray-700 mt-2">{selectedReview.comment}</p>
+                {selectedReview.title && (
+                  <p className="text-gray-900 font-medium mb-2">{selectedReview.title}</p>
+                )}
+                {selectedReview.comment ? (
+                  <div 
+                    className="text-gray-700 mt-2 review-content"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(selectedReview.comment) }}
+                    style={{ wordBreak: 'break-word' }}
+                  />
+                ) : (
+                  <p className="text-gray-500 italic mt-2">Không có bình luận</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung phản hồi *</label>
@@ -602,6 +564,87 @@ const ReviewsList = () => {
           </div>
         </div>
       )}
+
+      {/* Styles for HTML content */}
+      <style>{`
+        .review-content {
+          line-height: 1.6;
+        }
+        .review-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 12px 0;
+          border: 1px solid #e5e7eb;
+          cursor: pointer;
+          transition: opacity 0.2s;
+        }
+        .review-content img:hover {
+          opacity: 0.9;
+        }
+        .review-content strong {
+          font-weight: 600;
+        }
+        .review-content em {
+          font-style: italic;
+        }
+        .review-content u {
+          text-decoration: underline;
+        }
+        .review-content s,
+        .review-content strike {
+          text-decoration: line-through;
+        }
+        .review-content h1 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 12px 0 8px 0;
+          line-height: 1.3;
+        }
+        .review-content h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin: 10px 0 6px 0;
+          line-height: 1.3;
+        }
+        .review-content h3 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin: 8px 0 4px 0;
+          line-height: 1.3;
+        }
+        .review-content ul,
+        .review-content ol {
+          margin: 8px 0;
+          padding-left: 24px;
+        }
+        .review-content ul {
+          list-style-type: disc;
+        }
+        .review-content ol {
+          list-style-type: decimal;
+        }
+        .review-content li {
+          margin: 4px 0;
+        }
+        .review-content blockquote {
+          border-left: 4px solid #3b82f6;
+          padding-left: 16px;
+          margin: 12px 0;
+          font-style: italic;
+          color: #6b7280;
+          background-color: #f9fafb;
+          padding: 12px 16px;
+          border-radius: 4px;
+        }
+        .review-content a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        .review-content a:hover {
+          color: #1d4ed8;
+        }
+      `}</style>
     </div>
   );
 };

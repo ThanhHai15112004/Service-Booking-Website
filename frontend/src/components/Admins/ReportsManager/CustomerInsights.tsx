@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Users, TrendingUp, DollarSign, Download } from "lucide-react";
 import Toast from "../../Toast";
 import Loading from "../../Loading";
+import { adminService } from "../../../services/adminService";
 
 interface CustomerInsight {
   totalCustomers: number;
@@ -35,37 +36,15 @@ const CustomerInsights = () => {
   const fetchCustomerInsight = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        setInsight({
-          totalCustomers: 12456,
-          newCustomers: 5234,
-          returningCustomers: 7222,
-          activeCustomers: 8567,
-          inactiveCustomers: 3889,
-          returnRate: 58.0,
-          customerLifetimeValue: 3670000,
-          topSpendingCustomers: [
-            { customer_id: "C001", customer_name: "Nguyễn Văn A", total_spent: 45000000, booking_count: 12 },
-            { customer_id: "C002", customer_name: "Trần Thị B", total_spent: 38000000, booking_count: 9 },
-            { customer_id: "C003", customer_name: "Lê Văn C", total_spent: 32000000, booking_count: 8 },
-            { customer_id: "C004", customer_name: "Phạm Thị D", total_spent: 28000000, booking_count: 7 },
-            { customer_id: "C005", customer_name: "Hoàng Văn E", total_spent: 25000000, booking_count: 6 },
-          ],
-          newCustomersTrend: [
-            { date: "01/11", count: 45 },
-            { date: "02/11", count: 52 },
-            { date: "03/11", count: 48 },
-            { date: "04/11", count: 61 },
-            { date: "05/11", count: 58 },
-            { date: "06/11", count: 55 },
-            { date: "07/11", count: 62 },
-          ],
-        });
-        setLoading(false);
-      }, 800);
+      const result = await adminService.getCustomerInsights();
+      if (result.success && result.data) {
+        setInsight(result.data);
+      } else {
+        showToast("error", result.message || "Không thể tải dữ liệu khách hàng");
+      }
     } catch (error: any) {
-      showToast("error", error.message || "Không thể tải dữ liệu khách hàng");
+      showToast("error", error.response?.data?.message || error.message || "Không thể tải dữ liệu khách hàng");
+    } finally {
       setLoading(false);
     }
   };

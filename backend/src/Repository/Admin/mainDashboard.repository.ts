@@ -209,17 +209,29 @@ export class MainDashboardRepository {
     );
 
     // 15. Pending requests
+    // Reviews mới chưa có reply (có thể cần xử lý)
     const [pendingReviews]: any = await pool.query(
       `SELECT COUNT(*) as count 
-       FROM review 
-       WHERE is_visible = 0 OR is_visible IS NULL`
+       FROM review r
+       LEFT JOIN review_reply rr ON rr.review_id = r.review_id
+       WHERE r.status = 'ACTIVE' 
+         AND rr.reply_id IS NULL
+         AND r.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
     );
 
+    // Bookings đã cancelled nhưng chưa được refund
     const [pendingRefunds]: any = await pool.query(
       `SELECT COUNT(*) as count 
-       FROM payment 
-       WHERE status = 'REFUNDED' 
-         AND updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+       FROM booking b
+       LEFT JOIN payment p ON p.booking_id = b.booking_id AND p.status IN ('SUCCESS', 'REFUNDED')
+       WHERE b.status = 'CANCELLED' 
+         AND p.payment_id IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM payment p2 
+           WHERE p2.booking_id = b.booking_id 
+             AND p2.status = 'REFUNDED'
+         )
+         AND b.updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
     );
 
     const [pendingEmailVerifications]: any = await pool.query(

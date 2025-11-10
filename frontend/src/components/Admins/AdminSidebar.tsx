@@ -239,7 +239,6 @@ const AdminSidebar = () => {
       subItems: [
         { label: "Dashboard", path: "/admin/reviews/dashboard" },
         { label: "Danh sách review", path: "/admin/reviews" },
-        { label: "Duyệt review", path: "/admin/reviews/approval" },
         { label: "Thống kê & Báo cáo", path: "/admin/reviews/reports" },
         { label: "Nhật ký thao tác", path: "/admin/reviews/activity" },
       ],

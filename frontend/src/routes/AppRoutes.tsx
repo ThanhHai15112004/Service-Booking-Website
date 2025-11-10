@@ -70,7 +70,6 @@ import PromotionActivityLog from "../components/Admins/PromotionManager/Activity
 import ReviewDashboard from "../components/Admins/ReviewManager/Dashboard";
 import ReviewsList from "../components/Admins/ReviewManager/ReviewsList";
 import ReviewDetail from "../components/Admins/ReviewManager/ReviewDetail";
-import ReviewApproval from "../components/Admins/ReviewManager/ReviewApproval";
 import ReviewReports from "../components/Admins/ReviewManager/ReviewReports";
 import ReviewActivityLog from "../components/Admins/ReviewManager/ReviewActivityLog";
 
@@ -417,11 +416,6 @@ function AppRoutes() {
       <Route path="/admin/reviews/:reviewId" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><ReviewDetail /></AdminLayout>
-        </ProtectedAdminRoute>
-      } />
-      <Route path="/admin/reviews/approval" element={
-        <ProtectedAdminRoute requireAdmin={true}>
-          <AdminLayout><ReviewApproval /></AdminLayout>
         </ProtectedAdminRoute>
       } />
       <Route path="/admin/reviews/reports" element={
