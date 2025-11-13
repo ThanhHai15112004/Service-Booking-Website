@@ -9,6 +9,7 @@ import {
 } from "../../utils/validator";
 import { EmailService } from "./email.service";
 import { TokenService } from "./token.service";
+import { MAX_VERIFICATION_RESEND_COUNT, VERIFICATION_RESEND_COOLDOWN_MS } from "../../config/booking.constants";
 
 export class AuthService {
     constructor(
@@ -230,18 +231,18 @@ export class AuthService {
       user.resend_count = 0;
     }
 
-    if (user.resend_count >= 5)
+    if (user.resend_count >= MAX_VERIFICATION_RESEND_COUNT)
       throw new Error(
-        "Đã đạt giới hạn 5 lần gửi lại trong 24 giờ. Vui lòng thử lại sau."
+        `Đã đạt giới hạn ${MAX_VERIFICATION_RESEND_COUNT} lần gửi lại trong 24 giờ. Vui lòng thử lại sau.`
       );
 
     const lastSent = user.last_verification_email_at
       ? new Date(user.last_verification_email_at)
       : null;
 
-    if (lastSent && now.getTime() - lastSent.getTime() < 2 * 60 * 1000) {
+    if (lastSent && now.getTime() - lastSent.getTime() < VERIFICATION_RESEND_COOLDOWN_MS) {
       const wait = Math.ceil(
-        (2 * 60 * 1000 - (now.getTime() - lastSent.getTime())) / 1000
+        (VERIFICATION_RESEND_COOLDOWN_MS - (now.getTime() - lastSent.getTime())) / 1000
       );
       throw new Error(`Vui lòng đợi ${wait} giây trước khi gửi lại email.`);
     }

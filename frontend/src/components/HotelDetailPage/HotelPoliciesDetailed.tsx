@@ -1,4 +1,3 @@
-import React from 'react';
 import { Baby, User, Users } from 'lucide-react';
 
 interface HotelPoliciesDetailedProps {
@@ -17,6 +16,9 @@ interface HotelPoliciesDetailedProps {
     additionalPolicies?: Array<{
       policyName: string;
       description: string;
+      policyKey?: string;
+      value?: any;
+      dataType?: string;
     }>;
   };
 }
@@ -116,7 +118,15 @@ export default function HotelPoliciesDetailed({ policies }: HotelPoliciesDetaile
             {policies.additionalPolicies?.map((policy, index) => (
               <li key={index} className="flex items-start gap-2">
                 <span className="text-blue-600 mt-0.5">•</span>
-                <span>{policy.description || policy.policyName}</span>
+                <div>
+                  <span className="font-medium">{policy.policyName}: </span>
+                  <span>
+                    {policy.dataType === 'BOOLEAN' 
+                      ? (policy.value ? 'Có' : 'Không')
+                      : policy.description || policy.value || policy.policyName
+                    }
+                  </span>
+                </div>
               </li>
             ))}
           </ul>

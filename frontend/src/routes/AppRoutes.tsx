@@ -76,6 +76,9 @@ import ReviewActivityLog from "../components/Admins/ReviewManager/ReviewActivity
 // Reports Manager
 import ReportsManager from "../components/Admins/ReportsManager";
 
+// List Manager
+import ListManager from "../components/Admins/ListManager";
+
 function AppRoutes() {
   return (
     <Routes>
@@ -426,6 +429,13 @@ function AppRoutes() {
       <Route path="/admin/reviews/activity" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><ReviewActivityLog /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
+
+      {/* List Management Routes */}
+      <Route path="/admin/lists" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><ListManager /></AdminLayout>
         </ProtectedAdminRoute>
       } />
 

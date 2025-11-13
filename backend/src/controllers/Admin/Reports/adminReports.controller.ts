@@ -15,6 +15,8 @@ export const getBookingReports = async (req: Request, res: Response) => {
     });
     res.status(result.success ? 200 : 500).json(result);
   } catch (error: any) {
+    console.error("[AdminReportsController] getBookingReports error:", error);
+    console.error("[AdminReportsController] Error stack:", error.stack);
     res.status(500).json({
       success: false,
       message: error.message || "Lỗi server khi lấy báo cáo booking",
@@ -52,6 +54,8 @@ export const getOccupancyReports = async (req: Request, res: Response) => {
     });
     res.status(result.success ? 200 : 500).json(result);
   } catch (error: any) {
+    console.error("[AdminReportsController] getOccupancyReports error:", error);
+    console.error("[AdminReportsController] Error stack:", error.stack);
     res.status(500).json({
       success: false,
       message: error.message || "Lỗi server khi lấy báo cáo tỷ lệ lấp đầy",

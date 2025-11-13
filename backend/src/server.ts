@@ -14,6 +14,22 @@ import cookieParser from "cookie-parser";
 
 dotenv.config();
 
+// ✅ Validate required environment variables
+const requiredEnvVars = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'DB_HOST',
+  'DB_USER',
+  'DB_NAME'
+  // DB_PASSWORD is optional (some databases don't have password)
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

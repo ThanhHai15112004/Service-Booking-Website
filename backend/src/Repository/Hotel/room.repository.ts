@@ -105,6 +105,74 @@ export class RoomRepository {
     }
   }
 
+  // ✅ Batch: Lấy amenities cho nhiều phòng cùng lúc (fix N+1)
+  async getRoomsAmenitiesBatch(roomIds: string[]): Promise<Map<string, any[]>> {
+    try {
+      if (roomIds.length === 0) {
+        return new Map();
+      }
+
+      const amenities = await RoomAmenity.findAll({
+        include: [
+          {
+            model: Facility,
+            as: 'facility',
+            attributes: ['facility_id', 'name', 'icon'],
+            required: true
+          }
+        ],
+        where: {
+          room_id: {
+            [Op.in]: roomIds
+          }
+        },
+        attributes: ['room_id'],
+        raw: false
+      });
+
+      // Group by room_id
+      const amenitiesByRoom = new Map<string, Map<string, any>>();
+      amenities.forEach((item: any) => {
+        const roomId = item.room_id;
+        const facility = item.facility;
+        
+        if (!amenitiesByRoom.has(roomId)) {
+          amenitiesByRoom.set(roomId, new Map());
+        }
+        
+        const roomFacilities = amenitiesByRoom.get(roomId)!;
+        if (facility && !roomFacilities.has(facility.facility_id)) {
+          roomFacilities.set(facility.facility_id, {
+            facilityId: facility.facility_id,
+            name: facility.name,
+            icon: facility.icon
+          });
+        }
+      });
+
+      // Convert to array format
+      const result = new Map<string, any[]>();
+      amenitiesByRoom.forEach((facilities, roomId) => {
+        result.set(roomId, Array.from(facilities.values()));
+      });
+
+      // Ensure all roomIds have an entry (even if empty)
+      roomIds.forEach(roomId => {
+        if (!result.has(roomId)) {
+          result.set(roomId, []);
+        }
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error("[RoomRepository] getRoomsAmenitiesBatch error:", error.message);
+      // Return empty map for all roomIds on error
+      const result = new Map<string, any[]>();
+      roomIds.forEach(roomId => result.set(roomId, []));
+      return result;
+    }
+  }
+
   // Hàm lấy phòng có thể đặt theo roomTypeId và date range
   async getAvailableRoomsByRoomTypeId(
     roomTypeId: string,

@@ -9,8 +9,9 @@ export class AdminReportsRepository {
     city?: string;
     status?: string;
   }) {
-    let whereConditions: string[] = [];
-    let queryParams: any[] = [];
+    try {
+      let whereConditions: string[] = [];
+      let queryParams: any[] = [];
 
     if (filters.startDate && filters.endDate) {
       whereConditions.push("DATE(b.created_at) BETWEEN ? AND ?");
@@ -22,6 +23,11 @@ export class AdminReportsRepository {
       queryParams.push(filters.hotel_id);
     }
 
+    // ✅ Build JOIN clause if city filter is present
+    const joinClause = filters.city 
+      ? `LEFT JOIN hotel h ON h.hotel_id = b.hotel_id LEFT JOIN hotel_location l ON l.location_id = h.location_id`
+      : "";
+    
     if (filters.city) {
       whereConditions.push("l.city = ?");
       queryParams.push(filters.city);
@@ -36,7 +42,7 @@ export class AdminReportsRepository {
 
     // Total bookings
     const [totalBookings]: any = await pool.query(
-      `SELECT COUNT(*) as count FROM booking b ${whereClause}`,
+      `SELECT COUNT(*) as count FROM booking b ${joinClause} ${whereClause}`,
       queryParams
     );
 
@@ -46,6 +52,7 @@ export class AdminReportsRepository {
         b.status,
         COUNT(*) as count
        FROM booking b
+       ${joinClause}
        ${whereClause}
        GROUP BY b.status`,
       queryParams
@@ -59,10 +66,14 @@ export class AdminReportsRepository {
     }));
 
     // Cancellation rate
+    const cancelledWhereClause = whereClause 
+      ? `${whereClause} AND b.status = 'CANCELLED'`
+      : `WHERE b.status = 'CANCELLED'`;
     const [cancelledCount]: any = await pool.query(
       `SELECT COUNT(*) as count 
        FROM booking b 
-       ${whereClause} AND b.status = 'CANCELLED'`,
+       ${joinClause}
+       ${cancelledWhereClause}`,
       queryParams
     );
 
@@ -71,10 +82,14 @@ export class AdminReportsRepository {
       : 0;
 
     // Completion rate
+    const completedWhereClause = whereClause 
+      ? `${whereClause} AND b.status = 'COMPLETED'`
+      : `WHERE b.status = 'COMPLETED'`;
     const [completedCount]: any = await pool.query(
       `SELECT COUNT(*) as count 
        FROM booking b 
-       ${whereClause} AND b.status = 'COMPLETED'`,
+       ${joinClause}
+       ${completedWhereClause}`,
       queryParams
     );
 
@@ -83,10 +98,14 @@ export class AdminReportsRepository {
       : 0;
 
     // Average booking value
+    const avgValueWhereClause = whereClause 
+      ? `${whereClause} AND b.total_amount IS NOT NULL`
+      : `WHERE b.total_amount IS NOT NULL`;
     const [avgValue]: any = await pool.query(
       `SELECT COALESCE(AVG(b.total_amount), 0) as avg_value 
        FROM booking b 
-       ${whereClause} AND b.total_amount IS NOT NULL`,
+       ${joinClause}
+       ${avgValueWhereClause}`,
       queryParams
     );
 
@@ -163,6 +182,9 @@ export class AdminReportsRepository {
     );
 
     // Bookings by category
+    const categoryJoinClause = filters.city 
+      ? `LEFT JOIN hotel_location l ON l.location_id = h.location_id`
+      : "";
     const [bookingsByCategory]: any = await pool.query(
       `SELECT 
         c.name as category,
@@ -170,6 +192,7 @@ export class AdminReportsRepository {
        FROM hotel_category c
        LEFT JOIN hotel h ON h.category_id = c.category_id
        LEFT JOIN booking b ON b.hotel_id = h.hotel_id
+       ${categoryJoinClause}
        ${whereClause}
        GROUP BY c.category_id, c.name
        ORDER BY bookings DESC`,
@@ -192,6 +215,7 @@ export class AdminReportsRepository {
         DATE_FORMAT(b.created_at, '%d/%m') as date,
         COUNT(*) as count
        FROM booking b
+       ${joinClause}
        ${timeWhereClause}
        GROUP BY DATE(b.created_at)
        ORDER BY b.created_at ASC`,
@@ -209,6 +233,10 @@ export class AdminReportsRepository {
       bookingsByCategory: bookingsByCategory || [],
       bookingsByTime: bookingsByTime || [],
     };
+    } catch (error: any) {
+      console.error("[AdminReportsRepository] Error in getBookingReports:", error);
+      throw error;
+    }
   }
 
   // ========== Revenue Reports ==========
@@ -651,19 +679,19 @@ export class AdminReportsRepository {
       occupancyByHotel: (occupancyByHotel || []).map((item: any) => ({
         hotel_id: item.hotel_id,
         hotel_name: item.hotel_name,
-        occupancy_rate: parseFloat((item.occupancy_rate || 0).toFixed(1))
+        occupancy_rate: parseFloat((Number(item.occupancy_rate) || 0).toFixed(1))
       })),
       occupancyByMonth: (occupancyByMonth || []).map((item: any) => ({
         month: item.month,
-        occupancy_rate: parseFloat((item.occupancy_rate || 0).toFixed(1))
+        occupancy_rate: parseFloat((Number(item.occupancy_rate) || 0).toFixed(1))
       })),
       occupancyByCity: (occupancyByCity || []).map((item: any) => ({
         city: item.city,
-        occupancy_rate: parseFloat((item.occupancy_rate || 0).toFixed(1))
+        occupancy_rate: parseFloat((Number(item.occupancy_rate) || 0).toFixed(1))
       })),
       occupancyByCategory: (occupancyByCategory || []).map((item: any) => ({
         category: item.category,
-        occupancy_rate: parseFloat((item.occupancy_rate || 0).toFixed(1))
+        occupancy_rate: parseFloat((Number(item.occupancy_rate) || 0).toFixed(1))
       })),
       occupancyYearOverYear: (yearOverYear || []).map((item: any) => ({
         period: item.period,
@@ -672,7 +700,7 @@ export class AdminReportsRepository {
       })),
       occupancyCalendar: (occupancyCalendar || []).map((item: any) => ({
         date: item.date,
-        occupancy_rate: parseFloat((item.occupancy_rate || 0).toFixed(1))
+        occupancy_rate: parseFloat((Number(item.occupancy_rate) || 0).toFixed(1))
       })),
     };
   }

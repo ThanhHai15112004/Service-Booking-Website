@@ -46,7 +46,7 @@ export default function HotelDetailedInfo({ description, name, bannerImage }: Ho
               !isExpanded && needsTruncation ? 'overflow-hidden' : ''
             }`}
           >
-            <p
+            <div
               className={
                 !isExpanded && needsTruncation 
                   ? 'line-clamp-3' 
@@ -62,9 +62,8 @@ export default function HotelDetailedInfo({ description, name, bannerImage }: Ho
                     }
                   : {}
               }
-            >
-              {description}
-            </p>
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
           </div>
 
           {/* ✅ "Xem thêm" / "Thu gọn" Button */}

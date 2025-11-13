@@ -653,7 +653,8 @@ export class AdminReviewRepository {
     let dateFilter = '';
     const dateParams: any[] = [];
 
-    if (filters.period) {
+    // ✅ Handle period filter (only if period is not empty)
+    if (filters.period && filters.period.trim() !== '') {
       switch (filters.period) {
         case '7days':
           dateFilter = 'AND r.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)';
@@ -670,6 +671,7 @@ export class AdminReviewRepository {
       }
     }
 
+    // ✅ startDate/endDate takes priority over period
     if (filters.startDate && filters.endDate) {
       dateFilter = 'AND DATE(r.created_at) BETWEEN ? AND ?';
       dateParams.push(filters.startDate, filters.endDate);
@@ -888,16 +890,16 @@ export class AdminReviewRepository {
 
     return {
       totalReviews: totalReviewsData[0]?.total_reviews || 0,
-      averageRating: parseFloat((totalReviewsData[0]?.average_rating || 0).toFixed(1)),
+      averageRating: parseFloat((Number(totalReviewsData[0]?.average_rating) || 0).toFixed(1)),
       averageRatingByHotel: avgByHotel.map((r: any) => ({
         hotel_id: r.hotel_id,
         hotel_name: r.hotel_name,
-        average_rating: parseFloat((r.average_rating || 0).toFixed(1)),
+        average_rating: parseFloat((Number(r.average_rating) || 0).toFixed(1)),
         review_count: r.review_count
       })),
       averageRatingByCity: (avgByCity || []).map((r: any) => ({
         city: r.city,
-        average_rating: parseFloat((r.average_rating || 0).toFixed(1)),
+        average_rating: parseFloat((Number(r.average_rating) || 0).toFixed(1)),
         review_count: r.review_count
       })),
       ratingDistribution,
@@ -907,18 +909,18 @@ export class AdminReviewRepository {
       topRatedHotels: topRated.map((r: any) => ({
         hotel_id: r.hotel_id,
         hotel_name: r.hotel_name,
-        average_rating: parseFloat((r.average_rating || 0).toFixed(1)),
+        average_rating: parseFloat((Number(r.average_rating) || 0).toFixed(1)),
         review_count: r.review_count
       })),
       topComplainedHotels: topComplained.map((r: any) => ({
         hotel_id: r.hotel_id,
         hotel_name: r.hotel_name,
-        average_rating: parseFloat((r.average_rating || 0).toFixed(1)),
+        average_rating: parseFloat((Number(r.average_rating) || 0).toFixed(1)),
         low_rating_count: r.low_rating_count
       })),
       ratingByCriteria: ratingByCriteria.map((r: any) => ({
         criteria: r.criteria,
-        average_rating: parseFloat((r.average_rating || 0).toFixed(1))
+        average_rating: parseFloat((Number(r.average_rating) || 0).toFixed(1))
       }))
     };
   }

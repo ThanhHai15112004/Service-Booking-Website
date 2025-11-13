@@ -819,7 +819,19 @@ export class HotelSearchRepository {
           sortOrder: data.sort_order
         };
       });
-      const policies = {
+
+      // Fetch hotel policies from database
+      const [policiesRows]: any = await pool.query(
+        `SELECT hp.policy_key, hp.value, pt.name_vi, pt.name_en, pt.data_type, pt.icon
+         FROM hotel_policy hp
+         INNER JOIN policy_type pt ON hp.policy_key = pt.policy_key
+         WHERE hp.hotel_id = ? AND pt.is_active = 1
+         ORDER BY pt.display_order`,
+        [hotelId]
+      );
+
+      // Build policies object
+      const policies: any = {
         checkIn: {
           from: hotel.checkin_time || '14:00',
           to: '23:59'
@@ -827,12 +839,43 @@ export class HotelSearchRepository {
         checkOut: {
           before: hotel.checkout_time || '12:00'
         },
-        children: 'Cho phép trẻ em ở cùng',
-        cancellation: 'Miễn phí hủy trước 48 giờ',
-        smoking: false,
-        pets: false,
         additionalPolicies: []
-        };
+      };
+
+      // Map policies from database
+      policiesRows.forEach((row: any) => {
+        const { policy_key, value, name_vi, name_en, data_type } = row;
+        
+        // Convert value based on data_type
+        let convertedValue: any = value;
+        if (data_type === 'BOOLEAN') {
+          convertedValue = value === '1' || value === 'true' || value === true;
+        } else if (data_type === 'INTEGER') {
+          convertedValue = parseInt(value) || 0;
+        } else if (data_type === 'DECIMAL') {
+          convertedValue = parseFloat(value) || 0;
+        }
+
+        // Map common policy keys
+        if (policy_key === 'SMOKING_ALLOWED' || policy_key === 'smoking') {
+          policies.smoking = convertedValue;
+        } else if (policy_key === 'PETS_ALLOWED' || policy_key === 'pets') {
+          policies.pets = convertedValue;
+        } else if (policy_key === 'CANCELLATION_POLICY' || policy_key === 'cancellation') {
+          policies.cancellation = value;
+        } else if (policy_key === 'CHILDREN_POLICY' || policy_key === 'children') {
+          policies.children = value;
+        } else {
+          // Add to additionalPolicies
+          policies.additionalPolicies.push({
+            policyName: name_vi || name_en || policy_key,
+            description: value,
+            policyKey: policy_key,
+            value: convertedValue,
+            dataType: data_type
+          });
+        }
+      });
 
       const badges = this.generateBadges({
         avgRating: hotel.avg_rating,

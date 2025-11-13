@@ -18,6 +18,7 @@ export class AdminReportsService {
       };
     } catch (error: any) {
       console.error("[AdminReportsService] Error getting booking reports:", error);
+      console.error("[AdminReportsService] Error stack:", error.stack);
       return {
         success: false,
         message: error.message || "Lỗi khi lấy báo cáo booking",
@@ -63,6 +64,7 @@ export class AdminReportsService {
       };
     } catch (error: any) {
       console.error("[AdminReportsService] Error getting occupancy reports:", error);
+      console.error("[AdminReportsService] Error stack:", error.stack);
       return {
         success: false,
         message: error.message || "Lỗi khi lấy báo cáo tỷ lệ lấp đầy",

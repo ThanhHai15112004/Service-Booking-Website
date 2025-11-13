@@ -440,7 +440,8 @@ export class AvailabilityRepository {
     roomId: string,
     startDate: string,
     endDate: string,
-    roomsCount: number = 1
+    roomsCount: number = 1,
+    transaction?: any
   ): Promise<{ success: boolean; affectedRows: number }> {
     // ✅ Auto-detect dayuse
     const isDayuse = startDate === endDate;
@@ -460,7 +461,8 @@ export class AvailabilityRepository {
             [Op.gte]: roomsCount
           }
         },
-        hooks: false
+        hooks: false,
+        transaction
       }
     );
 
@@ -470,12 +472,56 @@ export class AvailabilityRepository {
     };
   }
 
+  // Hàm lock nhiều phòng trong transaction (atomic)
+  async lockMultipleRooms(
+    roomIds: string[],
+    startDate: string,
+    endDate: string,
+    roomsCount: number = 1
+  ): Promise<{ success: boolean; lockedRooms: string[]; failedRoomId?: string }> {
+    const transaction = await sequelize.transaction();
+    const lockedRooms: string[] = [];
+    
+    try {
+      for (const roomId of roomIds) {
+        const lockResult = await this.reduceAvailableRooms(
+          roomId,
+          startDate,
+          endDate,
+          roomsCount,
+          transaction
+        );
+        
+        if (!lockResult.success) {
+          await transaction.rollback();
+          return {
+            success: false,
+            lockedRooms: [],
+            failedRoomId: roomId
+          };
+        }
+        
+        lockedRooms.push(roomId);
+      }
+      
+      await transaction.commit();
+      return {
+        success: true,
+        lockedRooms
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
   // Hàm tăng số phòng trống (chỉ update room_price_schedule.available_rooms, không update room.status)
   async increaseAvailableRooms(
     roomId: string,
     startDate: string,
     endDate: string,
-    roomsCount: number = 1
+    roomsCount: number = 1,
+    transaction?: any
   ): Promise<{ success: boolean; affectedRows: number }> {
     // ✅ Auto-detect dayuse
     const isDayuse = startDate === endDate;
@@ -492,7 +538,8 @@ export class AvailabilityRepository {
           room_id: roomId,
           date: dateCondition, // ✅ Use dynamic date condition
         },
-        hooks: false
+        hooks: false,
+        transaction
       }
     );
 
@@ -500,6 +547,42 @@ export class AvailabilityRepository {
       success: affectedCount > 0,
       affectedRows: affectedCount
     };
+  }
+
+  // Hàm unlock nhiều phòng trong transaction (atomic)
+  async unlockMultipleRooms(
+    roomIds: string[],
+    startDate: string,
+    endDate: string,
+    roomsCount: number = 1
+  ): Promise<{ success: boolean; unlockedCount: number }> {
+    const transaction = await sequelize.transaction();
+    let unlockedCount = 0;
+    
+    try {
+      for (const roomId of roomIds) {
+        const unlockResult = await this.increaseAvailableRooms(
+          roomId,
+          startDate,
+          endDate,
+          roomsCount,
+          transaction
+        );
+        
+        if (unlockResult.success) {
+          unlockedCount += unlockResult.affectedRows;
+        }
+      }
+      
+      await transaction.commit();
+      return {
+        success: true,
+        unlockedCount
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   // Hàm kiểm tra loại phòng có đủ không

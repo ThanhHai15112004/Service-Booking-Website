@@ -12,6 +12,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  List,
 } from "lucide-react";
 import logo from "../../assets/imgs/logos/logo1.png";
 import { adminService } from "../../services/adminService";
@@ -61,6 +62,9 @@ const AdminSidebar = () => {
     }
     if (location.pathname.startsWith("/admin/reports")) {
       shouldExpand.push("reports");
+    }
+    if (location.pathname.startsWith("/admin/lists")) {
+      shouldExpand.push("lists");
     }
 
     // Only update if different to prevent unnecessary re-renders
@@ -243,7 +247,12 @@ const AdminSidebar = () => {
         { label: "Nhật ký thao tác", path: "/admin/reviews/activity" },
       ],
     },
-    
+    {
+      id: "lists",
+      label: "Quản lý Danh sách",
+      icon: <List size={20} />,
+      path: "/admin/lists",
+    },
   ];
 
   const toggleExpand = (itemId: string) => {

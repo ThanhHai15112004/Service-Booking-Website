@@ -18,6 +18,10 @@ import discountManagerRoutes from "../DiscountManager/adminDiscount.route";
 import promotionManagerRoutes from "../PromotionManager/adminPromotion.route";
 import reviewManagerRoutes from "../ReviewManager/adminReview.route";
 import reportsRoutes from "../Reports/adminReports.route";
+import facilityRoutes from "../ListManager/facility.route";
+import highlightRoutes from "../ListManager/highlight.route";
+import bedTypeRoutes from "../ListManager/bedType.route";
+import policyTypeRoutes from "../ListManager/policyType.route";
 
 const router = Router();
 
@@ -71,5 +75,11 @@ router.use("/reviews", reviewManagerRoutes);
 
 // Reports
 router.use("/reports", reportsRoutes);
+
+// List Management
+router.use("/facilities", facilityRoutes);
+router.use("/highlights", highlightRoutes);
+router.use("/bed-types", bedTypeRoutes);
+router.use("/policy-types", policyTypeRoutes);
 
 export default router;

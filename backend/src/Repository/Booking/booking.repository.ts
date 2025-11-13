@@ -108,6 +108,43 @@ export class BookingRepository {
     }
   }
 
+  // ✅ Batch: Lấy thông tin nhiều phòng cùng lúc (fix N+1)
+  async getRoomsByIds(roomIds: string[]): Promise<Map<string, any>> {
+    if (roomIds.length === 0) {
+      return new Map();
+    }
+
+    const sql = `
+      SELECT 
+        r.room_id,
+        r.room_type_id,
+        r.room_number,
+        rt.hotel_id,
+        r.capacity,
+        r.status,
+        rt.name as room_type_name,
+        rt.bed_type
+      FROM room r
+      JOIN room_type rt ON rt.room_type_id = r.room_type_id
+      WHERE r.room_id IN (${roomIds.map(() => '?').join(',')}) AND r.status = 'ACTIVE'
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await conn.query(sql, roomIds);
+      const rooms = rows as RowDataPacket[];
+      
+      const roomMap = new Map<string, any>();
+      rooms.forEach((room: any) => {
+        roomMap.set(room.room_id, room);
+      });
+      
+      return roomMap;
+    } finally {
+      conn.release();
+    }
+  }
+
   // Hàm tính giá booking từ room_price_schedule
   async calculateBookingPrice(
     roomId: string,
@@ -290,6 +327,23 @@ export class BookingRepository {
     }
   }
 
+  // ✅ Hàm xóa tất cả booking_detail cũ của một booking (cleanup orphaned records)
+  async deleteBookingDetailsByBookingId(bookingId: string): Promise<boolean> {
+    const sql = `
+      DELETE FROM booking_detail
+      WHERE booking_id = ?
+    `;
+
+    const conn = await pool.getConnection();
+    try {
+      const [result] = await conn.query(sql, [bookingId]);
+      console.log(`🗑️ Deleted ${(result as ResultSetHeader).affectedRows} old booking_detail records for booking ${bookingId}`);
+      return true;
+    } finally {
+      conn.release();
+    }
+  }
+
   // Hàm lấy booking by ID
   async getBookingById(bookingId: string): Promise<any | null> {
     const sql = `
@@ -305,6 +359,7 @@ export class BookingRepository {
         bd.checkout_date,
         bd.guests_count,
         bd.nights_count,
+        bd.booking_detail_id,
         r.room_number,
         r.capacity as room_capacity,
         r.image_url as room_image_url,
@@ -328,6 +383,7 @@ export class BookingRepository {
           WHERE p2.booking_id = b.booking_id
         )
       WHERE b.booking_id = ?
+      ORDER BY bd.booking_detail_id DESC
       LIMIT 1
     `;
 

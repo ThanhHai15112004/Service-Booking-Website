@@ -1,6 +1,6 @@
 import { Table, Column, Model, DataType, PrimaryKey } from 'sequelize-typescript';
 
-// Model: Loại giường (bed_type_metadata table)
+
 @Table({ tableName: 'bed_type_metadata', timestamps: false })
 export class BedType extends Model {
   @PrimaryKey

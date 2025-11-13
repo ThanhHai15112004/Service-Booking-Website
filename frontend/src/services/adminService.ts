@@ -853,7 +853,23 @@ export const adminService = {
 
   // ========== Hotel Highlights APIs ==========
   getAllHighlights: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
-    const response = await adminApi.get("/api/admin/hotels/highlights/all");
+    const response = await adminApi.get("/api/admin/highlights");
+    return response.data;
+  },
+  getHighlightById: async (highlightId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/highlights/${highlightId}`);
+    return response.data;
+  },
+  createHighlight: async (data: { highlight_id: string; name: string; icon_url?: string; description?: string; category?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.post("/api/admin/highlights", data);
+    return response.data;
+  },
+  updateHighlight: async (highlightId: string, data: { name?: string; icon_url?: string; description?: string; category?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/highlights/${highlightId}`, data);
+    return response.data;
+  },
+  deleteHighlight: async (highlightId: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/highlights/${highlightId}`);
     return response.data;
   },
   getHotelHighlights: async (hotelId: string): Promise<{ success: boolean; data?: any[]; message?: string }> => {
@@ -1177,8 +1193,24 @@ export const adminService = {
   },
 
   // Helper APIs
-  getBedTypes: async (): Promise<{ success: boolean; data?: string[]; message?: string }> => {
-    const response = await adminApi.get("/api/admin/rooms/bed-types");
+  getBedTypes: async (): Promise<{ success: boolean; data?: any[]; message?: string }> => {
+    const response = await adminApi.get("/api/admin/bed-types");
+    return response.data;
+  },
+  getBedTypeById: async (bedTypeKey: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/bed-types/${bedTypeKey}`);
+    return response.data;
+  },
+  createBedType: async (data: { bed_type_key: string; name_vi: string; name_en?: string; description?: string; icon?: string; display_order?: number }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.post("/api/admin/bed-types", data);
+    return response.data;
+  },
+  updateBedType: async (bedTypeKey: string, data: { name_vi?: string; name_en?: string; description?: string; icon?: string; display_order?: number }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/bed-types/${bedTypeKey}`, data);
+    return response.data;
+  },
+  deleteBedType: async (bedTypeKey: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/bed-types/${bedTypeKey}`);
     return response.data;
   },
 
@@ -1315,7 +1347,23 @@ export const adminService = {
     }>;
     message?: string;
   }> => {
-    const response = await adminApi.get(`/api/admin/rooms/facilities`, { params: { category } });
+    const response = await adminApi.get(`/api/admin/facilities`, { params: { category } });
+    return response.data;
+  },
+  getFacilityById: async (facilityId: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/facilities/${facilityId}`);
+    return response.data;
+  },
+  createFacility: async (data: { facility_id: string; name: string; category: "HOTEL" | "ROOM"; icon?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.post("/api/admin/facilities", data);
+    return response.data;
+  },
+  updateFacility: async (facilityId: string, data: { name?: string; category?: "HOTEL" | "ROOM"; icon?: string }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/facilities/${facilityId}`, data);
+    return response.data;
+  },
+  deleteFacility: async (facilityId: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/facilities/${facilityId}`);
     return response.data;
   },
 
@@ -1357,15 +1405,34 @@ export const adminService = {
     success: boolean;
     data?: Array<{
       policy_key: string;
-      name: string;
+      name_vi: string;
+      name_en?: string;
       description?: string | null;
       data_type: string;
       applicable_to: string;
       icon?: string | null;
+      display_order?: number;
+      is_active?: boolean;
     }>;
     message?: string;
   }> => {
-    const response = await adminApi.get(`/api/admin/rooms/policy-types`, { params: { applicableTo } });
+    const response = await adminApi.get(`/api/admin/policy-types`, { params: { applicableTo } });
+    return response.data;
+  },
+  getPolicyTypeById: async (policyKey: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.get(`/api/admin/policy-types/${policyKey}`);
+    return response.data;
+  },
+  createPolicyType: async (data: { policy_key: string; name_vi: string; name_en?: string; description?: string; data_type?: "BOOLEAN" | "INTEGER" | "DECIMAL" | "TEXT"; applicable_to?: "HOTEL" | "ROOM" | "BOTH"; icon?: string; display_order?: number; is_active?: boolean }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.post("/api/admin/policy-types", data);
+    return response.data;
+  },
+  updatePolicyType: async (policyKey: string, data: { name_vi?: string; name_en?: string; description?: string; data_type?: "BOOLEAN" | "INTEGER" | "DECIMAL" | "TEXT"; applicable_to?: "HOTEL" | "ROOM" | "BOTH"; icon?: string; display_order?: number; is_active?: boolean }): Promise<{ success: boolean; data?: any; message?: string }> => {
+    const response = await adminApi.put(`/api/admin/policy-types/${policyKey}`, data);
+    return response.data;
+  },
+  deletePolicyType: async (policyKey: string): Promise<{ success: boolean; message?: string }> => {
+    const response = await adminApi.delete(`/api/admin/policy-types/${policyKey}`);
     return response.data;
   },
 

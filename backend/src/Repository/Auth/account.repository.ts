@@ -11,13 +11,43 @@ export class AccountRepository {
     return rows[0]?.count || 0;
   }
 
+  // ✅ Whitelist allowed columns để prevent SQL injection
+  private readonly ALLOWED_ACCOUNT_FIELDS = [
+    'account_id',
+    'full_name',
+    'email',
+    'password_hash',
+    'phone_number',
+    'status',
+    'role',
+    'is_verified',
+    'provider',
+    'provider_id',
+    'avatar_url',
+    'verify_token',
+    'verify_expires_at',
+    'reset_token',
+    'reset_expires_at',
+    'resend_count',
+    'last_resend_reset_at',
+    'last_verification_email_at',
+    'package_id'
+  ];
+
   // Hàm tạo mới tài khoản
   async create(account: Partial<Account>): Promise<void> {
-    const keys = Object.keys(account);
-    const values = Object.values(account);
+    // ✅ Filter chỉ các fields được phép để prevent SQL injection
+    const allowedKeys = Object.keys(account).filter(key => 
+      this.ALLOWED_ACCOUNT_FIELDS.includes(key)
+    );
+    
+    if (allowedKeys.length === 0) {
+      throw new Error('No valid account fields provided');
+    }
 
-    const columns = keys.join(", ");
-    const placeholders = keys.map(() => "?").join(", ");
+    const values = allowedKeys.map(key => (account as any)[key]);
+    const columns = allowedKeys.join(", ");
+    const placeholders = allowedKeys.map(() => "?").join(", ");
 
     const sql = `INSERT INTO account (${columns}) VALUES (${placeholders})`;
     await pool.query(sql, values);
@@ -226,7 +256,7 @@ export class AccountRepository {
     };
   }
 
-  // ✅ Hàm cập nhật account
+  // ✅ Hàm cập nhật account (sử dụng whitelist để prevent SQL injection)
   async update(accountId: string, updates: Partial<Account>): Promise<boolean> {
     const allowedFields = [
       "full_name",
@@ -237,6 +267,7 @@ export class AccountRepository {
       "is_verified",
       "avatar_url",
     ];
+    // ✅ Filter chỉ các fields được phép
     const updateFields = Object.keys(updates).filter((key) =>
       allowedFields.includes(key)
     );
@@ -245,6 +276,7 @@ export class AccountRepository {
       return false;
     }
 
+    // ✅ Sử dụng whitelist để build SQL safely
     const setClause = updateFields.map((field) => `${field} = ?`).join(", ");
     const values = updateFields.map((field) => {
       const value = (updates as any)[field];
