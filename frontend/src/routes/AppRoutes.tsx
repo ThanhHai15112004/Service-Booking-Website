@@ -184,6 +184,11 @@ function AppRoutes() {
           <AdminLayout><HotelList /></AdminLayout>
         </ProtectedAdminRoute>
       } />
+      <Route path="/admin/hotels/create" element={
+        <ProtectedAdminRoute requireAdmin={true}>
+          <AdminLayout><EditHotel /></AdminLayout>
+        </ProtectedAdminRoute>
+      } />
       <Route path="/admin/hotels/:hotelId" element={
         <ProtectedAdminRoute requireAdmin={true}>
           <AdminLayout><HotelDetail /></AdminLayout>

@@ -44,6 +44,12 @@ export const getHotels = async (req: Request, res: Response) => {
   }
 };
 
+// Tạo hotel mới
+export const createHotel = asyncHandler(async (req: Request, res: Response) => {
+  const result = await hotelService.createHotel(req.body);
+  res.status(result.success ? 201 : 400).json(result);
+});
+
 // Cập nhật hotel
 export const updateHotel = asyncHandler(async (req: Request, res: Response) => {
   const { hotelId } = req.params;

@@ -54,10 +54,14 @@ const EditHotel = () => {
   const [uploadingMainImage, setUploadingMainImage] = useState(false);
   const mainImageInputRef = useRef<HTMLInputElement>(null);
 
+  const isCreateMode = !hotelId || hotelId === "create";
+
   useEffect(() => {
-    if (hotelId) {
+    fetchCategoriesAndLocations();
+    if (hotelId && !isCreateMode) {
       fetchHotelData();
-      fetchCategoriesAndLocations();
+    } else {
+      setLoading(false);
     }
   }, [hotelId]);
 
@@ -188,7 +192,7 @@ const EditHotel = () => {
     setSaving(true);
 
     try {
-      const updateData: any = {
+      const submitData: any = {
         name: formData.name,
         description: formData.description,
         category_id: formData.category_id || undefined,
@@ -205,21 +209,34 @@ const EditHotel = () => {
       };
 
       if (formData.latitude !== "") {
-        updateData.latitude = Number(formData.latitude);
+        submitData.latitude = Number(formData.latitude);
       }
       if (formData.longitude !== "") {
-        updateData.longitude = Number(formData.longitude);
+        submitData.longitude = Number(formData.longitude);
       }
 
-      const response = await adminService.updateHotel(hotelId!, updateData);
-      if (response.success) {
-        showToast("success", response.message || "Cập nhật khách sạn thành công");
-        setTimeout(() => navigate(`/admin/hotels/${hotelId}`), 1500);
+      if (isCreateMode) {
+        // Create mode
+        const response = await adminService.createHotel(submitData);
+        if (response.success && response.data?.hotel_id) {
+          const newHotelId = response.data.hotel_id;
+          showToast("success", response.message || "Tạo khách sạn thành công");
+          setTimeout(() => navigate(`/admin/hotels/${newHotelId}`), 1500);
+        } else {
+          showToast("error", response.message || "Không thể tạo khách sạn");
+        }
       } else {
-        showToast("error", response.message || "Không thể cập nhật khách sạn");
+        // Update mode
+        const response = await adminService.updateHotel(hotelId!, submitData);
+        if (response.success) {
+          showToast("success", response.message || "Cập nhật khách sạn thành công");
+          setTimeout(() => navigate(`/admin/hotels/${hotelId}`), 1500);
+        } else {
+          showToast("error", response.message || "Không thể cập nhật khách sạn");
+        }
       }
     } catch (error: any) {
-      showToast("error", error.response?.data?.message || error.message || "Lỗi khi cập nhật khách sạn");
+      showToast("error", error.response?.data?.message || error.message || `Lỗi khi ${isCreateMode ? 'tạo' : 'cập nhật'} khách sạn`);
     } finally {
       setSaving(false);
     }
@@ -242,13 +259,13 @@ const EditHotel = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate(`/admin/hotels/${hotelId}`)}
+            onClick={() => navigate(isCreateMode ? "/admin/hotels" : `/admin/hotels/${hotelId}`)}
             className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} />
             <span>Quay lại</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa khách sạn</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{isCreateMode ? "Tạo khách sạn mới" : "Chỉnh sửa khách sạn"}</h1>
         </div>
       </div>
 
@@ -500,7 +517,7 @@ const EditHotel = () => {
             ) : (
               <>
                 <Save size={18} />
-                Lưu thay đổi
+                {isCreateMode ? "Tạo khách sạn" : "Lưu thay đổi"}
               </>
             )}
           </button>

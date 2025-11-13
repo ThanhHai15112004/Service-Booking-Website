@@ -4,6 +4,7 @@ import { asyncHandler } from "../../../middleware/admin.middleware";
 import {
   getHotels,
   getHotelById,
+  createHotel,
   updateHotel,
   updateHotelStatus,
   deleteHotel,
@@ -51,6 +52,9 @@ router.get("/bookings/pending-count", authenticateJWT, requireAdmin, asyncHandle
 
 // List hotels
 router.get("/", authenticateJWT, requireAdmin, asyncHandler(getHotels));
+
+// Create hotel (must be before /:hotelId routes)
+router.post("/create", authenticateJWT, requireAdmin, asyncHandler(createHotel));
 
 // Hotel detail
 router.get("/:hotelId", authenticateJWT, requireAdmin, asyncHandler(getHotelById));

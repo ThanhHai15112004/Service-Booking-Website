@@ -298,6 +298,83 @@ export class AdminHotelRepository {
     };
   }
 
+  // Tạo hotel mới
+  async createHotel(data: {
+    hotel_id?: string;
+    name: string;
+    description?: string;
+    category_id?: string;
+    location_id?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    star_rating?: number;
+    checkin_time?: string;
+    checkout_time?: string;
+    phone_number?: string;
+    email?: string;
+    website?: string;
+    total_rooms?: number;
+    main_image?: string;
+    status?: string;
+  }): Promise<string> {
+    // Generate hotel_id nếu không có
+    let hotelId = data.hotel_id;
+    if (!hotelId) {
+      const today = new Date();
+      const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+      const [countRows]: any = await pool.query(
+        `SELECT COUNT(*) as count FROM hotel WHERE hotel_id LIKE ?`,
+        [`HT${datePart}%`]
+      );
+      const count = countRows[0]?.count || 0;
+      let nextNum = count + 1;
+      hotelId = `HT${datePart}${String(nextNum).padStart(4, "0")}`;
+      
+      // Đảm bảo ID không trùng
+      let maxAttempts = 1000;
+      while (maxAttempts > 0) {
+        const [existing]: any = await pool.query(
+          `SELECT hotel_id FROM hotel WHERE hotel_id = ?`,
+          [hotelId]
+        );
+        if (existing.length === 0) break;
+        nextNum++;
+        hotelId = `HT${datePart}${String(nextNum).padStart(4, "0")}`;
+        maxAttempts--;
+      }
+    }
+
+    await pool.query(
+      `INSERT INTO hotel (
+        hotel_id, name, description, category_id, location_id, address,
+        latitude, longitude, star_rating, checkin_time, checkout_time,
+        phone_number, email, website, total_rooms, main_image, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        hotelId,
+        data.name,
+        data.description || null,
+        data.category_id || null,
+        data.location_id || null,
+        data.address || null,
+        data.latitude || null,
+        data.longitude || null,
+        data.star_rating || null,
+        data.checkin_time || "14:00:00",
+        data.checkout_time || "12:00:00",
+        data.phone_number || null,
+        data.email || null,
+        data.website || null,
+        data.total_rooms || 0,
+        data.main_image || null,
+        data.status || "PENDING",
+      ]
+    );
+
+    return hotelId;
+  }
+
   // Cập nhật hotel
   async updateHotel(hotelId: string, data: {
     name?: string;

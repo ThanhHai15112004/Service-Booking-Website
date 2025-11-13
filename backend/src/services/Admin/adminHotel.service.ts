@@ -60,6 +60,41 @@ export class AdminHotelService {
     }
   }
 
+  // Tạo hotel mới
+  async createHotel(data: {
+    hotel_id?: string;
+    name: string;
+    description?: string;
+    category_id?: string;
+    location_id?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    star_rating?: number;
+    checkin_time?: string;
+    checkout_time?: string;
+    phone_number?: string;
+    email?: string;
+    website?: string;
+    total_rooms?: number;
+    main_image?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data?: { hotel_id: string }; message?: string }> {
+    try {
+      const hotelId = await this.repo.createHotel(data);
+      return {
+        success: true,
+        data: { hotel_id: hotelId },
+        message: "Tạo khách sạn thành công",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Lỗi khi tạo khách sạn",
+      };
+    }
+  }
+
   // Cập nhật trạng thái hotel
   async updateHotel(hotelId: string, data: {
     name?: string;

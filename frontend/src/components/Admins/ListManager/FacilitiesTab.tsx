@@ -10,7 +10,7 @@ interface Facility {
   name: string;
   category: "HOTEL" | "ROOM";
   icon?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 const FacilitiesTab = () => {
@@ -55,7 +55,15 @@ const FacilitiesTab = () => {
     try {
       const response = await adminService.getAllFacilities();
       if (response.success && response.data) {
-        setFacilities(response.data);
+        // Map data để đảm bảo type safety
+        const mappedFacilities: Facility[] = response.data.map((item) => ({
+          facility_id: item.facility_id,
+          name: item.name,
+          category: (item.category === "HOTEL" || item.category === "ROOM" ? item.category : "HOTEL") as "HOTEL" | "ROOM",
+          icon: item.icon || undefined,
+          created_at: undefined,
+        }));
+        setFacilities(mappedFacilities);
       } else {
         showToast("error", response.message || "Không thể tải tiện ích");
       }

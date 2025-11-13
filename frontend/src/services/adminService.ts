@@ -648,6 +648,29 @@ export const adminService = {
     return response.data;
   },
 
+  createHotel: async (data: {
+    hotel_id?: string;
+    name: string;
+    description?: string;
+    category_id?: string;
+    location_id?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    star_rating?: number;
+    checkin_time?: string;
+    checkout_time?: string;
+    phone_number?: string;
+    email?: string;
+    website?: string;
+    total_rooms?: number;
+    main_image?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data?: { hotel_id: string }; message?: string }> => {
+    const response = await adminApi.post("/api/admin/hotels/create", data);
+    return response.data;
+  },
+
   getHotelDetail: async (hotelId: string): Promise<{
     success: boolean;
     data?: any;

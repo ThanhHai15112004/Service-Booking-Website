@@ -37,7 +37,7 @@ const RoomTypesList = ({ selectedHotelId, onHotelChange, onViewDetail }: RoomTyp
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [bedTypes, setBedTypes] = useState<string[]>([]);
+  const [bedTypes, setBedTypes] = useState<Array<{ bed_type_key: string; name_vi: string; name_en?: string }>>([]);
   const [filteredRoomTypes, setFilteredRoomTypes] = useState<RoomType[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -480,8 +480,8 @@ const RoomTypesList = ({ selectedHotelId, onHotelChange, onViewDetail }: RoomTyp
               >
                 <option value="">Tất cả loại giường</option>
                 {bedTypes.map((bedType) => (
-                  <option key={bedType} value={bedType}>
-                    {bedType}
+                  <option key={bedType.bed_type_key} value={bedType.bed_type_key}>
+                    {bedType.name_vi}
                   </option>
                 ))}
               </select>
@@ -791,8 +791,8 @@ const RoomTypesList = ({ selectedHotelId, onHotelChange, onViewDetail }: RoomTyp
                 >
                   <option value="">Chọn loại giường</option>
                   {bedTypes.map((bedType) => (
-                    <option key={bedType} value={bedType}>
-                      {bedType}
+                    <option key={bedType.bed_type_key} value={bedType.bed_type_key}>
+                      {bedType.name_vi}
                     </option>
                   ))}
                 </select>
